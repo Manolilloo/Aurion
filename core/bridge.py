@@ -5,6 +5,7 @@ import ssl
 import shutil
 import urllib.request
 import urllib.parse
+from http.server import HTTPServer, BaseHTTPRequestHandler
 from PIL import Image
 import io
 import webview
@@ -12,14 +13,69 @@ from .downloader import AurionDownloader
 
 CONFIG_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config.json")
 
+class AurionHTTPHandler(BaseHTTPRequestHandler):
+    """Receptor HTTP para capturas de la extensión del navegador"""
+    def log_message(self, format, *args):
+        pass  # Silenciar logs ruidosos en consola
+
+    def do_OPTIONS(self):
+        self.send_response(200)
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'POST, GET, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.end_headers()
+
+    def do_POST(self):
+        if self.path == '/api/enqueue':
+            content_length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(content_length)
+            try:
+                data = json.loads(body.decode('utf-8'))
+                if hasattr(self.server, 'bridge_instance'):
+                    self.server.bridge_instance.on_extension_link(data)
+                
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps({"status": "ok"}).encode('utf-8'))
+            except Exception as e:
+                self.send_response(400)
+                self.end_headers()
+        else:
+            self.send_response(404)
+            self.end_headers()
+
 class AurionBridge:
     def __init__(self):
         self.config = self.load_config()
         self._window = None
         self.downloader = AurionDownloader(self)
+        self.start_internal_server()
 
     def set_window(self, window):
         self._window = window
+
+    def start_internal_server(self):
+        """Inicia un servidor local en el puerto 6800 para recibir enlaces"""
+        def run_server():
+            server_address = ('127.0.0.1', 6800)
+            try:
+                httpd = HTTPServer(server_address, AurionHTTPHandler)
+                httpd.bridge_instance = self
+                print("[Core] Servidor receptor Aurion escuchando en http://127.0.0.1:6800")
+                httpd.serve_forever()
+            except Exception as e:
+                print(f"[Core] Error al iniciar servidor local en 6800: {e}")
+
+        t = threading.Thread(target=run_server, daemon=True)
+        t.start()
+
+    def on_extension_link(self, data):
+        """Envía el enlace capturado desde la extensión al frontend de la app"""
+        if self._window:
+            safe_data = json.dumps(data)
+            self._window.evaluate_js(f"window.onLinkReceived && window.onLinkReceived({safe_data});")
 
     def load_config(self):
         default_config = {
@@ -77,10 +133,8 @@ class AurionBridge:
         threading.Thread(target=lambda: webbrowser.open(url), daemon=True).start()
 
     def select_folder(self, current_path=""):
-        """Abre el explorador de carpetas nativo de Windows."""
         if not self._window:
             return current_path
-        
         folder = self._window.create_file_dialog(
             webview.FOLDER_DIALOG,
             directory=current_path if os.path.exists(current_path) else os.path.expanduser("~")
@@ -90,7 +144,6 @@ class AurionBridge:
         return current_path
 
     def get_disk_space(self, target_path):
-        """Calcula el espacio libre y total de la unidad del disco objetivo."""
         try:
             path = target_path if os.path.exists(target_path) else os.path.splitdrive(target_path)[0] + "\\"
             if not os.path.exists(path):
@@ -107,7 +160,7 @@ class AurionBridge:
                 "free_gb": gb_free,
                 "percent_used": percent_used
             }
-        except Exception as e:
+        except Exception:
             return {"drive": "N/A", "total_gb": 0, "free_gb": 0, "percent_used": 0}
 
     def get_dominant_colors(self, image_url):
@@ -117,13 +170,12 @@ class AurionBridge:
             ctx = ssl.create_default_context()
             ctx.check_hostname = False
             ctx.verify_mode = ssl.CERT_NONE
-            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+            headers = {'User-Agent': 'Mozilla/5.0'}
             req = urllib.request.Request(image_url, headers=headers)
             with urllib.request.urlopen(req, context=ctx, timeout=5) as resp:
                 data = resp.read()
                 img = Image.open(io.BytesIO(data)).convert('RGB')
                 img = img.resize((60, 60))
-                
                 colors = img.getcolors(maxcolors=3600)
                 if not colors:
                     return None
@@ -161,8 +213,8 @@ class AurionBridge:
                     c1_rgb = valid_colors[0][1]
                     c1 = f"rgb({c1_rgb[0]}, {c1_rgb[1]}, {c1_rgb[2]})"
                     return {"accent1": c1, "accent2": "#ff3366"}
-        except Exception as e:
-            print(f"[Core] Error extrayendo paleta viva: {e}")
+        except Exception:
+            pass
         return None
 
     def search_media(self, mode, query):
@@ -170,7 +222,7 @@ class AurionBridge:
             return []
 
         query = query.strip()
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+        headers = {'User-Agent': 'Mozilla/5.0'}
         ctx = ssl.create_default_context()
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
@@ -209,8 +261,7 @@ class AurionBridge:
                             'meta': f"{status} • ★ {score}"
                         })
                     return results
-            except Exception as e:
-                print(f"[Core] Error búsqueda anime: {e}")
+            except Exception:
                 return []
         else:
             clean_query = query.lower().replace(' ', '_')
@@ -228,7 +279,6 @@ class AurionBridge:
                             continue
                         qid = entry.get('qid', '').lower()
                         stars = entry.get('s', '').lower()
-                        
                         if 'anime' in stars or 'animation' in stars or qid in ['video game', 'music video']:
                             continue
                         if qid not in ['movie', 'tvmovie', 'tvseries', 'feature']:
@@ -237,7 +287,6 @@ class AurionBridge:
                         img_dict = entry.get('i') or {}
                         img = img_dict.get('imageUrl', '')
                         year = str(entry.get('y', 'CINE'))
-                        
                         results.append({
                             'title': title,
                             'image': img,
@@ -247,8 +296,7 @@ class AurionBridge:
                         if len(results) >= 5:
                             break
                     return results
-            except Exception as e:
-                print(f"[Core] Error búsqueda cine: {e}")
+            except Exception:
                 return []
 
     def close_app(self):

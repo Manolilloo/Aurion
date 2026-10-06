@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "Aurion Link Sniffer",
+  "version": "1.0",
+  "description": "Detector e inyector multimedia táctico para Aurion Downloader",
+  "permissions": [
+    "activeTab",
+    "webRequest",
+    "scripting"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Aurion Sniffer"
+  }
+}

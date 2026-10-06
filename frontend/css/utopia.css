@@ -493,3 +493,99 @@ input[type=number] {
   transform: translateY(16px);
   opacity: 0;
 }
+
+/* =========================================================
+   TARJETAS TÁCTICAS DEL PIPELINE DE DESCARGAS
+   ========================================================= */
+
+.queue-card {
+  background: rgba(15, 20, 28, 0.85);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+  position: relative;
+  overflow: hidden;
+  animation: slideInCard 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideInCard {
+  from { opacity: 0; transform: translateY(-10px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.queue-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.queue-card-title {
+  font-size: 11px;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.queue-card-del {
+  background: transparent;
+  border: none;
+  color: #64748b;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+  transition: color 0.2s;
+}
+
+.queue-card-del:hover {
+  color: #ff3366;
+}
+
+.queue-card-url {
+  font-size: 9px;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.queue-progress-bar {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  position: relative;
+}
+
+.queue-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--color-accent-1), var(--color-accent-2));
+  border-radius: 3px;
+  box-shadow: 0 0 8px var(--color-glow);
+  transition: width 0.3s ease;
+}
+
+.queue-card-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 9px;
+  font-weight: 800;
+  color: #94a3b8;
+}
+
+.queue-card-status {
+  color: var(--color-accent-1);
+}

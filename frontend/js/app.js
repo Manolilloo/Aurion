@@ -544,3 +544,128 @@ window.addEventListener('resize', () => {
 document.addEventListener('DOMContentLoaded', () => {
   renderSitesDock('anime');
 });
+
+// ========================================================
+// PIPELINE DE DESCARGA // RECEPTOR DE LA EXTENSIÓN
+// ========================================================
+
+const downloadQueue = [];
+
+window.onLinkReceived = function(data) {
+  if (typeof playSynth === 'function') playSynth('chord');
+
+  const container = document.getElementById('queue-list');
+  // Si es el primer elemento, quitamos el mensaje de "A la espera..."
+  if (downloadQueue.length === 0) {
+    container.innerHTML = '';
+  }
+
+  const streams = data.streams && data.streams.length > 0 ? data.streams : [data.page_url];
+  
+  streams.forEach(url => {
+    // Evitar meter exactamente el mismo enlace repetido
+    if (downloadQueue.some(item => item.url === url)) return;
+
+    const id = 'task_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
+    
+    // Generar el nombre con la configuración activa
+    let fileName = data.page_title || 'Descarga';
+    const state = modeStates[currentMode];
+    if (currentMode === 'anime') {
+      const sStr = String(state.season || 1).padStart(2, '0');
+      const epStr = String(state.startEp || 1).padStart(2, '0');
+      const title = state.title !== 'Esperando consulta...' ? state.title : (data.page_title || 'Anime');
+      fileName = `[${title}] S${sStr}E${epStr}`;
+      // Autoincrementar episodio para la siguiente captura
+      setStepperValue('cfg-start-ep', (state.startEp || 1) + 1, 1);
+    } else {
+      const title = state.title !== 'Esperando consulta...' ? state.title : (data.page_title || 'Pelicula');
+      fileName = `[${title}]`;
+    }
+
+    const task = {
+      id: id,
+      title: fileName,
+      url: url,
+      status: 'En cola',
+      progress: 0,
+      speed: '0 KB/s'
+    };
+
+    downloadQueue.push(task);
+    renderQueueCard(task);
+  });
+};
+
+function renderQueueCard(task) {
+  const container = document.getElementById('queue-list');
+  const card = document.createElement('div');
+  card.className = 'queue-card';
+  card.id = task.id;
+
+  card.innerHTML = `
+    <div class="queue-card-top">
+      <div class="queue-card-title">${task.title}</div>
+      <button class="queue-card-del" title="Eliminar">✕</button>
+    </div>
+    <div class="queue-card-url">${task.url}</div>
+    <div class="queue-progress-bar">
+      <div class="queue-progress-fill" style="width: ${task.progress}%"></div>
+    </div>
+    <div class="queue-card-meta">
+      <span class="queue-card-status">${task.status}</span>
+      <span class="queue-card-speed">${task.speed}</span>
+    </div>
+  `;
+
+  // Botón para borrar de la lista
+  card.querySelector('.queue-card-del').addEventListener('click', () => {
+    if (typeof playSynth === 'function') playSynth('click');
+    const idx = downloadQueue.findIndex(t => t.id === task.id);
+    if (idx > -1) downloadQueue.splice(idx, 1);
+    card.remove();
+
+    if (downloadQueue.length === 0) {
+      container.innerHTML = `
+        <div style="text-align: center; color: var(--color-text-dim); font-size: 12px; margin-top: 40px;">
+          A la espera de transmisiones...
+        </div>
+      `;
+    }
+  });
+
+  container.appendChild(card);
+}
+
+// BOTONES DE CONTROL DE LA COLA
+const btnClear = document.getElementById('btn-clear');
+if (btnClear) {
+  btnClear.addEventListener('click', () => {
+    if (typeof playSynth === 'function') playSynth('click');
+    downloadQueue.length = 0;
+    const container = document.getElementById('queue-list');
+    container.innerHTML = `
+      <div style="text-align: center; color: var(--color-text-dim); font-size: 12px; margin-top: 40px;">
+        A la espera de transmisiones...
+      </div>
+    `;
+  });
+}
+
+const btnPaste = document.getElementById('btn-paste');
+if (btnPaste) {
+  btnPaste.addEventListener('click', async () => {
+    try {
+      const clipText = await navigator.clipboard.readText();
+      if (clipText && clipText.startsWith('http')) {
+        window.onLinkReceived({
+          page_title: modeStates[currentMode].title || 'Enlace copiado',
+          page_url: clipText,
+          streams: [clipText]
+        });
+      }
+    } catch (e) {
+      console.log('No se pudo acceder al portapapeles');
+    }
+  });
+}
