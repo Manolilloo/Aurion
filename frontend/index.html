@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" href="data:,">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aurion</title>
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/utopia.css">
+</head>
+<body>
+
+  <!-- ATMÓSFERA AMBIENTAL -->
+  <div class="ambient-glow-system">
+    <div class="ambient-layer ambient-primary" id="ambient-layer-1"></div>
+    <div class="ambient-layer ambient-secondary" id="ambient-layer-2"></div>
+  </div>
+
+  <div class="top-nav">
+    <div class="sites-dock" id="sites-dock">
+      <div class="sites-trigger">SITIOS ▶</div>
+      <div class="sites-items-box" id="sites-items-box"></div>
+    </div>
+
+    <div class="matrix-switch" id="btn-switch-mode">
+      <div class="matrix-thumb"></div>
+      <div class="matrix-opt active" id="mode-anime">ANIME</div>
+      <div class="matrix-opt" id="mode-movie">CINE</div>
+    </div>
+
+    <div></div>
+  </div>
+
+  <div class="cockpit">
+    <!-- COLUMNA IZQUIERDA -->
+    <div class="glass-box" style="z-index: 10;">
+      <div class="glass-inner">
+        <div class="box-header">PIPELINE ACTIVO</div>
+        <div class="queue-area" id="queue-list">
+          <div style="text-align: center; color: var(--color-text-dim); font-size: 12px; margin-top: 40px;">
+            A la espera de transmisiones...
+          </div>
+        </div>
+        <div class="neu-controls">
+          <button class="btn-neu" id="btn-clear">🧹 VACIAR</button>
+          <button class="btn-neu" id="btn-paste">📋 PEGAR</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- COLUMNA CENTRAL -->
+    <div class="center-col" style="z-index: 30;">
+      <div class="search-container">
+        <input type="text" class="search-input" id="search-input" placeholder="Invoca un anime..." autocomplete="off">
+        <div class="search-suggestions" id="search-suggestions"></div>
+      </div>
+
+      <div class="parallax-wrap" id="parallax-sensor">
+        <div class="parallax-poster" id="main-poster">
+          <div class="poster-info">
+            <div class="poster-tags" id="poster-tags">SISTEMA LISTO</div>
+            <div class="poster-title" id="poster-title">Esperando consulta...</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="mag-wrapper" id="mag-wrap">
+        <button class="btn-god" id="btn-master">
+          <span class="btn-god-txt" id="mag-txt" data-target="INICIAR EXTRACCIÓN">INICIAR EXTRACCIÓN</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- COLUMNA DERECHA -->
+    <div class="glass-box" style="z-index: 10;">
+      <div class="glass-inner">
+        <div class="box-header">INGENIERÍA MULTIMEDIA</div>
+        <div class="settings-area">
+          
+          <div>
+            <label class="section-label">DESTINO LOCAL</label>
+            <div style="display: flex; gap: 8px;">
+              <input type="text" class="search-input" id="cfg-dir" style="flex: 1; border-radius: 12px; padding: 12px; font-size: 12px; text-align: left;" value="J:\ANIME\animes">
+              <button class="btn-neu" style="padding: 0 16px; border-radius: 12px;">📂</button>
+            </div>
+          </div>
+
+          <div>
+            <label class="section-label">PREFIJO DE SALIDA</label>
+            <input type="text" class="search-input" id="cfg-prefix" style="width: 100%; border-radius: 12px; padding: 12px; font-size: 12px; text-align: left;" placeholder="[Aurion] Titulo...">
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div>
+              <label class="section-label">CALIDAD</label>
+              <div class="origami-group" id="dd-res">
+                <div class="ori-trigger" data-target="dd-res">
+                  <span id="txt-res">Máxima</span> <span>▼</span>
+                </div>
+                <div class="ori-menu">
+                  <div class="ori-item" data-val="max">Máxima</div>
+                  <div class="ori-item" data-val="1080">1080p</div>
+                  <div class="ori-item" data-val="720">720p</div>
+                </div>
+              </div>
+            </div>
+            
+            <div>
+              <label class="section-label">CONTENEDOR</label>
+              <div class="origami-group" id="dd-fmt">
+                <div class="ori-trigger" data-target="dd-fmt">
+                  <span id="txt-fmt">.MP4</span> <span>▼</span>
+                </div>
+                <div class="ori-menu">
+                  <div class="ori-item" data-val="mp4">.MP4</div>
+                  <div class="ori-item" data-val="mkv">.MKV</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div>
+              <label class="section-label">HILOS</label>
+              <div class="origami-group" id="dd-threads">
+                <div class="ori-trigger" data-target="dd-threads">
+                  <span id="txt-threads">32 Hilos</span> <span>▼</span>
+                </div>
+                <div class="ori-menu">
+                  <div class="ori-item" data-val="32">32 Hilos</div>
+                  <div class="ori-item" data-val="16">16 Hilos</div>
+                </div>
+              </div>
+            </div>
+            
+            <div>
+              <label class="section-label">SIMULTÁNEAS</label>
+              <div class="origami-group" id="dd-simul">
+                <div class="ori-trigger" data-target="dd-simul">
+                  <span id="txt-simul">20 Simul.</span> <span>▼</span>
+                </div>
+                <div class="ori-menu">
+                  <div class="ori-item" data-val="20">20 Simul.</div>
+                  <div class="ori-item" data-val="5">5 Simul.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/animations.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
