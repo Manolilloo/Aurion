@@ -13,8 +13,16 @@
   transition: background-image 1.2s cubic-bezier(0.16, 1, 0.3, 1), opacity 1.2s ease;
   will-change: filter, transform;
 }
-.ambient-primary { opacity: 0.85; transform: scale(1.05); }
-.ambient-secondary { opacity: 0.6; mix-blend-mode: color-dodge; transform: scale(1.15) rotate(2deg); }
+/* Busca .ambient-primary y .ambient-secondary */
+.ambient-primary { 
+  opacity: 0.45; /* Bajado de 0.85 a 0.45 */
+  transform: scale(1.05); 
+}
+.ambient-secondary { 
+  opacity: 0.3; /* Bajado de 0.6 a 0.3 */
+  mix-blend-mode: color-dodge; 
+  transform: scale(1.15) rotate(2deg); 
+}
 
 /* TOP NAV Y DOCK DE SITIOS */
 .top-nav {
@@ -32,22 +40,44 @@
   background: linear-gradient(135deg, var(--color-accent-1), var(--color-accent-2));
   color: var(--color-btn-text, #000); font-weight: 900; font-size: 12px; letter-spacing: 1px;
   display: flex; align-items: center; gap: 6px; cursor: default;
-  box-shadow: 0 0 15px var(--color-glow);
+  box-shadow: 0 4px 12px var(--color-glow);
 }
 .sites-items-box {
   display: flex; align-items: center; gap: 8px;
 }
 .site-bubble {
-  width: 38px; height: 38px; border-radius: 50%;
-  background: rgba(255, 255, 255, 0.06); border: 1px solid var(--color-border);
-  color: #fff; font-weight: 900; font-size: 11px;
-  display: flex; justify-content: center; align-items: center;
-  cursor: pointer; transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--color-border);
+  color: #fff;
+  font-weight: 900;
+  font-size: 11px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  overflow: hidden; /* Recorta la imagen circularmente */
+  position: relative;
+  padding: 6px; /* Margen interno para que el logo respire dentro de la esfera */
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
+
+.site-bubble-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain; /* Encaja cualquier formato y proporción sin deformarse */
+  border-radius: 50%;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+}
+
 .site-bubble:hover {
-  background: var(--color-accent-1); color: var(--color-btn-text, #000);
+  background: rgba(255, 255, 255, 0.15);
   transform: translateY(-2px) scale(1.1);
-  box-shadow: 0 0 15px var(--color-glow); border-color: var(--color-accent-1);
+  box-shadow: 0 0 14px var(--color-glow);
+  border-color: var(--color-accent-1);
 }
 
 /* SWITCH MATRICIAL */
@@ -183,7 +213,7 @@ body.mode-movie .matrix-thumb { transform: translateX(100%); }
   border: none; color: var(--color-btn-text, #000) !important;
   font-size: 14px; font-weight: 900; letter-spacing: 2px;
   padding: 0; width: 280px; height: 58px; border-radius: 30px; cursor: pointer; position: relative; overflow: hidden;
-  box-shadow: 0 15px 35px var(--color-glow); display: flex; justify-content: center; align-items: center;
+  box-shadow: 0 10px 25px var(--color-glow); display: flex; justify-content: center; align-items: center;
   transition: width 0.4s ease, box-shadow 0.4s;
 }
 .btn-god-txt { pointer-events: none; transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1); }
@@ -210,3 +240,256 @@ body.mode-movie .matrix-thumb { transform: translateX(100%); }
 .origami-group.open .ori-menu { transform: rotateX(0deg); opacity: 1; visibility: visible; }
 .ori-item { padding: 12px 18px; font-size: 12px; color: #cbd5e1; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.04); transition: all 0.2s; }
 .ori-item:hover { background: rgba(255,255,255,0.08); color: #fff; padding-left: 24px; }
+
+/* =========================================================
+   CONTROLES TÁCTICOS Y GLIDER ANIMADO
+   ========================================================= */
+
+.chip-group {
+  position: relative;
+  display: flex;
+  background: rgba(0, 0, 0, 0.55);
+  padding: 4px;
+  border-radius: 16px;
+  border: 1px solid var(--color-border);
+  backdrop-filter: blur(12px);
+  overflow: hidden;
+}
+
+/* El thumb deslizante que se mueve como el switch principal */
+.chip-glider {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  height: calc(100% - 8px);
+  background: linear-gradient(135deg, var(--color-accent-1), var(--color-accent-2));
+  border-radius: 12px;
+  box-shadow: 0 4px 12px var(--color-glow);
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), width 0.3s ease;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.chip-btn {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  padding: 10px 0;
+  border: none;
+  border-radius: 12px;
+  background: transparent !important;
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: color 0.3s ease;
+  box-shadow: none !important;
+}
+
+.chip-btn:hover {
+  color: #fff;
+}
+
+.chip-btn.active {
+  color: var(--color-btn-text, #000) !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+
+.val-badge {
+  color: var(--color-accent-1);
+  font-weight: 900;
+  margin-left: 4px;
+}
+
+/* TARJETA DE TELEMETRÍA DE DISCO */
+.telemetry-card {
+  margin-top: auto;
+  padding: 16px;
+  border-radius: 16px;
+  background: rgba(14, 18, 26, 0.85);
+  border: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+}
+.telemetry-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 800;
+}
+.telemetry-header span:first-child {
+  color: #fff;
+  letter-spacing: 1px;
+}
+.telemetry-header span:last-child {
+  color: var(--color-accent-1);
+}
+.telemetry-bar-bg {
+  width: 100%;
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  position: relative;
+}
+.telemetry-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--color-accent-1), var(--color-accent-2));
+  box-shadow: 0 0 10px var(--color-glow);
+  transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+/* INPUTS NUMÉRICOS TÁCTICOS */
+.num-stepper {
+  width: 100%;
+  border-radius: 12px !important;
+  padding: 10px 14px !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  text-align: center !important;
+  color: var(--color-accent-1) !important;
+}
+
+/* TOGGLE CARD DE PORTADA */
+.toggle-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: rgba(0, 0, 0, 0.45);
+  border-radius: 14px;
+  border: 1px solid var(--color-border);
+}
+.toggle-label {
+  font-size: 10px;
+  font-weight: 800;
+  color: #94a3b8;
+  letter-spacing: 0.5px;
+}
+.switch-toggle {
+  position: relative;
+  display: inline-block;
+  width: 42px;
+  height: 22px;
+}
+.switch-toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.switch-slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background-color: rgba(255, 255, 255, 0.12);
+  border-radius: 22px;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  border: 1px solid var(--color-border);
+}
+.switch-slider::before {
+  position: absolute;
+  content: "";
+  height: 14px;
+  width: 14px;
+  left: 3px;
+  bottom: 3px;
+  background-color: #fff;
+  border-radius: 50%;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.switch-toggle input:checked + .switch-slider {
+  background: linear-gradient(135deg, var(--color-accent-1), var(--color-accent-2));
+  box-shadow: 0 0 10px var(--color-glow);
+}
+.switch-toggle input:checked + .switch-slider::before {
+  transform: translateX(20px);
+  background-color: var(--color-btn-text, #000);
+}
+
+/* ELIMINACIÓN TOTAL DE FLECHAS NATIVAS */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none !important;
+  margin: 0 !important;
+}
+
+input[type=number] {
+  -moz-appearance: textfield !important;
+  appearance: none !important;
+}
+
+/* CAJA TÁCTICA HORIZONTAL STEPPER */
+.stepper-box {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  background: rgba(0, 0, 0, 0.55) !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: 14px !important;
+  padding: 4px 6px !important;
+  height: 44px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  user-select: none;
+}
+
+.step-btn {
+  width: 32px !important;
+  height: 32px !important;
+  border: none !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+  color: #fff !important;
+  font-size: 18px !important;
+  font-weight: 900 !important;
+  line-height: 1 !important;
+  cursor: pointer !important;
+  border-radius: 10px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all 0.2s ease !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+.step-btn:hover {
+  background: rgba(255, 255, 255, 0.15) !important;
+  color: var(--color-accent-1) !important;
+  transform: scale(1.05);
+}
+
+.step-btn:active {
+  transform: scale(0.92);
+}
+
+.step-viewport {
+  flex: 1 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  overflow: hidden !important;
+  height: 100% !important;
+}
+
+.step-val {
+  font-size: 15px !important;
+  font-weight: 900 !important;
+  color: var(--color-accent-1) !important;
+  text-shadow: 0 0 10px var(--color-glow);
+  display: inline-block !important;
+  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.18s ease;
+}
+
+.step-val.anim-up {
+  transform: translateY(-16px);
+  opacity: 0;
+}
+
+.step-val.anim-down {
+  transform: translateY(16px);
+  opacity: 0;
+}

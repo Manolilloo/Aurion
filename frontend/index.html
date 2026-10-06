@@ -71,7 +71,7 @@
       </div>
     </div>
 
-    <!-- COLUMNA DERECHA -->
+    <!-- COLUMNA DERECHA: CONSOLA DE INGENIERÍA -->
     <div class="glass-box" style="z-index: 10;">
       <div class="glass-inner">
         <div class="box-header">INGENIERÍA MULTIMEDIA</div>
@@ -80,8 +80,8 @@
           <div>
             <label class="section-label">DESTINO LOCAL</label>
             <div style="display: flex; gap: 8px;">
-              <input type="text" class="search-input" id="cfg-dir" style="flex: 1; border-radius: 12px; padding: 12px; font-size: 12px; text-align: left;" value="J:\ANIME\animes">
-              <button class="btn-neu" style="padding: 0 16px; border-radius: 12px;">📂</button>
+              <input type="text" class="search-input" id="cfg-dir" style="flex: 1; border-radius: 12px; padding: 12px; font-size: 11px; text-align: left;" value="J:\ANIME\animes">
+              <button class="btn-neu" id="btn-browse-dir" style="padding: 0 16px; border-radius: 12px;" title="Buscar en explorador">📂</button>
             </div>
           </div>
 
@@ -90,60 +90,94 @@
             <input type="text" class="search-input" id="cfg-prefix" style="width: 100%; border-radius: 12px; padding: 12px; font-size: 12px; text-align: left;" placeholder="[Aurion] Titulo...">
           </div>
 
+          <!-- NUMERACIÓN TÁCTICA: TEMPORADA Y EPISODIO INICIAL -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div>
+              <label class="section-label">TEMPORADA</label>
+              <div class="stepper-box" data-id="cfg-season" data-min="1" data-max="99">
+                <button class="step-btn step-dec" type="button">−</button>
+                <div class="step-viewport">
+                  <span class="step-val" id="disp-cfg-season">1</span>
+                </div>
+                <button class="step-btn step-inc" type="button">+</button>
+                <input type="hidden" id="cfg-season" value="1">
+              </div>
+            </div>
+            <div>
+              <label class="section-label">EPISODIO INICIAL</label>
+              <div class="stepper-box" data-id="cfg-start-ep" data-min="1" data-max="9999">
+                <button class="step-btn step-dec" type="button">−</button>
+                <div class="step-viewport">
+                  <span class="step-val" id="disp-cfg-start-ep">1</span>
+                </div>
+                <button class="step-btn step-inc" type="button">+</button>
+                <input type="hidden" id="cfg-start-ep" value="1">
+              </div>
+            </div>
+          </div>
+
+          <!-- TOGGLE: INCLUIR PORTADA EN CARPETA -->
+          <div class="toggle-card">
+            <span class="toggle-label">GUARDAR PORTADA (FOLDER.JPG)</span>
+            <label class="switch-toggle">
+              <input type="checkbox" id="cfg-save-cover" checked>
+              <span class="switch-slider"></span>
+            </label>
+          </div>
+
+          <!-- CHIPS CON GLIDER DESLIZANTE -->
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
             <div>
               <label class="section-label">CALIDAD</label>
-              <div class="origami-group" id="dd-res">
-                <div class="ori-trigger" data-target="dd-res">
-                  <span id="txt-res">Máxima</span> <span>▼</span>
-                </div>
-                <div class="ori-menu">
-                  <div class="ori-item" data-val="max">Máxima</div>
-                  <div class="ori-item" data-val="1080">1080p</div>
-                  <div class="ori-item" data-val="720">720p</div>
-                </div>
+              <div class="chip-group" data-cfg="res">
+                <div class="chip-glider"></div>
+                <button class="chip-btn active" data-val="max">MAX</button>
+                <button class="chip-btn" data-val="1080">1080p</button>
+                <button class="chip-btn" data-val="720">720p</button>
               </div>
             </div>
             
             <div>
               <label class="section-label">CONTENEDOR</label>
-              <div class="origami-group" id="dd-fmt">
-                <div class="ori-trigger" data-target="dd-fmt">
-                  <span id="txt-fmt">.MP4</span> <span>▼</span>
-                </div>
-                <div class="ori-menu">
-                  <div class="ori-item" data-val="mp4">.MP4</div>
-                  <div class="ori-item" data-val="mkv">.MKV</div>
-                </div>
+              <div class="chip-group" data-cfg="fmt">
+                <div class="chip-glider"></div>
+                <button class="chip-btn active" data-val="mp4">.MP4</button>
+                <button class="chip-btn" data-val="mkv">.MKV</button>
               </div>
             </div>
           </div>
 
+          <!-- SELECTORES DE RENDIMIENTO -->
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
             <div>
-              <label class="section-label">HILOS</label>
-              <div class="origami-group" id="dd-threads">
-                <div class="ori-trigger" data-target="dd-threads">
-                  <span id="txt-threads">32 Hilos</span> <span>▼</span>
-                </div>
-                <div class="ori-menu">
-                  <div class="ori-item" data-val="32">32 Hilos</div>
-                  <div class="ori-item" data-val="16">16 Hilos</div>
-                </div>
+              <label class="section-label">HILOS: <span id="val-threads" class="val-badge">32</span></label>
+              <div class="chip-group" data-cfg="threads">
+                <div class="chip-glider"></div>
+                <button class="chip-btn active" data-val="32">32 H</button>
+                <button class="chip-btn" data-val="16">16 H</button>
+                <button class="chip-btn" data-val="8">8 H</button>
               </div>
             </div>
             
             <div>
-              <label class="section-label">SIMULTÁNEAS</label>
-              <div class="origami-group" id="dd-simul">
-                <div class="ori-trigger" data-target="dd-simul">
-                  <span id="txt-simul">20 Simul.</span> <span>▼</span>
-                </div>
-                <div class="ori-menu">
-                  <div class="ori-item" data-val="20">20 Simul.</div>
-                  <div class="ori-item" data-val="5">5 Simul.</div>
-                </div>
+              <label class="section-label">PARALELAS: <span id="val-simul" class="val-badge">20</span></label>
+              <div class="chip-group" data-cfg="simul">
+                <div class="chip-glider"></div>
+                <button class="chip-btn active" data-val="20">20 S</button>
+                <button class="chip-btn" data-val="10">10 S</button>
+                <button class="chip-btn" data-val="5">5 S</button>
               </div>
+            </div>
+          </div>
+
+          <!-- TELEMETRÍA DE ALMACENAMIENTO HUD -->
+          <div class="telemetry-card" id="telemetry-box">
+            <div class="telemetry-header">
+              <span id="disk-drive-name">DISCO LOCAL</span>
+              <span id="disk-free-txt">Calculando...</span>
+            </div>
+            <div class="telemetry-bar-bg">
+              <div class="telemetry-bar-fill" id="disk-bar-fill" style="width: 0%;"></div>
             </div>
           </div>
 
