@@ -33,6 +33,28 @@
     </div>
   </div>
 
+  <!-- TELÓN DE DESENFOQUE TOTAL (BLUR A FONDO MENOS BIENVENIDA Y FLECHAS) -->
+  <div class="welcome-cinematic-backdrop" id="welcome-backdrop"></div>
+
+  <!-- FLECHAS DIRECCIONALES SVG FLUIDAS -->
+  <div class="welcome-guide-layer" id="welcome-guides">
+    <!-- FLECHA HACIA SITIOS (IZQUIERDA ARRIBA) -->
+    <div class="hero-arrow-box arrow-box-sites">
+      <svg class="hero-arrow-svg" viewBox="0 0 100 100" fill="none">
+        <path d="M75 75 L30 30 M30 30 L60 30 M30 30 L30 60" stroke="currentColor" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span class="hero-arrow-label">PORTALES</span>
+    </div>
+
+    <!-- FLECHA HACIA ANIME / CINE (CENTRO ARRIBA) -->
+    <div class="hero-arrow-box arrow-box-switch">
+      <svg class="hero-arrow-svg" viewBox="0 0 100 100" fill="none">
+        <path d="M50 80 L50 25 M50 25 L30 45 M50 25 L70 45" stroke="currentColor" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span class="hero-arrow-label">MODO</span>
+    </div>
+  </div>
+
   <!-- CABINA PRINCIPAL: EXACTAMENTE 3 COLUMNAS -->
   <div class="cockpit" id="cockpit-grid">
     
@@ -54,18 +76,17 @@
       </div>
     </div>
 
-    <!-- COLUMNA 2: ESCENARIO CENTRAL (SOLO UNO) -->
+    <!-- COLUMNA 2: ESCENARIO CENTRAL -->
     <div class="center-stage" id="center-stage">
       
-      <!-- ESTADO A: BIENVENIDA -->
+      <!-- ESTADO A: BIENVENIDA (MODO COLEGUEO) -->
       <div class="welcome-card" id="welcome-card">
-        <div class="welcome-badge">SISTEMA MULTIMEDIA DISPONIBLE</div>
-        <h1 class="welcome-title shimmer-text">BIENVENIDO A AURION</h1>
+        <h2 class="shimmer-text">QUÉ PASA GENTE</h2>
         <p class="welcome-desc">
-          Gracias por confiar en Aurion como tu suite de extracción. Para empezar, dirígete a las plataformas recomendadas señaladas arriba por la <span class="badge-focal-arrow">FLECHA ↖</span> para abrir cualquiera de los 6 portales disponibles.
+          Para pillar algo rápido, dale arriba a la izquierda a <b>SITIOS</b> y entra a la página que quieras para mandar el capítulo o la peli.
         </p>
         <p class="welcome-subdesc">
-          También puedes accionar el conmutador superior <span class="badge-focal-arrow">↑</span> para alternar instantáneamente al catálogo de cine y películas en streaming.
+          Si te apetece una peli en vez de anime, dale arriba en medio al botón de <b>CINE</b>, le das otra vez a <b>SITIOS</b> y a correr.
         </p>
       </div>
 
@@ -109,10 +130,10 @@
           </div>
 
           <!-- PREFIJO DE SALIDA -->
-      <div>
-        <label class="section-label">PREFIJO DE SALIDA</label>
-        <input type="text" class="search-input" id="cfg-prefix" placeholder="Nombre - T1_Ep1" style="width: 100%;">
-      </div>
+          <div>
+            <label class="section-label">PREFIJO DE SALIDA</label>
+            <input type="text" class="search-input" id="cfg-prefix" placeholder="Nombre - T1_Ep1" style="width: 100%;">
+          </div>
 
           <!-- NUMERACIÓN COLAPSABLE (SOLO ANIME) -->
           <div class="collapsible-section" id="section-steppers">
@@ -213,7 +234,7 @@
 
   </div>
 
-  <!-- MODAL HUD INTELIGENTE (VERIFICACIÓN Y AUTO-MATCHING) -->
+  <!-- MODAL HUD INTELIGENTE -->
   <div class="modal-backdrop" id="match-modal-backdrop">
     <div class="modal-glass-card" id="match-modal-card">
       <div class="modal-header">

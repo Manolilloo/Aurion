@@ -162,21 +162,25 @@ function applyChipsState(state) {
   });
 }
 
-// 4. STEPPERS NUMÉRICOS (TEMPORADA Y EPISODIO)
+// 4. STEPPERS NUMÉRICOS (TEMPORADA Y EPISODIO) DE 1 EN 1 ESTRICTO
 function setStepperValue(id, val, delta) {
-  const newVal = Math.max(1, val + delta);
-  const el = document.getElementById(id);
-  if (el) {
-    el.innerText = newVal;
-    el.classList.remove('anim-up', 'anim-down');
-    void el.offsetWidth;
-    el.classList.add(delta >= 0 ? 'anim-up' : 'anim-down');
+  const targetVal = delta === 0 ? val : (parseInt(document.getElementById(id)?.value, 10) || val) + delta;
+  const newVal = Math.max(1, targetVal);
+
+  const inputEl = document.getElementById(id);
+  if (inputEl) inputEl.value = newVal;
+
+  const dispEl = document.getElementById(`disp-${id}`);
+  if (dispEl) {
+    dispEl.innerText = newVal;
+    dispEl.classList.remove('anim-up', 'anim-down');
+    void dispEl.offsetWidth;
+    dispEl.classList.add(delta >= 0 ? 'anim-up' : 'anim-down');
   }
 
   if (id === 'cfg-season') modeStates[currentMode].season = newVal;
   if (id === 'cfg-start-ep') modeStates[currentMode].startEp = newVal;
 
-  // Actualiza el prefijo con el nuevo número si hay un anime cargado
   const state = modeStates[currentMode];
   if (currentMode === 'anime' && state.title && state.title !== 'Esperando consulta...') {
     setUnifiedTitle(state.title);
@@ -285,10 +289,17 @@ function loadState(mode) {
     }
 
     // Regresar al estado de bienvenida en este modo
+    document.body.classList.remove('workspace-open');
+
     if (welcome) {
       welcome.classList.remove('is-hidden');
       welcome.style.display = 'flex';
     }
+    const backdrop = document.getElementById('welcome-backdrop');
+    const guides = document.getElementById('welcome-guides');
+    if (backdrop) backdrop.classList.remove('is-hidden');
+    if (guides) guides.classList.remove('is-hidden');
+    document.querySelectorAll('.hud-pointer').forEach(p => p.style.display = 'flex');
     if (workspace) {
       workspace.classList.remove('is-active');
       workspace.style.display = 'none';
@@ -613,13 +624,20 @@ let pendingTransmission = null;
 let modalTargetMode = 'anime';
 
 function expandCenterWorkspace() {
+  document.body.classList.add('workspace-open');
+
   const welcome = document.getElementById('welcome-card');
   const workspace = document.getElementById('workspace-card');
+  const backdrop = document.getElementById('welcome-backdrop');
+  const guides = document.getElementById('welcome-guides');
 
   if (welcome) {
     welcome.classList.add('is-hidden');
     welcome.style.display = 'none';
   }
+  if (backdrop) backdrop.classList.add('is-hidden');
+  if (guides) guides.classList.add('is-hidden');
+
   if (workspace) {
     workspace.classList.add('is-active');
     workspace.style.display = 'flex';
@@ -821,6 +839,11 @@ window.onLinkReceived = async function(data) {
 // INICIALIZACIÓN Y EVENTOS DOM
 // ========================================================
 document.addEventListener('DOMContentLoaded', () => {
+  // Bloquear arrastre involuntario al pulsar sobre los controles superiores
+  document.querySelectorAll('.sites-dock, .matrix-switch, .window-controls-box').forEach(el => {
+    el.addEventListener('mousedown', (e) => e.stopPropagation());
+  });
+
   // Inicializar Dock de Sitios
   renderSitesDock('anime');
 
@@ -877,30 +900,23 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Steppers de temporada y episodio
+  // Steppers de temporada y episodio (incrementos de 1 en 1 sin dobles sumas)
   document.querySelectorAll('.stepper-box').forEach(box => {
     const targetId = box.getAttribute('data-id');
 
     box.querySelector('.step-inc')?.addEventListener('click', () => {
       if (typeof playSynth === 'function') playSynth('click');
-      const cur = parseInt(document.getElementById(targetId)?.value, 10) || 1;
-      setStepperValue(targetId, cur + 1, 1);
+      setStepperValue(targetId, 0, 1);
     });
 
     box.querySelector('.step-dec')?.addEventListener('click', () => {
       if (typeof playSynth === 'function') playSynth('click');
-      const cur = parseInt(document.getElementById(targetId)?.value, 10) || 1;
-      setStepperValue(targetId, cur - 1, -1);
+      setStepperValue(targetId, 0, -1);
     });
 
     box.addEventListener('wheel', (e) => {
       e.preventDefault();
-      const cur = parseInt(document.getElementById(targetId)?.value, 10) || 1;
-      if (e.deltaY < 0) {
-        setStepperValue(targetId, cur + 1, 1);
-      } else {
-        setStepperValue(targetId, cur - 1, -1);
-      }
+      setStepperValue(targetId, 0, e.deltaY < 0 ? 1 : -1);
     });
   });
 

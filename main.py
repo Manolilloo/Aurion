@@ -18,11 +18,12 @@ def main():
         height=780,
         frameless=True,
         resizable=False,
+        easy_drag=False,
         background_color='#06090e'
     )
     bridge.set_window(window)
 
-    webview.start(on_loaded, (window, bridge), gui='edgechromium', debug=True)
+    webview.start(on_loaded, (window, bridge), gui='edgechromium', debug=False)
 
 if __name__ == '__main__':
     main()

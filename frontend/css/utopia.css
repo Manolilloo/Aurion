@@ -547,49 +547,48 @@ input {
 }
 
 /* STEPPERS NUMÉRICOS CON PRESENCIA FÍSICA */
+/* Steppers compactos sin desbordamiento */
 .stepper-box {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.65), rgba(0, 0, 0, 0.45));
-  border: 1px solid rgba(255, 255, 255, 0.11);
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.65), inset 0 -1px 1px rgba(255, 255, 255, 0.05);
-  border-radius: 14px;
-  padding: 3px 5px;
-  height: 42px;
+  background: rgba(14, 19, 28, 0.85);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 3px 6px;
   box-sizing: border-box;
 }
 
+/* Botones + y - con el mismo estilo neumórfico táctil que el resto de la app */
 .step-btn {
-  width: 36px;
-  height: 36px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.03) 100%);
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.45), 
-              inset 0 1px 1px rgba(255, 255, 255, 0.35),
-              inset 0 -1px 2px rgba(0, 0, 0, 0.5);
-  color: #f1f5f9;
-  font-size: 19px;
-  font-weight: 800;
-  cursor: pointer;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  width: 26px !important;
+  height: 26px !important;
+  min-width: 26px !important;
+  border-radius: 9px !important;
+  background: linear-gradient(145deg, rgba(26, 35, 50, 0.9), rgba(15, 20, 29, 0.95)) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+  color: #cbd5e1 !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+  cursor: pointer !important;
+  transition: all 0.15s cubic-bezier(0.2, 0.8, 0.2, 1) !important;
 }
 
 .step-btn:hover {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.06) 100%);
-  color: var(--color-accent-1);
-  border-color: var(--color-accent-1);
-  box-shadow: 0 0 14px var(--color-glow), inset 0 1px 2px rgba(255, 255, 255, 0.5);
+  border-color: var(--color-glow) !important;
+  color: var(--color-accent-1) !important;
+  box-shadow: 0 0 12px var(--color-glow-subtle), inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
   transform: translateY(-1px);
 }
 
 .step-btn:active {
-  transform: translateY(1px) scale(0.94);
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.6);
+  transform: translateY(1px) scale(0.96) !important;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.6) !important;
 }
 
 .step-viewport {
@@ -598,26 +597,33 @@ input {
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  height: 100%;
+  height: 24px;
 }
 
 .step-val {
-  font-size: 15px;
-  font-weight: 900;
-  letter-spacing: 0.5px;
-  color: var(--color-accent-1);
-  text-shadow: 0 0 12px var(--color-glow);
-  transition: transform 0.15s ease, opacity 0.15s ease;
+  font-size: 13px;
+  font-weight: 800;
+  color: #ffffff;
+  display: inline-block;
+  transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.18s ease;
 }
 
 .step-val.anim-up {
-  transform: translateY(-10px);
-  opacity: 0;
+  animation: stepRollUp 0.18s ease;
 }
 
 .step-val.anim-down {
-  transform: translateY(10px);
-  opacity: 0;
+  animation: stepRollDown 0.18s ease;
+}
+
+@keyframes stepRollUp {
+  0% { transform: translateY(8px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes stepRollDown {
+  0% { transform: translateY(-8px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
 }
 
 /* TOGGLE PORTADA CON MEJOR GRIP */
@@ -1317,4 +1323,361 @@ input:checked + .switch-slider:before {
   z-index: 1000000 !important;
   max-height: 170px !important;
   overflow-y: auto !important;
+}
+
+/* =========================================================
+   GUÍAS HUD EXTERIORES FLOTANTES
+   ========================================================= */
+
+.center-stage {
+  position: relative !important;
+}
+
+.hud-pointer {
+  position: absolute;
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(14, 19, 28, 0.75);
+  border: 1px solid var(--color-glow-subtle);
+  border-radius: 20px;
+  padding: 4px 10px;
+  backdrop-filter: blur(16px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5), 0 0 12px var(--color-glow-subtle);
+  pointer-events: none;
+  animation: hudPointerFloat 2.6s ease-in-out infinite alternate;
+  transition: opacity 0.3s ease;
+}
+
+/* Indicador hacia el botón SITIOS */
+.pointer-to-sites {
+  top: 48px;
+  left: 2px;
+}
+
+/* Indicador hacia el Switch central */
+.pointer-to-switch {
+  top: 15px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.pointer-arrow {
+  color: var(--color-accent-1);
+  font-size: 13px;
+  font-weight: 900;
+  text-shadow: 0 0 8px var(--color-glow);
+}
+
+.pointer-tag {
+  color: #cbd5e1;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+}
+
+/* Ocultar guías exteriores cuando se abre la carátula o workspace */
+.workspace-card.is-active ~ .hud-pointer,
+.welcome-card.is-hidden ~ .hud-pointer {
+  display: none !important;
+}
+
+@keyframes hudPointerFloat {
+  0% {
+    transform: translateY(0);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5), 0 0 8px var(--color-glow-subtle);
+  }
+  100% {
+    transform: translateY(-5px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6), 0 0 16px var(--color-glow);
+  }
+}
+
+.pointer-to-switch {
+  animation: hudPointerFloatCenter 2.6s ease-in-out infinite alternate;
+}
+
+@keyframes hudPointerFloatCenter {
+  0% {
+    transform: translate(-50%, 0);
+  }
+  100% {
+    transform: translate(-50%, -5px);
+  }
+}
+
+/* =========================================================
+   BLUR DIRECTO EN PANELES LATERALES (BIENVENIDA ACTIVA)
+   ========================================================= */
+
+/* Cuando la tarjeta de bienvenida esté visible, desenfocar a saco los paneles laterales */
+body:not(.workspace-open) .glass-box:first-child,
+body:not(.workspace-open) .glass-box:last-child {
+  filter: blur(14px) brightness(0.55);
+  pointer-events: none;
+  transition: filter 0.4s ease, opacity 0.4s ease;
+  user-select: none;
+}
+
+/* El telón de apoyo ya no necesita tocar nada raro */
+.welcome-cinematic-backdrop {
+  display: none !important;
+}
+
+/* El cuadro de bienvenida siempre ultra nítido */
+.welcome-card {
+  position: relative !important;
+  z-index: 50 !important;
+  filter: none !important;
+}
+
+.welcome-card b {
+  color: var(--color-accent-1);
+  font-weight: 800;
+}
+
+/* FLECHAS DIRECCIONALES NÍTIDAS */
+.welcome-guide-layer {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 60;
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 0.35s ease;
+}
+
+.welcome-guide-layer.is-hidden {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.hero-arrow-box {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  color: var(--color-accent-1);
+  filter: drop-shadow(0 0 16px var(--color-glow));
+}
+
+.hero-arrow-svg {
+  width: 52px;
+  height: 52px;
+  stroke: var(--color-accent-1);
+}
+
+.hero-arrow-label {
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 1.8px;
+  color: #ffffff;
+  background: rgba(14, 19, 28, 0.9);
+  border: 1px solid var(--color-glow);
+  padding: 3px 12px;
+  border-radius: 18px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6);
+}
+
+/* POSICIONES DE LAS FLECHAS */
+.arrow-box-sites {
+  top: 70px;
+  left: 78px;
+  animation: floatSites 2s ease-in-out infinite alternate;
+}
+
+.arrow-box-switch {
+  top: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  animation: floatSwitch 2s ease-in-out infinite alternate;
+}
+
+@keyframes floatSites {
+  0% {
+    transform: translate(0, 0);
+  }
+  100% {
+    transform: translate(0, -8px);
+  }
+}
+
+@keyframes floatSwitch {
+  0% {
+    transform: translate(-50%, 0);
+  }
+  100% {
+    transform: translate(-50%, -8px);
+  }
+}
+
+/* =========================================================
+   ARRASTRE PERMITIDO SOLO EN PANTALLA DE BIENVENIDA
+   ========================================================= */
+
+/* Por defecto bloqueamos todo */
+* {
+  -webkit-app-region: no-drag !important;
+}
+
+/* =========================================================
+   SISTEMA DE ARRASTRE EQUILIBRADO Y CENTRADO
+   ========================================================= */
+
+/* Bloqueo en el cuerpo general */
+html, body, .cockpit, .glass-box, .center-stage {
+  -webkit-app-region: no-drag !important;
+}
+
+/* La barra superior permite arrastre en sus huecos libres */
+.top-nav,
+.pywebview-drag-region {
+  -webkit-app-region: drag !important;
+}
+
+/* Centrado geométrico elevado para no rozar el buscador */
+.switch-center-anchor {
+  position: absolute;
+  left: 50%;
+  top: 8px;
+  transform: translateX(-50%);
+  -webkit-app-region: no-drag !important;
+  z-index: 50;
+}
+
+/* Zonas interactivas completamente blindadas contra arrastre */
+.sites-dock,
+.sites-dock *,
+.matrix-switch,
+.matrix-switch *,
+.window-controls-box,
+.window-controls-box * {
+  -webkit-app-region: no-drag !important;
+  user-select: none;
+}
+
+/* Botones, controles y tarjeta interactivos sin arrastre involuntario */
+.sites-dock,
+.switch-center-anchor,
+.window-controls-box,
+.welcome-card,
+button,
+input {
+  -webkit-app-region: no-drag !important;
+}
+
+/* =========================================================
+   2. ADAPTACIÓN FLUIDA AL MAXIMIZAR VENTANA
+   ========================================================= */
+
+/* Permitir que la cabina aproveche toda la altura y anchura libre */
+.cockpit {
+  max-width: 1700px !important;
+  max-height: none !important;
+  height: calc(100vh - 75px) !important;
+  padding: 10px 30px 24px 30px !important;
+  gap: 28px !important;
+}
+
+/* Permitir que los paneles laterales ganen presencia si la pantalla es gigante */
+.glass-box {
+  flex: 0 0 380px !important;
+  width: 380px !important;
+  height: 100% !important;
+}
+
+/* En el escenario central, permitir que el póster escale en altura al maximizar */
+.center-stage {
+  max-width: 650px !important;
+  height: 100% !important;
+}
+
+/* Escenario de carátula: dimensiones naturales en ventana */
+.workspace-card {
+  max-width: 380px;
+  width: 100%;
+  height: 100%;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  transition: max-width 0.3s ease;
+}
+
+/* Contenedor transparente: sin fondos, sin marcos y sin recortes */
+.parallax-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  max-height: calc(100vh - 210px);
+  border-radius: 20px;
+  overflow: visible !important;
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  perspective: 1200px;
+}
+
+/* La tarjeta limpia que se dobla en 3D libremente */
+.parallax-poster {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 20px;
+  overflow: hidden;
+  background-size: cover !important;
+  background-position: center !important;
+  box-shadow: 0 14px 35px rgba(0, 0, 0, 0.75);
+  animation: posterBreathGlow 4.5s ease-in-out infinite;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+
+/* =========================================================
+   SOLO CUANDO LA VENTANA ESTÁ MAXIMIZADA / PANTALLA COMPLETA
+   ========================================================= */
+@media (min-width: 1400px) and (min-height: 800px) {
+  .center-stage {
+    max-width: 720px !important;
+  }
+
+  .workspace-card {
+    max-width: 530px !important; /* Más ancha para mantener proporción perfecta */
+  }
+
+  .parallax-wrap {
+    max-height: calc(100vh - 230px) !important;
+  }
+}
+
+/* EFECTO GLOW RESPIRACIÓN TIPO BOTÓN SITIOS */
+@keyframes posterBreathGlow {
+  0%, 100% {
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7), 0 0 12px rgba(0, 0, 0, 0);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  50% {
+    box-shadow: 0 12px 35px rgba(0, 0, 0, 0.8), 0 0 26px var(--color-glow);
+    border: 1px solid var(--color-glow);
+  }
+}
+
+/* Scroll suave en el panel de ingeniería si la pantalla es pequeña, fluido si es grande */
+.settings-area {
+  overflow-y: auto !important;
+  padding-right: 4px;
+}
+
+.settings-area::-webkit-scrollbar {
+  width: 4px;
+}
+
+.settings-area::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
 }

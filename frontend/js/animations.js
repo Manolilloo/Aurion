@@ -64,14 +64,14 @@ function renderParallax() {
   currentY += (targetY - currentY) * 0.08;
 
   if (poster) {
-    poster.style.transform = `perspective(1000px) rotateX(${currentX.toFixed(2)}deg) rotateY(${currentY.toFixed(2)}deg) scale3d(1.02, 1.02, 1.02)`;
+    poster.style.transform = `rotateX(${currentX.toFixed(2)}deg) rotateY(${currentY.toFixed(2)}deg)`;
   }
 
   // Si sigue el cursor o aún no ha vuelto al centro exacto, sigue el bucle a 60/144hz
   if (isHovered || Math.abs(targetX - currentX) > 0.01 || Math.abs(targetY - currentY) > 0.01) {
     rafId = requestAnimationFrame(renderParallax);
   } else {
-    if (poster) poster.style.transform = `perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)`;
+    if (poster) poster.style.transform = `rotateX(0deg) rotateY(0deg)`;
     rafId = null;
   }
 }
@@ -112,7 +112,6 @@ if (sensor && poster) {
 const magWrap = document.getElementById('mag-wrap');
 const magBtn = document.getElementById('btn-master');
 const magTxt = document.getElementById('mag-txt');
-const chars = '!<>-_\\/[]{}—=+*^?#_';
 let scrambleInterval;
 
 if(magWrap && magBtn) {
@@ -131,18 +130,8 @@ if(magWrap && magBtn) {
   magWrap.addEventListener('mouseenter', () => {
     if(magBtn.classList.contains('loading') || magBtn.classList.contains('done')) return;
     playSynth('hover');
-    let iteration = 0;
-    const target = magTxt.getAttribute('data-target');
-    clearInterval(scrambleInterval);
-    
-    scrambleInterval = setInterval(() => {
-      magTxt.innerText = target.split('').map((l, i) => {
-        if(i < iteration) return target[i];
-        return chars[Math.floor(Math.random() * chars.length)];
-      }).join('');
-      if(iteration >= target.length) clearInterval(scrambleInterval);
-      iteration += 1/2;
-    }, 30);
+    const target = magTxt.getAttribute('data-target') || 'INICIAR EXTRACCIÓN';
+    magTxt.innerText = target;
   });
 
   magWrap.addEventListener('mouseleave', () => {
