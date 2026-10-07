@@ -18,10 +18,13 @@
     </div>
 
     <div class="switch-center-anchor">
-      <div class="matrix-switch" id="btn-switch-mode">
-        <div class="matrix-thumb"></div>
-        <div class="matrix-opt active" id="mode-anime">ANIME</div>
-        <div class="matrix-opt" id="mode-movie">CINE</div>
+      <div class="matrix-switch-cluster">
+        <div class="matrix-switch" id="btn-switch-mode" title="Cambiar modo (Atajo: TAB)">
+          <div class="matrix-thumb"></div>
+          <div class="matrix-opt active" id="mode-anime">ANIME</div>
+          <div class="matrix-opt" id="mode-movie">CINE</div>
+        </div>
+        <span class="hotkey-pill" title="Pulsa TAB para alternar modo">TAB</span>
       </div>
     </div>
 
@@ -115,7 +118,8 @@
 
         <div class="mag-wrapper" id="mag-wrap">
           <button class="btn-god" id="btn-master">
-            <span class="btn-god-txt" id="mag-txt">INICIAR EXTRACCIÓN</span>
+            <span class="btn-god-txt" id="mag-txt" data-target="INICIAR EXTRACCIÓN">INICIAR EXTRACCIÓN</span>
+            <span class="btn-god-hotkey" id="mag-hotkey" title="Atajo de teclado">ESPACIO</span>
           </button>
         </div>
       </div>

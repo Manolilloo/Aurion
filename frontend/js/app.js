@@ -1340,6 +1340,36 @@ document.addEventListener('DOMContentLoaded', () => {
       expandCenterWorkspace();
     }
   });
+  // ========================================================
+  // ATAJOS GLOBALES DE TECLADO INTELIGENTES (TAB & ESPACIO)
+  // ========================================================
+  window.addEventListener('keydown', (e) => {
+    // Si el usuario está escribiendo en cualquier input o editable, dejarlo actuar normal
+    const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
+    const isEditing = activeTag === 'input' || activeTag === 'textarea' || document.activeElement?.isContentEditable;
+    
+    // Tampoco interferir si el modal de confirmación HUD está abierto
+    const isModalOpen = document.getElementById('match-modal-backdrop')?.classList.contains('active');
+
+    if (isEditing || isModalOpen) return;
+
+    // 1. TECLA TAB: Alternar entre Anime y Cine
+    if (e.key === 'Tab') {
+      e.preventDefault(); // Evitar el salto de foco nativo del navegador
+      const newMode = currentMode === 'anime' ? 'movie' : 'anime';
+      setAppMode(newMode, true);
+      return;
+    }
+
+    // 2. TECLA ESPACIO: Iniciar Extracción
+    if (e.code === 'Space' || e.key === ' ') {
+      e.preventDefault(); // Evitar que la ventana haga scroll hacia abajo
+      const masterBtn = document.getElementById('btn-master');
+      if (masterBtn && !masterBtn.classList.contains('loading')) {
+        masterBtn.click();
+      }
+    }
+  });
 });
 
 window.addEventListener('resize', () => {
