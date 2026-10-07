@@ -491,6 +491,13 @@ function updateTotalQueueSize() {
 function renderQueueCard(task) {
   const container = document.getElementById('queue-list');
   if (!container) return;
+
+  // Si aún está el mensaje gris de espera, retirarlo de inmediato
+  const emptyPlaceholder = container.querySelector('div[style*="text-align: center"]');
+  if (emptyPlaceholder) {
+    emptyPlaceholder.remove();
+  }
+
   const card = document.createElement('div');
   card.className = 'queue-card';
   card.id = task.id;
@@ -1068,47 +1075,65 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Botón Maestro sobre la cola del modo activo
+  // CONTROLADOR ÚNICO DE ESTADO DINÁMICO (DEMO TÉCNICA 09)
   const btnMaster = document.getElementById('btn-master');
   const magTxt = document.getElementById('mag-txt');
+  let isMasterRunning = false;
+
   if (btnMaster && magTxt) {
     btnMaster.addEventListener('click', () => {
+      if (isMasterRunning) return;
+      isMasterRunning = true;
+
       const currentQueue = modeStates[currentMode].queue;
-      if (currentQueue.length === 0) {
-        if (typeof playSynth === 'function') playSynth('click');
-        const originalText = magTxt.innerText;
-        magTxt.innerText = 'COLA VACÍA';
-        btnMaster.style.borderColor = '#ff3366';
-        setTimeout(() => {
-          magTxt.innerText = originalText;
-          btnMaster.style.borderColor = '';
-        }, 1500);
-        return;
-      }
+      const originalText = 'INICIAR EXTRACCIÓN';
 
-      const pendingTasks = currentQueue.filter(t => t.status !== 'Completado');
-      if (pendingTasks.length === 0) {
-        if (typeof playSynth === 'function') playSynth('chord');
-        const originalText = magTxt.innerText;
-        magTxt.innerText = 'TODO COMPLETADO ✔';
-        setTimeout(() => {
-          magTxt.innerText = originalText;
-        }, 1800);
-        return;
-      }
-
-      if (typeof playSynth === 'function') playSynth('chord');
+      // 1. Sondeo dinámico: encoger a esfera giratoria con neón
+      if (typeof playSynth === 'function') playSynth('click');
       btnMaster.classList.add('loading');
-      
-      pendingTasks.forEach(task => {
-        const bar = document.getElementById(`bar-${task.id}`);
-        if (bar) bar.classList.add('active');
-      });
 
-      pyCall('start_downloads', {
-        tasks: pendingTasks,
-        config: modeStates[currentMode]
-      });
+      setTimeout(() => {
+        btnMaster.classList.remove('loading');
+
+        // SI NO HAY NADA: Poner Cola Vacía y regresar del tirón
+        if (currentQueue.length === 0) {
+          btnMaster.classList.add('is-empty');
+          magTxt.innerText = 'COLA VACÍA';
+          if (typeof playSynth === 'function') playSynth('click');
+
+          setTimeout(() => {
+            btnMaster.classList.remove('is-empty');
+            magTxt.innerText = originalText;
+            isMasterRunning = false;
+          }, 1200);
+          return;
+        }
+
+        // SI HAY DESCARGAS:
+        const pendingTasks = currentQueue.filter(t => t.status !== 'Completado');
+        if (pendingTasks.length === 0) {
+          magTxt.innerText = 'COLA PROCESADA';
+          setTimeout(() => {
+            magTxt.innerText = originalText;
+            isMasterRunning = false;
+          }, 1500);
+          return;
+        }
+
+        if (typeof playSynth === 'function') playSynth('chord');
+        magTxt.innerText = 'DESCARGANDO...';
+        pendingTasks.forEach(task => {
+          const bar = document.getElementById(`bar-${task.id}`);
+          if (bar) bar.classList.add('active');
+        });
+
+        pyCall('start_downloads', {
+          tasks: pendingTasks,
+          config: modeStates[currentMode]
+        });
+
+        isMasterRunning = false;
+      }, 450);
     });
   }
 

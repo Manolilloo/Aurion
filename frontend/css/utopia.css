@@ -225,14 +225,14 @@ input[type=number] {
 @keyframes macDockPulse {
   0%, 100% {
     transform: scale(1);
-    box-shadow: 0 0 14px var(--color-glow),
-                0 0 28px var(--color-glow-subtle),
+    box-shadow: 0 2px 10px var(--color-glow),
+                0 4px 18px var(--color-glow-subtle),
                 inset 0 1px 2px rgba(255, 255, 255, 0.8);
   }
   50% {
-    transform: scale(1.035);
-    box-shadow: 0 0 28px var(--color-glow),
-                0 0 50px var(--color-accent-1),
+    transform: scale(1.025);
+    box-shadow: 0 4px 16px var(--color-glow),
+                0 6px 24px var(--color-glow-subtle),
                 inset 0 1px 3px rgba(255, 255, 255, 1);
   }
 }
@@ -924,6 +924,8 @@ input:checked + .switch-slider:before {
   justify-content: space-between !important;
   align-items: center !important;
   box-sizing: border-box;
+  overflow: visible !important;
+  padding-bottom: 8px;
 }
 
 .workspace-card.is-active {
@@ -1050,27 +1052,50 @@ input:checked + .switch-slider:before {
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
 }
 
+/* =========================================================
+   BOTÓN MAESTRO DE ESTADOS DINÁMICOS (DEMO TÉCNICA 09)
+   ========================================================= */
 .mag-wrapper {
   width: 100%;
   display: flex;
   justify-content: center;
+  align-items: center;
+  height: 52px;
+  overflow: visible !important;
+  margin-top: 6px;
 }
 
 .btn-god {
-  width: 100%;
-  max-width: 320px;
-  padding: 13px 22px;
+  position: relative;
+  width: 290px;
+  height: 46px;
   background: linear-gradient(135deg, var(--color-accent-1) 0%, var(--color-accent-2) 100%) !important;
   border: 1px solid rgba(255, 255, 255, 0.35) !important;
-  border-radius: 34px !important;
+  border-radius: 25px !important;
   cursor: pointer;
-  box-shadow: 0 10px 30px var(--color-glow), 
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  user-select: none;
+  box-shadow: 0 4px 16px var(--color-glow-subtle),
               inset 0 1px 2px rgba(255, 255, 255, 0.65), 
               inset 0 -1px 2px rgba(0, 0, 0, 0.4) !important;
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
-  display: flex;
-  justify-content: center;
-  align-items: center;
+  transition: width 0.38s cubic-bezier(0.34, 1.56, 0.64, 1),
+              background 0.3s ease,
+              border-color 0.3s ease,
+              box-shadow 0.3s ease,
+              transform 0.2s ease !important;
+}
+
+.btn-god:hover:not(.loading) {
+  transform: translateY(-1.5px);
+  box-shadow: 0 6px 20px var(--color-glow),
+              inset 0 1px 2px rgba(255, 255, 255, 0.8) !important;
+}
+
+.btn-god:active:not(.loading) {
+  transform: scale(0.97);
 }
 
 .btn-god-txt {
@@ -1078,17 +1103,65 @@ input:checked + .switch-slider:before {
   font-weight: 900;
   letter-spacing: 1.8px;
   color: var(--color-btn-text, #000) !important;
+  white-space: nowrap;
+  opacity: 1 !important;
+  transform: scale(1) !important;
+  transition: opacity 0.2s ease, transform 0.2s ease, color 0.2s ease;
+  pointer-events: none;
+  display: block;
 }
 
-.btn-god:hover {
-  transform: translateY(-2px) scale(1.02);
-  box-shadow: 0 14px 40px var(--color-glow), inset 0 1px 3px rgba(255, 255, 255, 0.8) !important;
+/* ESTADO 1: LOADING (Solo aquí se oculta el texto para mostrar la ruleta) */
+.btn-god.loading {
+  width: 46px !important;
+  border-radius: 50% !important;
+  background: rgba(14, 19, 28, 0.9) !important;
+  border-color: var(--color-accent-1) !important;
+  box-shadow: 0 0 16px var(--color-glow) !important;
+  pointer-events: none;
 }
 
-.btn-god:active {
-  transform: scale(0.97);
+.btn-god.loading .btn-god-txt {
+  opacity: 0 !important;
+  transform: scale(0.5) !important;
 }
 
+.btn-god.loading::after {
+  content: "";
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  border: 2.5px solid transparent;
+  border-top-color: var(--color-accent-1);
+  border-right-color: var(--color-accent-1);
+  border-radius: 50%;
+  animation: dynamicSpin 0.7s linear infinite;
+}
+
+@keyframes dynamicSpin {
+  100% { transform: rotate(360deg); }
+}
+
+/* ESTADO COLA VACÍA INTEGRADO CON LA ESTÉTICA DE AURION */
+.btn-god.is-empty {
+  width: 220px !important;
+  background: linear-gradient(135deg, rgba(30, 20, 30, 0.95), rgba(15, 10, 20, 0.98)) !important;
+  border-color: rgba(255, 60, 100, 0.6) !important;
+  box-shadow: 0 4px 18px rgba(255, 51, 102, 0.3),
+              inset 0 1px 2px rgba(255, 255, 255, 0.2),
+              inset 0 -1px 2px rgba(0, 0, 0, 0.7) !important;
+}
+
+.btn-god.is-empty .btn-god-txt {
+  color: #ff3366 !important;
+  letter-spacing: 2px !important;
+}
+
+/* Reducir el glow exagerado del buscador y del foco en input */
+.search-input:focus {
+  border-color: var(--color-accent-1);
+  box-shadow: 0 0 8px var(--color-glow-subtle), inset 0 1px 2px rgba(0, 0, 0, 0.6) !important;
+}
 /* =========================================================
    TARJETAS DE COLA DE DESCARGA
    ========================================================= */

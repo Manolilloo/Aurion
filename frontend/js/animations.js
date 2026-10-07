@@ -128,36 +128,19 @@ if(magWrap && magBtn) {
   });
 
   magWrap.addEventListener('mouseenter', () => {
-    if(magBtn.classList.contains('loading') || magBtn.classList.contains('done')) return;
+    if(magBtn.classList.contains('loading') || magBtn.classList.contains('is-empty')) return;
     playSynth('hover');
-    const target = magTxt.getAttribute('data-target') || 'INICIAR EXTRACCIÓN';
-    magTxt.innerText = target;
   });
 
   magWrap.addEventListener('mouseleave', () => {
-    if(magBtn.classList.contains('loading') || magBtn.classList.contains('done')) return;
     magBtn.style.transform = `translate(0px, 0px)`;
     magTxt.style.transform = `translate(0px, 0px)`;
     clearInterval(scrambleInterval);
-    magTxt.innerText = magTxt.getAttribute('data-target');
+    // Si no está en plena transición o error, asegurar que el texto sea visible siempre
+    if (!magBtn.classList.contains('loading') && !magBtn.classList.contains('is-empty')) {
+      magTxt.innerText = magTxt.getAttribute('data-target') || 'INICIAR EXTRACCIÓN';
+    }
   });
 
-  magBtn.addEventListener('click', () => {
-    if(magBtn.classList.contains('loading') || magBtn.classList.contains('done')) return;
-    playSynth('chord');
-    magBtn.style.transform = `translate(0px, 0px)`;
-    magBtn.classList.add('loading');
-    
-    setTimeout(() => {
-      playSynth('click');
-      magBtn.classList.remove('loading');
-      magBtn.classList.add('done');
-      magTxt.innerText = "¡COMPLETADO!";
-      
-      setTimeout(() => {
-        magBtn.classList.remove('done');
-        magTxt.innerText = magTxt.getAttribute('data-target');
-      }, 3000);
-    }, 2000);
-  });
+  
 }
