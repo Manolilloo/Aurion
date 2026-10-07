@@ -25,6 +25,7 @@ const modeStates = {
     dir: 'J:\\ANIME\\animes',
     season: 1,
     startEp: 1,
+    singleSeason: false,
     saveCover: true,
     res: 'max',
     fmt: 'mp4',
@@ -260,6 +261,11 @@ function loadState(mode) {
   setStepperValue('cfg-start-ep', state.startEp || 1, 0);
 
   if (sCover) sCover.checked = state.saveCover !== false;
+  const sSingle = document.getElementById('cfg-single-season');
+  if (sSingle) {
+    sSingle.checked = !!state.singleSeason;
+    document.body.classList.toggle('is-single-season', !!state.singleSeason);
+  }
 
   // Verificación estricta: sólo tiene portada si bg existe, no es vacío ni 'none'
   const hasCover = typeof state.bg === 'string' && state.bg.trim() !== '' && state.bg !== 'none' && state.title && state.title !== 'Esperando consulta...';
@@ -383,8 +389,8 @@ function setUnifiedTitle(title) {
   if (currentMode === 'anime') {
     const s = state.season || 1;
     const e = state.startEp || 1;
-    // Formato exacto: Nombre - T1_Ep1
-    const prefix = `${title} - T${s}_Ep${e}`;
+    // Si es temporada única omite el T1_
+    const prefix = state.singleSeason ? `${title} - Ep${e}` : `${title} - T${s}_Ep${e}`;
     if (pInput) pInput.value = prefix;
     state.prefix = prefix;
   } else {
@@ -929,6 +935,26 @@ document.addEventListener('DOMContentLoaded', () => {
       setStepperValue(targetId, 0, e.deltaY < 0 ? 1 : -1);
     });
   });
+
+  // Toggle Temporada Única
+  const cfgSingleSeason = document.getElementById('cfg-single-season');
+  if (cfgSingleSeason) {
+    cfgSingleSeason.addEventListener('change', () => {
+      if (typeof playSynth === 'function') playSynth('origami');
+      const isSingle = cfgSingleSeason.checked;
+      modeStates[currentMode].singleSeason = isSingle;
+
+      // Dispara la animación fluida en CSS
+      document.body.classList.toggle('is-single-season', isSingle);
+
+      // Si hay un título activo, recalcular prefijo dinámicamente
+      const state = modeStates[currentMode];
+      if (state.title && state.title !== 'Esperando consulta...') {
+        setUnifiedTitle(state.title);
+      }
+      saveCurrentState();
+    });
+  }
 
   // Toggle Portada
   const cfgSaveCover = document.getElementById('cfg-save-cover');
