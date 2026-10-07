@@ -39,7 +39,7 @@ class AurionHTTPHandler(BaseHTTPRequestHandler):
                 self.send_header('Access-Control-Allow-Origin', '*')
                 self.end_headers()
                 self.wfile.write(json.dumps({"status": "ok"}).encode('utf-8'))
-            except Exception as e:
+            except Exception:
                 self.send_response(400)
                 self.end_headers()
         else:
@@ -233,7 +233,7 @@ class AurionBridge:
               Page (page: 1, perPage: 6) {
                 media (search: $search, type: ANIME) {
                   title { romaji english }
-                  coverImage { large color }
+                  coverImage { extraLarge large color }
                   status
                   averageScore
                 }
@@ -256,11 +256,15 @@ class AurionBridge:
                         score = f"{a.get('averageScore', 0) / 10:.1f}" if a.get('averageScore') else 'N/A'
                         titles = a.get('title', {})
                         chosen_title = titles.get('romaji') or titles.get('english') or 'Desconocido'
+                        
+                        cover_data = a.get('coverImage', {})
+                        high_res_img = cover_data.get('extraLarge') or cover_data.get('large') or ''
+
                         results.append({
                             'title': chosen_title,
                             'alt_title': titles.get('english', ''),
-                            'image': a.get('coverImage', {}).get('large', ''),
-                            'color': a.get('coverImage', {}).get('color'),
+                            'image': high_res_img,
+                            'color': cover_data.get('color'),
                             'meta': f"{status} • ★ {score}"
                         })
                     return results
@@ -276,6 +280,7 @@ class AurionBridge:
                     data = json.loads(response.read().decode('utf-8'))
                     items = data.get('d', [])
                     results = []
+                    import re
                     for entry in items:
                         title = entry.get('l', '')
                         if not title:
@@ -288,11 +293,16 @@ class AurionBridge:
                             continue
 
                         img_dict = entry.get('i') or {}
-                        img = img_dict.get('imageUrl', '')
+                        raw_img = img_dict.get('imageUrl', '')
+                        if raw_img and 'media-amazon.com' in raw_img:
+                            high_res_img = re.sub(r'._V1_.*?.jpg$', '._V1_.jpg', raw_img)
+                        else:
+                            high_res_img = raw_img
+
                         year = str(entry.get('y', 'CINE'))
                         results.append({
                             'title': title,
-                            'image': img,
+                            'image': high_res_img,
                             'color': None,
                             'meta': f"{year} • PELÍCULA"
                         })
@@ -302,27 +312,55 @@ class AurionBridge:
             except Exception:
                 return []
 
-    def close_app(self):
-        if self._window:
-            self._window.destroy()
-        os._exit(0)
-
     def minimize_window(self):
         if self._window:
             self._window.minimize()
 
     def toggle_maximize_window(self):
-        if self._window:
-            if getattr(self, '_is_maximized', False):
-                self._window.restore()
-                self._is_maximized = False
-            else:
-                self._window.maximize()
-                self._is_maximized = True
+        if not self._window:
+            return False
 
-    def close_window(self):
+        import sys
+        if getattr(self, '_is_maximized', False):
+            self._window.restore()
+            self._is_maximized = False
+            if sys.platform == 'win32':
+                self._set_window_movable(True)
+        else:
+            self._window.maximize()
+            self._is_maximized = True
+            if sys.platform == 'win32':
+                self._set_window_movable(False)
+
+        return getattr(self, '_is_maximized', False)
+
+    def _set_window_movable(self, movable=True):
+        """Bloquea o desbloquea el movimiento de la ventana a nivel de Windows."""
+        try:
+            import ctypes
+            user32 = ctypes.windll.user32
+            
+            # Buscar el HWND nativo de la ventana Aurion
+            hwnd = None
+            if hasattr(self._window, 'gui') and hasattr(self._window.gui, 'hwnd'):
+                hwnd = self._window.gui.hwnd
+            if not hwnd:
+                hwnd = user32.FindWindowW(None, 'Aurion')
+
+            if hwnd:
+                hmenu = user32.GetSystemMenu(hwnd, False)
+                SC_MOVE = 0xF010
+                MF_BYCOMMAND = 0x00000000
+                MF_DISABLED = 0x00000002
+                MF_ENABLED = 0x00000000
+
+                # Deshabilitar SC_MOVE impide que Windows inicie cualquier bucle de arrastre
+                flags = MF_BYCOMMAND | (MF_ENABLED if movable else MF_DISABLED)
+                user32.EnableMenuItem(hmenu, SC_MOVE, flags)
+        except Exception:
+            pass
+
+    def close_app(self):
         if self._window:
             self._window.destroy()
-
-    def set_window(self, win):
-        self._window = win
+        os._exit(0)

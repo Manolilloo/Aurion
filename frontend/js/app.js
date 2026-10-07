@@ -439,6 +439,8 @@ function applyDynamicPalette(c1, c2) {
     modeStates[currentMode].accent1 = c1;
     modeStates[currentMode].accent2 = c2;
   }
+
+  
 }
 
 function updatePoster(imgUrl, title, meta) {
@@ -1129,19 +1131,48 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   updateDiskTelemetry(modeStates.anime.dir);
-  
-  // CONTROLES DE LA VENTANA CUSTOM
-  document.getElementById('win-min')?.addEventListener('click', () => {
+
+  // CONTROLES DE VENTANA
+  const btnMin = document.getElementById('win-min');
+  const btnMax = document.getElementById('win-max');
+  const btnClose = document.getElementById('win-close');
+  const topNav = document.querySelector('.top-nav');
+
+  btnMin?.addEventListener('click', () => {
+    if (typeof playSynth === 'function') playSynth('click');
     pyCall('minimize_window');
   });
 
-  document.getElementById('win-max')?.addEventListener('click', () => {
-    pyCall('toggle_maximize_window');
+  btnMax?.addEventListener('click', async () => {
+    if (typeof playSynth === 'function') playSynth('click');
+    const isMax = await pyCall('toggle_maximize_window');
+    document.body.classList.toggle('is-maximized', !!isMax);
+    
+    // Al maximizar se retira la clase de arrastre; al restaurar se vuelve a poner
+    const topBar = document.getElementById('top-nav-bar');
+    if (topBar) {
+      if (isMax) {
+        topBar.classList.remove('pywebview-drag-region');
+      } else {
+        topBar.classList.add('pywebview-drag-region');
+      }
+    }
+
+    if (btnMax) btnMax.innerText = isMax ? '❐' : '□';
   });
 
-  document.getElementById('win-close')?.addEventListener('click', () => {
-    pyCall('close_window');
+  btnClose?.addEventListener('click', () => {
+    if (typeof playSynth === 'function') playSynth('click');
+    pyCall('close_app');
   });
+
+  if (topNav) {
+    topNav.addEventListener('dblclick', (e) => {
+      if (e.target.closest('.sites-dock, .matrix-switch, .window-controls-box, .nav-right-cluster')) return;
+      btnMax?.click();
+    });
+  }
+
   // LISTENERS DEL MODAL INTERACTIVO
   document.getElementById('modal-btn-dismiss')?.addEventListener('click', closeMatchModal);
 
@@ -1160,6 +1191,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const mAnime = document.getElementById('modal-mode-anime');
   const mMovie = document.getElementById('modal-mode-movie');
   const mThumb = document.getElementById('modal-matrix-thumb');
+
 
   function setModalMode(mode) {
     modalTargetMode = mode;

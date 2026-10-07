@@ -4,7 +4,6 @@ import webview
 from core.bridge import AurionBridge
 
 def on_loaded(window, bridge):
-    """Callback que se ejecuta cuando el frontend webview termina de cargar."""
     pass
 
 def main():
@@ -17,8 +16,9 @@ def main():
         width=1320,
         height=780,
         frameless=True,
-        resizable=False,
         easy_drag=False,
+        resizable=True,
+        min_size=(1100, 650),
         background_color='#06090e'
     )
     bridge.set_window(window)

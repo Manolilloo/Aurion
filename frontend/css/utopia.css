@@ -22,6 +22,10 @@
   -webkit-font-smoothing: antialiased;
 }
 
+html, body, #cockpit-grid, .cockpit, .glass-box, .center-stage, .workspace-card, .welcome-card {
+  -webkit-app-region: no-drag !important;
+}
+
 html, body {
   width: 100vw;
   height: 100vh;
@@ -63,7 +67,7 @@ input[type=number] {
 }
 
 /* =========================================================
-   BARRA SUPERIOR (HEADER) Y ARRASTRE EXCLUSIVO
+    BARRA SUPERIOR (HEADER) Y ARRASTRE EXCLUSIVO
    ========================================================= */
 
 .top-nav {
@@ -75,54 +79,87 @@ input[type=number] {
   padding: 16px 28px 10px 28px;
   height: 60px;
   width: 100%;
-  -webkit-app-region: drag !important;
+  -webkit-app-region: drag;
 }
 
 .sites-dock,
 .switch-center-anchor,
+.matrix-switch,
 .window-controls-box,
-button,
-input {
+.nav-right-cluster,
+.search-container {
   -webkit-app-region: no-drag !important;
 }
 
+/* CÁPSULA DE CONTROLES DE VENTANA ESTILO AURION PRO */
 .window-controls-box {
   display: flex;
   align-items: center;
-  gap: 5px;
-  background: rgba(14, 19, 28, 0.65);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 20px;
-  padding: 2px 5px;
-  backdrop-filter: blur(20px);
+  gap: 8px;
+  background: linear-gradient(165deg, rgba(17, 23, 34, 0.85) 0%, rgba(10, 14, 21, 0.9) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 24px;
+  padding: 4px 8px;
+  backdrop-filter: blur(24px) saturate(180%);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5),
+              inset 0 1px 1px rgba(255, 255, 255, 0.18),
+              inset 0 -1px 2px rgba(0, 0, 0, 0.4);
 }
 
 .win-btn {
-  background: transparent;
-  border: none;
-  color: #94a3b8;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  font-size: 11px;
-  font-weight: 700;
+  position: relative;
+  background: linear-gradient(145deg, rgba(26, 35, 50, 0.85), rgba(15, 20, 29, 0.95));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #cbd5e1;
+  width: 32px;
+  height: 32px;
+  border-radius: 11px;
+  font-size: 13px;
+  font-weight: 800;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.2s ease;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35),
+              inset 0 1px 1px rgba(255, 255, 255, 0.15),
+              inset 0 -1px 2px rgba(0, 0, 0, 0.5);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
 }
 
 .win-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
+  transform: translateY(-1.5px) scale(1.05);
   color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.55),
+              0 0 12px var(--color-glow-subtle),
+              inset 0 1px 2px rgba(255, 255, 255, 0.35);
 }
 
-.win-btn-close:hover {
-  background: #ff3366 !important;
-  color: #ffffff !important;
-  box-shadow: 0 0 10px rgba(255, 51, 102, 0.4);
+.win-btn:active {
+  transform: translateY(1px) scale(0.96);
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.7);
 }
+
+/* Hover específico para minimizar y maximizar con el acento activo */
+#win-min:hover, #win-max:hover {
+  color: var(--color-accent-1);
+  border-color: var(--color-accent-1);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.55),
+              0 0 14px var(--color-glow);
+}
+
+/* Botón cerrar con estética cyber-red */
+.win-btn-close:hover {
+  background: linear-gradient(135deg, #ff3366 0%, #d61845 100%) !important;
+  color: #ffffff !important;
+  border-color: #ff6688 !important;
+  box-shadow: 0 6px 18px rgba(255, 51, 102, 0.5),
+              0 0 16px rgba(255, 51, 102, 0.4),
+              inset 0 1px 2px rgba(255, 255, 255, 0.6) !important;
+}
+
+
 
 /* =========================================================
    DOCK DE SITIOS MAC-STYLE FLUID
@@ -280,16 +317,6 @@ input {
   z-index: 5;
 }
 
-.switch-center-anchor {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 60;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
 
 .matrix-switch {
   position: relative;
@@ -1939,4 +1966,32 @@ input {
   background: rgba(255, 255, 255, 0.08) !important;
   border-left: 3px solid var(--color-accent-1) !important;
   box-shadow: inset 0 0 12px var(--color-glow-subtle) !important;
+}
+
+/* Renderizado nítido de miniaturas y portadas */
+.sugg-thumb,
+#main-poster,
+#modal-prop-thumb {
+  background-size: cover !important;
+  background-position: center !important;
+  image-rendering: -webkit-optimize-contrast !important;
+}
+
+/* CENTRADO GEOMÉTRICO ORIGINAL */
+.switch-center-anchor {
+  position: absolute !important;
+  left: 50% !important;
+  top: 8px !important;
+  transform: translateX(-50%) !important;
+  z-index: 60 !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  -webkit-app-region: no-drag !important;
+}
+
+/* BLOQUEO ABSOLUTO: NADA FUERA DE LA BARRA SUPERIOR PUEDE ARRASTRARSE JAMÁS */
+body > *:not(.top-nav),
+body > *:not(.top-nav) * {
+  -webkit-app-region: no-drag !important;
 }
