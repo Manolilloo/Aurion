@@ -7,20 +7,21 @@
 <body>
   <div class="header">
     <span class="logo">AURION</span>
-    <span class="badge" id="status-badge">LISTO</span>
+    <span class="badge" id="host-badge">ACTIVO</span>
   </div>
 
-  <div class="current-page">
-    <div class="page-title" id="page-title">Cargando...</div>
-    <div class="page-url" id="page-url">...</div>
+  <div class="current-site-box">
+    <div class="site-label">SITIO WEB ACTUAL</div>
+    <div class="site-domain" id="site-domain">...</div>
+    <button class="btn-toggle-site" id="btn-toggle-site">Desactivar en este sitio</button>
   </div>
 
-  <div class="streams-section">
-    <div class="section-title">STREAMS DETECTADOS (<span id="stream-count">0</span>)</div>
-    <div class="stream-list" id="stream-list"></div>
+  <div class="settings-box">
+    <div class="settings-title">GESTIÓN DE SITIOS BLOQUEADOS</div>
+    <div class="blocked-list" id="blocked-list"></div>
   </div>
 
-  <button class="btn-send" id="btn-send-all">ENVIAR A AURION ⚡</button>
+  <button class="btn-send-manual" id="btn-send-manual">FORZAR ENVÍO DE PESTAÑA ⚡</button>
 
   <script src="popup.js"></script>
 </body>

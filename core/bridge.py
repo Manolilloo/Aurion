@@ -230,9 +230,9 @@ class AurionBridge:
         if mode == 'anime':
             graphql_query = """
             query ($search: String) {
-              Page (page: 1, perPage: 5) {
+              Page (page: 1, perPage: 6) {
                 media (search: $search, type: ANIME) {
-                  title { romaji }
+                  title { romaji english }
                   coverImage { large color }
                   status
                   averageScore
@@ -254,8 +254,11 @@ class AurionBridge:
                     for a in items:
                         status = 'TERMINADO' if a.get('status') == 'FINISHED' else ('EN EMISIÓN' if a.get('status') == 'RELEASING' else a.get('status'))
                         score = f"{a.get('averageScore', 0) / 10:.1f}" if a.get('averageScore') else 'N/A'
+                        titles = a.get('title', {})
+                        chosen_title = titles.get('romaji') or titles.get('english') or 'Desconocido'
                         results.append({
-                            'title': a.get('title', {}).get('romaji', 'Desconocido'),
+                            'title': chosen_title,
+                            'alt_title': titles.get('english', ''),
                             'image': a.get('coverImage', {}).get('large', ''),
                             'color': a.get('coverImage', {}).get('color'),
                             'meta': f"{status} • ★ {score}"
@@ -303,3 +306,23 @@ class AurionBridge:
         if self._window:
             self._window.destroy()
         os._exit(0)
+
+    def minimize_window(self):
+        if self._window:
+            self._window.minimize()
+
+    def toggle_maximize_window(self):
+        if self._window:
+            if getattr(self, '_is_maximized', False):
+                self._window.restore()
+                self._is_maximized = False
+            else:
+                self._window.maximize()
+                self._is_maximized = True
+
+    def close_window(self):
+        if self._window:
+            self._window.destroy()
+
+    def set_window(self, win):
+        self._window = win

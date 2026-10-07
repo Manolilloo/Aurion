@@ -1,38 +1,38 @@
-// Memoria en caché de enlaces capturados por pestaña
-const capturedStreams = {};
+// Memoria de flujos detectados por pestaña
+const tabStreams = {};
 
 chrome.webRequest.onBeforeRequest.addListener(
   (details) => {
-    const url = details.url;
-    const tabId = details.tabId;
+    const { url, tabId } = details;
     if (tabId < 0) return;
 
-    // Detectar streams directos de vídeo o listas m3u8
-    const isVideoStream = url.includes('.m3u8') || 
-                          url.includes('.mp4') || 
-                          url.includes('master.txt') ||
-                          url.includes('streamtape.com/get_video') ||
-                          url.includes('voe.sx/engine');
+    const isVideo = url.includes('.m3u8') ||
+                    url.includes('.mp4') ||
+                    url.includes('streamtape.com/get_video') ||
+                    url.includes('voe.sx/engine') ||
+                    url.includes('/video.mp4');
 
-    if (isVideoStream) {
-      if (!capturedStreams[tabId]) {
-        capturedStreams[tabId] = new Set();
-      }
-      capturedStreams[tabId].add(url);
+    if (isVideo) {
+      if (!tabStreams[tabId]) tabStreams[tabId] = new Set();
+      tabStreams[tabId].add(url);
+
+      // Avisar al content script para que despliegue la píldora flotante
+      chrome.tabs.sendMessage(tabId, {
+        type: 'AURION_STREAM_DETECTED',
+        streamUrl: url
+      }).catch(() => {});
     }
   },
   { urls: ["<all_urls>"] }
 );
 
-// Limpiar cuando se cierre la pestaña
 chrome.tabs.onRemoved.addListener((tabId) => {
-  delete capturedStreams[tabId];
+  delete tabStreams[tabId];
 });
 
-// Responder al popup con los enlaces capturados
 chrome.runtime.onMessage.addListener((req, sender, sendResponse) => {
   if (req.type === 'GET_STREAMS') {
-    const list = Array.from(capturedStreams[req.tabId] || []);
+    const list = Array.from(tabStreams[req.tabId] || []);
     sendResponse({ streams: list });
   }
 });
