@@ -364,3 +364,18 @@ class AurionBridge:
         if self._window:
             self._window.destroy()
         os._exit(0)
+
+    def cancel_download_task(self, task_id):
+        """Notifica al downloader para detener la descarga de esta tarea."""
+        self.downloader.cancel_task(task_id)
+        return True
+
+    def start_downloads(self, payload):
+        """Inicia el proceso de descarga delegando al downloader."""
+        print(f"\n[DEBUG BRIDGE] start_downloads recibido!")
+        tasks = payload.get("tasks", [])
+        config = payload.get("config", {})
+        print(f"[DEBUG BRIDGE] Tareas a descargar: {len(tasks)}")
+        for t in tasks:
+            print(f"   -> Episodio: {t.get('title')} | URL: {t.get('url')}")
+        return self.downloader.start_engine(config, tasks)

@@ -393,14 +393,11 @@ function setUnifiedTitle(title) {
   state.title = title;
 
   if (currentMode === 'anime') {
-    const s = state.season || 1;
     const e = state.startEp || 1;
-    // Si es temporada única omite el T1_
-    const prefix = state.singleSeason ? `${title} - Ep${e}` : `${title} - T${s}_Ep${e}`;
+    const prefix = `${title} - Ep ${e}`;
     if (pInput) pInput.value = prefix;
     state.prefix = prefix;
   } else {
-    // En cine solo el nombre limpio
     const prefix = `${title}`;
     if (pInput) pInput.value = prefix;
     state.prefix = prefix;
@@ -530,6 +527,10 @@ function renderQueueCard(task) {
 
   card.querySelector('.queue-card-del').addEventListener('click', () => {
     if (typeof playSynth === 'function') playSynth('click');
+
+    // Notificar inmediatamente a Python para que aborte la descarga física
+    pyCall('cancel_download_task', task.id);
+
     const currentQueue = modeStates[currentMode].queue;
     const idx = currentQueue.findIndex(t => t.id === task.id);
     if (idx > -1) currentQueue.splice(idx, 1);
@@ -723,12 +724,12 @@ function commitTransmission(chosenItem, targetMode, episodeNum) {
   const state = modeStates[targetMode];
   let fileName = chosenItem.title;
   if (targetMode === 'anime') {
-    const sStr = String(state.season || 1).padStart(2, '0');
-    const epStr = String(episodeNum || state.startEp || 1).padStart(2, '0');
-    fileName = `[${chosenItem.title}] S${sStr}E${epStr}`;
-    setStepperValue('cfg-start-ep', (episodeNum || 1) + 1, 1);
+    const epVal = episodeNum || state.startEp || 1;
+    fileName = `${chosenItem.title} - Ep ${epVal}`;
+    // Mantenemos el episodio exacto, SIN sumarle 1
+    setStepperValue('cfg-start-ep', epVal, 0);
   } else {
-    fileName = `[${chosenItem.title}]`;
+    fileName = `${chosenItem.title}`;
   }
 
   const streamUrl = pendingTransmission.raw.stream_url || pendingTransmission.raw.page_url;
@@ -792,7 +793,11 @@ function extractSearchQuery(rawTitle, rawUrl = '') {
 }
 
 function extractEpisodeNumber(rawText) {
-  const match = rawText.match(/(?:episodio|episode|capitulo|capítulo|cap)[^\d]*(\d+)/i) ||
+  // Solo detectamos el episodio (ej: Cap 10, Ep 3, 3x02 -> ep 2)
+  const seMatch = rawText.match(/[xXeE_\-](\d{1,4})/i);
+  if (seMatch) return parseInt(seMatch[1], 10);
+
+  const match = rawText.match(/(?:episodio|episode|capitulo|capítulo|cap)[^\d]*(\d{1,4})/i) ||
                 rawText.match(/[_\-\/](\d{1,4})(?:[_\-\.]|$)/);
   return match ? parseInt(match[1], 10) : 1;
 }
@@ -806,16 +811,21 @@ window.onLinkReceived = async function(data) {
     return;
   }
 
-  const detectedEp = extractEpisodeNumber(data.page_title + ' ' + (data.page_url || ''));
+  const fullText = (data.page_title || '') + ' ' + (data.page_url || '');
+  const detectedEp = extractEpisodeNumber(fullText);
   const cleanName = extractSearchQuery(data.page_title, data.page_url);
 
   const activeTitle = modeStates[currentMode].title;
   if (activeTitle !== 'Esperando consulta...' && calculateWordMatchScore(cleanName, activeTitle) > 0.4) {
     expandCenterWorkspace();
     const state = modeStates[currentMode];
-    const sStr = String(state.season || 1).padStart(2, '0');
-    const epStr = String(detectedEp || state.startEp || 1).padStart(2, '0');
-    const fileName = currentMode === 'anime' ? `[${activeTitle}] S${sStr}E${epStr}` : `[${activeTitle}]`;
+    const epVal = detectedEp || state.startEp || 1;
+    const fileName = currentMode === 'anime' ? `${activeTitle} - Ep ${epVal}` : `${activeTitle}`;
+
+    if (currentMode === 'anime') {
+      setStepperValue('cfg-start-ep', epVal, 0);
+      setUnifiedTitle(activeTitle);
+    }
 
     const task = {
       id: 'task_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
@@ -832,9 +842,6 @@ window.onLinkReceived = async function(data) {
     state.queue.push(task);
     renderQueueCard(task);
     updateTotalQueueSize();
-    if (currentMode === 'anime') {
-      setStepperValue('cfg-start-ep', (detectedEp || state.startEp) + 1, 1);
-    }
     return;
   }
 
@@ -942,18 +949,21 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Toggle Temporada Única
+  // Clic en toda la tarjeta de TEMPORADA ÚNICA
+  const cardSingleSeason = document.getElementById('card-single-season') || document.getElementById('cfg-single-season')?.closest('.toggle-card');
   const cfgSingleSeason = document.getElementById('cfg-single-season');
-  if (cfgSingleSeason) {
-    cfgSingleSeason.addEventListener('change', () => {
+
+  if (cardSingleSeason && cfgSingleSeason) {
+    cardSingleSeason.addEventListener('click', (e) => {
+      if (e.target !== cfgSingleSeason) {
+        cfgSingleSeason.checked = !cfgSingleSeason.checked;
+      }
       if (typeof playSynth === 'function') playSynth('origami');
       const isSingle = cfgSingleSeason.checked;
       modeStates[currentMode].singleSeason = isSingle;
 
-      // Dispara la animación fluida en CSS
       document.body.classList.toggle('is-single-season', isSingle);
 
-      // Si hay un título activo, recalcular prefijo dinámicamente
       const state = modeStates[currentMode];
       if (state.title && state.title !== 'Esperando consulta...') {
         setUnifiedTitle(state.title);
@@ -962,10 +972,15 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Toggle Portada
+  // Clic en toda la tarjeta de GUARDAR PORTADA
+  const cardSaveCover = document.getElementById('cfg-save-cover')?.closest('.toggle-card');
   const cfgSaveCover = document.getElementById('cfg-save-cover');
-  if (cfgSaveCover) {
-    cfgSaveCover.addEventListener('change', () => {
+
+  if (cardSaveCover && cfgSaveCover) {
+    cardSaveCover.addEventListener('click', (e) => {
+      if (e.target !== cfgSaveCover) {
+        cfgSaveCover.checked = !cfgSaveCover.checked;
+      }
       if (typeof playSynth === 'function') playSynth('click');
       modeStates[currentMode].saveCover = cfgSaveCover.checked;
       saveCurrentState();
@@ -1159,9 +1174,28 @@ document.addEventListener('DOMContentLoaded', () => {
           if (bar) bar.classList.add('active');
         });
 
+        const currentManualDir = document.getElementById('cfg-dir')?.value || modeStates[currentMode].dir;
+        const currentManualPrefix = document.getElementById('cfg-prefix')?.value || modeStates[currentMode].prefix;
+
+        // Leer chips activos directamente del DOM para garantizar sincronización 100% real
+        const activeRes = document.querySelector('.chip-group[data-cfg="res"] .chip-btn.active')?.getAttribute('data-val') || modeStates[currentMode].res;
+        const activeFmt = document.querySelector('.chip-group[data-cfg="fmt"] .chip-btn.active')?.getAttribute('data-val') || modeStates[currentMode].fmt;
+        const activeThreads = document.querySelector('.chip-group[data-cfg="threads"] .chip-btn.active')?.getAttribute('data-val') || modeStates[currentMode].threads;
+        const activeSimul = document.querySelector('.chip-group[data-cfg="simul"] .chip-btn.active')?.getAttribute('data-val') || modeStates[currentMode].simul;
+
         pyCall('start_downloads', {
           tasks: pendingTasks,
-          config: modeStates[currentMode]
+          config: {
+            ...modeStates[currentMode],
+            dir: currentManualDir,
+            prefix: currentManualPrefix,
+            is_single_season: !!modeStates[currentMode].singleSeason,
+            season_num: modeStates[currentMode].season || 1,
+            res: activeRes,
+            fmt: activeFmt,
+            threads: activeThreads,
+            simul: activeSimul
+          }
         });
 
         isMasterRunning = false;
@@ -1412,3 +1446,26 @@ window.addEventListener('resize', () => {
   refreshAllGliders();
   setTimeout(refreshAllGliders, 200);
 });
+
+// Receptor de progreso desde Python en tiempo real
+window.updateDownloadProgress = function(taskId, progress, speed, status) {
+  const card = document.getElementById(taskId);
+  if (!card) return;
+
+  const bar = document.getElementById(`bar-${taskId}`);
+  const fill = bar?.querySelector('.queue-progress-fill');
+  const statusEl = card.querySelector('.queue-card-status');
+  const speedEl = card.querySelector('.queue-card-speed');
+
+  if (bar && !bar.classList.contains('active')) bar.classList.add('active');
+  if (fill) fill.style.width = `${progress}%`;
+  if (statusEl) statusEl.innerText = status;
+  if (speedEl) speedEl.innerText = speed;
+
+  if (status === 'Completado') {
+    statusEl.style.color = 'var(--color-accent-1)';
+    const masterBtn = document.getElementById('btn-master');
+    const magTxt = document.getElementById('mag-txt');
+    if (magTxt) magTxt.innerText = 'EXTRACCIÓN COMPLETADA';
+  }
+};

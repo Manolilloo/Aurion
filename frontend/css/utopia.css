@@ -300,20 +300,20 @@ input[type=number] {
 }
 
 .site-bubble:hover {
-  transform: translateY(-8px) scale(1.38) !important;
+  transform: translateY(-2.5px) scale(1.12) !important;
   z-index: 10;
   border-color: var(--color-accent-1);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.65), 0 0 20px var(--color-glow);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5), 0 0 14px var(--color-glow);
   background: rgba(255, 255, 255, 0.22);
 }
 
 .site-bubble:hover + .site-bubble {
-  transform: translateY(-4px) scale(1.18);
+  transform: translateY(-1.5px) scale(1.06);
   z-index: 5;
 }
 
 .site-bubble:has(+ .site-bubble:hover) {
-  transform: translateY(-4px) scale(1.18);
+  transform: translateY(-1.5px) scale(1.06);
   z-index: 5;
 }
 
@@ -663,6 +663,22 @@ input[type=number] {
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.4);
   padding: 9px 14px;
   border-radius: 14px;
+  cursor: pointer;
+  user-select: none;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.toggle-card:hover {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(0, 0, 0, 0.35) 100%);
+}
+
+.toggle-card:active {
+  transform: scale(0.99);
+}
+
+.toggle-card .switch-toggle {
+  pointer-events: none; /* Dejamos que el clic lo reciba toda la tarjeta */
 }
 
 .toggle-label {
@@ -2299,6 +2315,19 @@ body > *:not(.top-nav) * {
    ========================================================= */
 
 /* --- NIVEL 1: PANTALLAS 1080p (Full HD maximizado) --- */
+body.is-maximized .switch-center-anchor {
+  top: 18px !important;
+}
+
+body.is-maximized .matrix-switch {
+  width: 220px !important;
+  height: 44px !important;
+}
+
+body.is-maximized .matrix-opt {
+  font-size: 13px !important;
+}
+
 body.is-maximized .cockpit {
   max-width: 1480px !important;
   width: 96vw !important;
@@ -2354,18 +2383,34 @@ body.is-maximized .chip-btn {
 }
 
 body.is-maximized .center-stage {
-  max-width: 540px !important;
+  max-width: 620px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
 
 body.is-maximized .workspace-card {
-  max-width: 420px !important;
-  gap: 12px !important;
+  max-width: 480px !important;
+  width: 100% !important;
+  height: 100% !important;
+  justify-content: center !important;
+  gap: 10px !important;
+  padding: 0 !important;
+}
+
+body.is-maximized .search-container {
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
 }
 
 body.is-maximized .parallax-wrap {
   width: 100% !important;
-  height: calc(100vh - 235px) !important;
-  max-height: 540px !important;
+  flex: 0 0 auto !important;
+  height: calc(100vh - 230px) !important;
+  min-height: 500px !important;
+  max-height: 640px !important;
+  margin: 0 !important;
 }
 
 body.is-maximized .parallax-poster {
@@ -2384,6 +2429,19 @@ body.is-maximized .btn-god-txt {
 
 /* --- NIVEL 2: PANTALLAS 1440p (2K) Y SUPERIORES (>= 2200px o altura >= 1200px) --- */
 @media (min-width: 2200px), (min-height: 1200px) {
+  body.is-maximized .switch-center-anchor {
+    top: 26px !important;
+  }
+
+  body.is-maximized .matrix-switch {
+    width: 240px !important;
+    height: 48px !important;
+  }
+
+  body.is-maximized .matrix-opt {
+    font-size: 14px !important;
+  }
+
   body.is-maximized .cockpit {
     max-width: 1850px !important;
     gap: 40px !important;
@@ -2478,22 +2536,32 @@ body.is-maximized .btn-god-txt {
   }
 
   body.is-maximized .center-stage {
-    max-width: 720px !important;
+    max-width: 800px !important;
   }
 
   body.is-maximized .workspace-card {
-    max-width: 530px !important;
-    gap: 18px !important;
+    max-width: 580px !important;
+    justify-content: center !important;
+    gap: 12px !important;
+  }
+
+  body.is-maximized .search-container {
+    width: 100% !important;
+    margin: 0 !important;
   }
 
   body.is-maximized .search-container .search-input {
     font-size: 15px !important;
-    padding: 14px 20px !important;
+    padding: 13px 18px !important;
   }
 
   body.is-maximized .parallax-wrap {
-    height: calc(100vh - 280px) !important;
-    max-height: 680px !important;
+    width: 100% !important;
+    flex: 0 0 auto !important;
+    height: calc(100vh - 260px) !important;
+    min-height: 620px !important;
+    max-height: 760px !important;
+    margin: 0 !important;
   }
 
   body.is-maximized .parallax-poster {
