@@ -29,6 +29,7 @@ html, body {
   background-color: var(--color-bg-base);
   color: #f1f5f9;
   user-select: none;
+  -webkit-app-region: no-drag !important;
 }
 
 /* FONDOS AMBIENTALES */
@@ -62,20 +63,8 @@ input[type=number] {
 }
 
 /* =========================================================
-   BARRA SUPERIOR (HEADER)
+   BARRA SUPERIOR (HEADER) Y ARRASTRE EXCLUSIVO
    ========================================================= */
-
-/* ZONA ARRASTRABLE Y CONTROLES CUSTOM */
-.pywebview-drag-region {
-  -webkit-app-region: drag;
-  user-select: none;
-}
-
-.sites-dock,
-.switch-center-anchor,
-.window-controls-box {
-  -webkit-app-region: no-drag;
-}
 
 .top-nav {
   position: relative;
@@ -83,9 +72,18 @@ input[type=number] {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 28px 10px 28px; /* Más aire por arriba y a los lados */
+  padding: 16px 28px 10px 28px;
   height: 60px;
   width: 100%;
+  -webkit-app-region: drag !important;
+}
+
+.sites-dock,
+.switch-center-anchor,
+.window-controls-box,
+button,
+input {
+  -webkit-app-region: no-drag !important;
 }
 
 .window-controls-box {
@@ -126,30 +124,6 @@ input[type=number] {
   box-shadow: 0 0 10px rgba(255, 51, 102, 0.4);
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-.site-bubble-img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  border-radius: 50%;
-  pointer-events: none;
-}
-
 /* =========================================================
    DOCK DE SITIOS MAC-STYLE FLUID
    ========================================================= */
@@ -164,7 +138,7 @@ input[type=number] {
   backdrop-filter: blur(30px) saturate(190%);
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.2);
   transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-  overflow: visible !important; /* Permite la ampliación estilo Mac */
+  overflow: visible !important;
 }
 
 .sites-dock.is-open {
@@ -173,7 +147,6 @@ input[type=number] {
   box-shadow: 0 12px 35px rgba(0, 0, 0, 0.7), 0 0 24px var(--color-glow);
 }
 
-/* BOTÓN PRINCIPAL CON ONDA EXPANSIVA Y DESTELLO CONSTANTE */
 .sites-trigger {
   position: relative;
   font-size: 12px;
@@ -194,7 +167,6 @@ input[type=number] {
   overflow: hidden;
 }
 
-/* Destello luminoso que cruza el botón continuamente */
 .sites-trigger::after {
   content: "";
   position: absolute;
@@ -237,7 +209,6 @@ input[type=number] {
   transform: scale(0.96) !important;
 }
 
-/* CONTENEDOR DE ÍCONOS */
 .sites-items-box {
   display: flex;
   align-items: center;
@@ -261,7 +232,6 @@ input[type=number] {
   transform: translateX(0) scale(1);
 }
 
-/* EFECTO DOCK DE MAC (MAGNIFICACIÓN FOCAL) */
 .site-bubble {
   width: 36px;
   height: 36px;
@@ -292,7 +262,6 @@ input[type=number] {
   pointer-events: none;
 }
 
-/* ÍCONO EN FOCO (AMPLIACIÓN FUERTE ESTILO MAC) */
 .site-bubble:hover {
   transform: translateY(-8px) scale(1.38) !important;
   z-index: 10;
@@ -301,13 +270,11 @@ input[type=number] {
   background: rgba(255, 255, 255, 0.22);
 }
 
-/* ÍCONO ADYACENTE DERECHO (EFECTO CURVA DE MAC) */
 .site-bubble:hover + .site-bubble {
   transform: translateY(-4px) scale(1.18);
   z-index: 5;
 }
 
-/* ÍCONO ADYACENTE IZQUIERDO (EFECTO CURVA DE MAC CON :has) */
 .site-bubble:has(+ .site-bubble:hover) {
   transform: translateY(-4px) scale(1.18);
   z-index: 5;
@@ -386,11 +353,12 @@ input[type=number] {
   width: 100% !important;
   max-width: 1360px !important;
   margin: 0 auto !important;
-  padding: 10px 24px 22px 24px !important; /* Espacio limpio entre el header y los paneles */
+  padding: 10px 24px 22px 24px !important;
   box-sizing: border-box !important;
   height: calc(100vh - 72px) !important;
   max-height: 710px !important;
   overflow: visible !important;
+  -webkit-app-region: no-drag !important;
 }
 
 .glass-box {
@@ -408,6 +376,7 @@ input[type=number] {
               inset 0 1px 1px rgba(255, 255, 255, 0.18),
               inset 0 -1px 2px rgba(0, 0, 0, 0.4) !important;
   transition: border-color 0.3s ease;
+  -webkit-app-region: no-drag !important;
 }
 
 .glass-box:hover {
@@ -418,11 +387,15 @@ input[type=number] {
   height: 100% !important;
   display: flex !important;
   flex-direction: column !important;
-  justify-content: space-between !important;
   padding: 18px 20px !important;
-  gap: 10px !important;
+  gap: 12px !important;
   box-sizing: border-box !important;
   overflow: hidden !important;
+}
+
+/* El panel derecho junta todo arriba limpiamente */
+.glass-box:last-child .glass-inner {
+  justify-content: flex-start !important;
 }
 
 .box-header {
@@ -432,6 +405,7 @@ input[type=number] {
   color: #f8fafc !important;
   padding-bottom: 6px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  margin-bottom: 4px;
 }
 
 .section-label {
@@ -439,7 +413,7 @@ input[type=number] {
   font-weight: 800 !important;
   letter-spacing: 0.8px !important;
   color: #94a3b8 !important;
-  margin-bottom: 4px !important;
+  margin-bottom: 5px !important;
   display: block !important;
 }
 
@@ -468,9 +442,9 @@ input[type=number] {
   gap: 10px;
   align-items: center;
   padding-top: 4px;
+  margin-top: auto;
 }
 
-/* BOTONES GLASSSPILL AMPLIADOS */
 .btn-neu {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%) !important;
   backdrop-filter: blur(20px) !important;
@@ -530,11 +504,9 @@ input[type=number] {
    ========================================================= */
 
 .settings-area {
-  flex: 1 1 auto !important;
   display: flex !important;
   flex-direction: column !important;
-  justify-content: flex-start !important;
-  gap: 10px !important;
+  gap: 12px !important;
 }
 
 .search-input {
@@ -553,75 +525,6 @@ input[type=number] {
 .search-input:focus {
   border-color: var(--color-accent-1);
   box-shadow: 0 0 12px var(--color-glow), inset 0 1px 2px rgba(0, 0, 0, 0.6);
-}
-
-/* STEPPERS NUMÉRICOS MÁS GRANDES Y CÓMODOS */
-.stepper-box {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.45));
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.6);
-  border-radius: 13px;
-  padding: 3px 5px;
-  height: 38px;
-  box-sizing: border-box;
-}
-
-.step-btn {
-  width: 32px;
-  height: 32px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.25);
-  color: #cbd5e1;
-  font-size: 17px;
-  font-weight: 800;
-  cursor: pointer;
-  border-radius: 9px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.18s ease;
-}
-
-.step-btn:hover {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.05) 100%);
-  color: var(--color-accent-1);
-  border-color: var(--color-accent-1);
-  box-shadow: 0 0 10px var(--color-glow);
-}
-
-.step-btn:active {
-  transform: scale(0.95);
-}
-
-.step-viewport {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  height: 100%;
-}
-
-.step-val {
-  font-size: 14px;
-  font-weight: 900;
-  color: var(--color-accent-1);
-  text-shadow: 0 0 10px var(--color-glow);
-  transition: transform 0.15s ease, opacity 0.15s ease;
-}
-
-.step-val.anim-up {
-  transform: translateY(-10px);
-  opacity: 0;
-}
-
-.step-val.anim-down {
-  transform: translateY(10px);
-  opacity: 0;
 }
 
 /* COLAPSO FÍSICO LIMPIO */
@@ -643,30 +546,104 @@ input[type=number] {
   margin-top: -10px;
 }
 
-/* TOGGLE PORTADA */
+/* STEPPERS NUMÉRICOS CON PRESENCIA FÍSICA */
+.stepper-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.65), rgba(0, 0, 0, 0.45));
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.65), inset 0 -1px 1px rgba(255, 255, 255, 0.05);
+  border-radius: 14px;
+  padding: 3px 5px;
+  height: 42px;
+  box-sizing: border-box;
+}
+
+.step-btn {
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.03) 100%);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.45), 
+              inset 0 1px 1px rgba(255, 255, 255, 0.35),
+              inset 0 -1px 2px rgba(0, 0, 0, 0.5);
+  color: #f1f5f9;
+  font-size: 19px;
+  font-weight: 800;
+  cursor: pointer;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.step-btn:hover {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.06) 100%);
+  color: var(--color-accent-1);
+  border-color: var(--color-accent-1);
+  box-shadow: 0 0 14px var(--color-glow), inset 0 1px 2px rgba(255, 255, 255, 0.5);
+  transform: translateY(-1px);
+}
+
+.step-btn:active {
+  transform: translateY(1px) scale(0.94);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.6);
+}
+
+.step-viewport {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  height: 100%;
+}
+
+.step-val {
+  font-size: 15px;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+  color: var(--color-accent-1);
+  text-shadow: 0 0 12px var(--color-glow);
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.step-val.anim-up {
+  transform: translateY(-10px);
+  opacity: 0;
+}
+
+.step-val.anim-down {
+  transform: translateY(10px);
+  opacity: 0;
+}
+
+/* TOGGLE PORTADA CON MEJOR GRIP */
 .toggle-card {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.3));
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.4);
-  padding: 8px 13px;
-  border-radius: 13px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.32));
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.4);
+  padding: 9px 14px;
+  border-radius: 14px;
 }
 
 .toggle-label {
-  font-size: 10px;
+  font-size: 10.5px;
   font-weight: 800;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.6px;
   color: #cbd5e1;
 }
 
 .switch-toggle {
   position: relative;
   display: inline-block;
-  width: 38px;
-  height: 20px;
+  width: 42px;
+  height: 22px;
 }
 
 .switch-toggle input {
@@ -680,46 +657,46 @@ input[type=number] {
   cursor: pointer;
   inset: 0;
   background-color: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 20px;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5);
-  transition: 0.25s;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 22px;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.6);
+  transition: 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .switch-slider:before {
   position: absolute;
   content: "";
-  height: 14px;
-  width: 14px;
+  height: 16px;
+  width: 16px;
   left: 3px;
   bottom: 2px;
   background: linear-gradient(180deg, #ffffff 0%, #cbd5e1 100%);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
   border-radius: 50%;
-  transition: 0.25s;
+  transition: 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 input:checked + .switch-slider {
   background-color: var(--color-accent-1);
   border-color: var(--color-accent-1);
-  box-shadow: 0 0 12px var(--color-glow);
+  box-shadow: 0 0 14px var(--color-glow);
 }
 
 input:checked + .switch-slider:before {
-  transform: translateX(18px);
+  transform: translateX(20px);
   background: #000;
 }
 
-/* CHIPS MÁS AMPLIOS CON RELIEVE Y GLIDERS */
+/* CHIPS PROFESIONALES ESCALADOS CON TACTO PREMIUM */
 .chip-group {
   position: relative;
   display: flex;
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.4) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.7), inset 0 -1px 1px rgba(255, 255, 255, 0.04);
-  border-radius: 13px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.65) 0%, rgba(0, 0, 0, 0.45) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.75), inset 0 -1px 1px rgba(255, 255, 255, 0.05);
+  border-radius: 14px;
   padding: 3px;
-  height: 34px;
+  height: 38px;
   align-items: center;
 }
 
@@ -729,10 +706,10 @@ input:checked + .switch-slider:before {
   left: 3px;
   height: calc(100% - 6px);
   background: linear-gradient(135deg, var(--color-accent-1) 0%, #ffffff 180%);
-  border-radius: 10px;
-  box-shadow: 0 3px 12px var(--color-glow), 
-              inset 0 1px 2px rgba(255, 255, 255, 0.65), 
-              inset 0 -1px 2px rgba(0, 0, 0, 0.3);
+  border-radius: 11px;
+  box-shadow: 0 4px 14px var(--color-glow), 
+              inset 0 1px 2px rgba(255, 255, 255, 0.75), 
+              inset 0 -1px 2px rgba(0, 0, 0, 0.35);
   transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1), width 0.24s ease;
   pointer-events: none;
 }
@@ -741,23 +718,28 @@ input:checked + .switch-slider:before {
   flex: 1;
   background: transparent;
   border: none;
-  padding: 7px 0;
-  font-size: 10px;
+  padding: 8px 0;
+  font-size: 11px;
   font-weight: 800;
+  letter-spacing: 0.6px;
   color: #94a3b8;
   cursor: pointer;
   z-index: 2;
   position: relative;
-  transition: color 0.18s ease;
+  transition: color 0.18s ease, transform 0.15s ease;
 }
 
 .chip-btn.active {
-  color: var(--color-btn-text, #000);
+  color: var(--color-btn-text, #000) !important;
   font-weight: 900;
 }
 
 .chip-btn:hover:not(.active) {
-  color: #f8fafc;
+  color: #ffffff;
+}
+
+.chip-btn:active {
+  transform: scale(0.96);
 }
 
 /* TELEMETRÍA DE DISCO */
@@ -820,7 +802,6 @@ input:checked + .switch-slider:before {
   overflow: visible !important;
 }
 
-/* TARJETA DE BIENVENIDA CON GLOW ESFÉRICO INTEGRADO */
 .welcome-card {
   width: 100%;
   max-width: 440px;
@@ -901,7 +882,6 @@ input:checked + .switch-slider:before {
   box-shadow: 0 0 10px var(--color-glow);
 }
 
-/* WORKSPACE CENTRAL */
 .workspace-card {
   width: 100% !important;
   max-width: 350px !important;

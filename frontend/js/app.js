@@ -163,43 +163,26 @@ function applyChipsState(state) {
 }
 
 // 4. STEPPERS NUMÉRICOS (TEMPORADA Y EPISODIO)
-function setStepperValue(targetId, newVal, direction = 0) {
-  const input = document.getElementById(targetId);
-  const disp = document.getElementById(`disp-${targetId}`);
-  if (!input) return;
-
-  const box = input.closest('.stepper-box');
-  const min = box ? parseInt(box.getAttribute('data-min'), 10) || 1 : 1;
-  const max = box ? parseInt(box.getAttribute('data-max'), 10) || 9999 : 9999;
-
-  let val = Math.max(min, Math.min(max, newVal));
-  input.value = val;
-
-  if (disp) {
-    if (direction !== 0) {
-      disp.classList.add(direction > 0 ? 'anim-up' : 'anim-down');
-      setTimeout(() => {
-        disp.innerText = val;
-        disp.classList.remove('anim-up', 'anim-down');
-      }, 120);
-    } else {
-      disp.innerText = val;
-    }
+function setStepperValue(id, val, delta) {
+  const newVal = Math.max(1, val + delta);
+  const el = document.getElementById(id);
+  if (el) {
+    el.innerText = newVal;
+    el.classList.remove('anim-up', 'anim-down');
+    void el.offsetWidth;
+    el.classList.add(delta >= 0 ? 'anim-up' : 'anim-down');
   }
 
-  if (targetId === 'cfg-season') modeStates[currentMode].season = val;
-  if (targetId === 'cfg-start-ep') modeStates[currentMode].startEp = val;
+  if (id === 'cfg-season') modeStates[currentMode].season = newVal;
+  if (id === 'cfg-start-ep') modeStates[currentMode].startEp = newVal;
 
-  const currentTitle = modeStates[currentMode].title;
-  const prefixInput = document.getElementById('cfg-prefix');
-  if (currentMode === 'anime' && prefixInput && currentTitle && currentTitle !== 'Esperando consulta...') {
-    const sStr = String(modeStates.anime.season || 1).padStart(2, '0');
-    const epStr = String(modeStates.anime.startEp || 1).padStart(2, '0');
-    prefixInput.value = `[${currentTitle}] S${sStr}E${epStr} - `;
-    modeStates.anime.prefix = prefixInput.value;
+  // Actualiza el prefijo con el nuevo número si hay un anime cargado
+  const state = modeStates[currentMode];
+  if (currentMode === 'anime' && state.title && state.title !== 'Esperando consulta...') {
+    setUnifiedTitle(state.title);
   }
 
-  saveCurrentState();
+  return newVal;
 }
 
 // 5. CAMBIO DE MODO Y GUARDADO
@@ -316,6 +299,7 @@ function loadState(mode) {
   applyDynamicPalette(state.accent1, state.accent2);
   renderFullQueue(mode);
   updateDiskTelemetry(state.dir);
+  // updatePrefixTags();
 }
 
 function setAppMode(mode, save = true) {
@@ -348,19 +332,77 @@ function setAppMode(mode, save = true) {
   if (save) pyCall('toggle_mode', mode);
 }
 
+// ACTUALIZADOR INTELIGENTE DE TOKENS DE NOMENCLATURA EN VIVO
+function refreshNamingDisplay() {
+  const state = modeStates[currentMode];
+  const tTitle = document.getElementById('token-title');
+  const tSeason = document.getElementById('token-season');
+  const tEp = document.getElementById('token-ep');
+  const tQuality = document.getElementById('token-quality');
+  const tExt = document.getElementById('token-ext');
+  const tMode = document.getElementById('naming-mode-indicator');
+  const pInput = document.getElementById('cfg-prefix');
+
+  const rawTitle = state.title && state.title !== 'Esperando consulta...' ? state.title : 'Aurion';
+  const cleanTitle = `[${rawTitle}]`;
+
+  if (tTitle) {
+    tTitle.innerText = cleanTitle;
+    tTitle.title = cleanTitle;
+  }
+
+  if (currentMode === 'anime') {
+    const sNum = String(state.season || 1).padStart(2, '0');
+    const epNum = String(state.startEp || 1).padStart(2, '0');
+    if (tSeason) {
+      tSeason.style.display = 'inline-block';
+      tSeason.innerText = `S${sNum}`;
+    }
+    if (tEp) {
+      tEp.style.display = 'inline-block';
+      tEp.innerText = `E${epNum}`;
+    }
+    if (tMode) tMode.innerText = 'SERIE/ANIME';
+  } else {
+    if (tSeason) tSeason.style.display = 'none';
+    if (tEp) tEp.style.display = 'none';
+    if (tMode) tMode.innerText = 'PELÍCULA';
+  }
+
+  // Calidad y Contenedor actuales
+  if (tQuality) tQuality.innerText = state.res === 'max' ? 'MAX-RES' : state.res;
+  if (tExt) tExt.innerText = `.${state.fmt || 'mp4'}`;
+
+  // Si el usuario no ha puesto algo completamente manual, generar prefijo óptimo
+  if (pInput && (!pInput.value || pInput.value.startsWith('[Aurion]') || pInput.value.startsWith(`[${state.title}`))) {
+    if (currentMode === 'anime') {
+      const sNum = String(state.season || 1).padStart(2, '0');
+      const epNum = String(state.startEp || 1).padStart(2, '0');
+      pInput.value = `${cleanTitle} S${sNum}E${epNum} - `;
+    } else {
+      pInput.value = `${cleanTitle} (${state.res || '1080p'}) - `;
+    }
+    state.prefix = pInput.value;
+  }
+}
+
 function setUnifiedTitle(title) {
   const pInput = document.getElementById('cfg-prefix');
   const state = modeStates[currentMode];
   state.title = title;
-  
+
   if (currentMode === 'anime') {
-    const sStr = String(state.season || 1).padStart(2, '0');
-    const epStr = String(state.startEp || 1).padStart(2, '0');
-    if (pInput) pInput.value = `[${title}] S${sStr}E${epStr} - `;
-    state.prefix = `[${title}] S${sStr}E${epStr} - `;
+    const s = state.season || 1;
+    const e = state.startEp || 1;
+    // Formato exacto: Nombre - T1_Ep1
+    const prefix = `${title} - T${s}_Ep${e}`;
+    if (pInput) pInput.value = prefix;
+    state.prefix = prefix;
   } else {
-    if (pInput) pInput.value = `[${title}] `;
-    state.prefix = `[${title}] `;
+    // En cine solo el nombre limpio
+    const prefix = `${title}`;
+    if (pInput) pInput.value = prefix;
+    state.prefix = prefix;
   }
 }
 
@@ -1016,8 +1058,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (config) {
       if (config.anime) Object.assign(modeStates.anime, config.anime);
       if (config.movie) Object.assign(modeStates.movie, config.movie);
-      if (config.active_mode) setAppMode(config.active_mode, false);
-    }
+      setAppMode('anime', false);    }
   });
 
   window.addEventListener('pywebviewready', function() {
@@ -1025,7 +1066,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (config) {
         if (config.anime) Object.assign(modeStates.anime, config.anime);
         if (config.movie) Object.assign(modeStates.movie, config.movie);
-        if (config.active_mode) setAppMode(config.active_mode, false);
+        setAppMode('anime', false);
       }
     });
   });
@@ -1157,6 +1198,22 @@ document.addEventListener('DOMContentLoaded', () => {
       sitesTrigger.textContent = 'SITIOS ▶';
     });
   }
+
+  // RESET RÁPIDO DE PREFIJO A FORMATO ÓPTIMO
+  document.getElementById('btn-reset-prefix')?.addEventListener('click', () => {
+    const pInput = document.getElementById('cfg-prefix');
+    if (pInput) pInput.value = '';
+    refreshNamingDisplay();
+  });
+
+  // REFRESCO AL EDITAR MANUALMENTE EL PREFIJO
+  document.getElementById('cfg-prefix')?.addEventListener('input', (e) => {
+    modeStates[currentMode].prefix = e.target.value;
+    const tTitle = document.getElementById('token-title');
+    if (tTitle && e.target.value.trim()) {
+      tTitle.innerText = e.target.value.trim();
+    }
+  });
 });
 
 window.addEventListener('resize', () => {
