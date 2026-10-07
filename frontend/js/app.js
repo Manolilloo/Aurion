@@ -264,46 +264,24 @@ function loadState(mode) {
   // Verificación estricta: sólo tiene portada si bg existe, no es vacío ni 'none'
   const hasCover = typeof state.bg === 'string' && state.bg.trim() !== '' && state.bg !== 'none' && state.title && state.title !== 'Esperando consulta...';
 
+  // SIEMPRE DIRECTO AL ESPACIO DE TRABAJO (SIN PANTALLA DE BIENVENIDA)
+  expandCenterWorkspace();
+
   if (hasCover) {
     if (pTitle) pTitle.innerText = state.title;
     if (pTags) pTags.innerHTML = state.tags || 'SISTEMA LISTO';
     if (mPoster) mPoster.style.backgroundImage = state.bg;
     if (aL1) aL1.style.backgroundImage = state.bg;
     if (aL2) aL2.style.backgroundImage = state.bg;
-    expandCenterWorkspace();
   } else {
-    // LIMPIEZA ABSOLUTA DE PORTADA Y FONDOS
     if (pTitle) pTitle.innerText = 'Esperando consulta...';
     if (pTags) pTags.innerHTML = 'SISTEMA LISTO';
     if (mPoster) {
       mPoster.style.backgroundImage = '';
       mPoster.style.removeProperty('background-image');
     }
-    if (aL1) {
-      aL1.style.backgroundImage = '';
-      aL1.style.removeProperty('background-image');
-    }
-    if (aL2) {
-      aL2.style.backgroundImage = '';
-      aL2.style.removeProperty('background-image');
-    }
-
-    // Regresar al estado de bienvenida en este modo
-    document.body.classList.remove('workspace-open');
-
-    if (welcome) {
-      welcome.classList.remove('is-hidden');
-      welcome.style.display = 'flex';
-    }
-    const backdrop = document.getElementById('welcome-backdrop');
-    const guides = document.getElementById('welcome-guides');
-    if (backdrop) backdrop.classList.remove('is-hidden');
-    if (guides) guides.classList.remove('is-hidden');
-    document.querySelectorAll('.hud-pointer').forEach(p => p.style.display = 'flex');
-    if (workspace) {
-      workspace.classList.remove('is-active');
-      workspace.style.display = 'none';
-    }
+    if (aL1) aL1.style.backgroundImage = '';
+    if (aL2) aL2.style.backgroundImage = '';
   }
 
   applyChipsState(state);
@@ -637,11 +615,34 @@ function expandCenterWorkspace() {
   }
   if (backdrop) backdrop.classList.add('is-hidden');
   if (guides) guides.classList.add('is-hidden');
+  document.querySelectorAll('.hud-pointer').forEach(p => p.style.display = 'none');
 
   if (workspace) {
     workspace.classList.add('is-active');
     workspace.style.display = 'flex';
   }
+}
+
+function showWelcomeScreen() {
+  document.body.classList.remove('workspace-open');
+
+  const welcome = document.getElementById('welcome-card');
+  const workspace = document.getElementById('workspace-card');
+  const backdrop = document.getElementById('welcome-backdrop');
+  const guides = document.getElementById('welcome-guides');
+
+  if (workspace) {
+    workspace.classList.remove('is-active');
+    workspace.style.display = 'none';
+  }
+
+  if (welcome) {
+    welcome.classList.remove('is-hidden');
+    welcome.style.display = 'flex';
+  }
+  if (backdrop) backdrop.classList.remove('is-hidden');
+  if (guides) guides.classList.remove('is-hidden');
+  document.querySelectorAll('.hud-pointer').forEach(p => p.style.display = 'flex');
 }
 function showMatchModal(proposedItem, rawData, detectedEp) {
   const backdrop = document.getElementById('match-modal-backdrop');
@@ -938,15 +939,28 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Búsqueda interactiva
+  // Búsqueda interactiva con navegación completa por teclado (Flechas, Enter, Esc)
   const searchInput = document.getElementById('search-input');
   const suggestionsBox = document.getElementById('search-suggestions');
   let searchDebounceTimer;
+  let activeSuggIndex = -1;
+
+  function updateSelectedSuggestion(items) {
+    items.forEach((item, idx) => {
+      if (idx === activeSuggIndex) {
+        item.classList.add('selected');
+        item.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      } else {
+        item.classList.remove('selected');
+      }
+    });
+  }
 
   if (searchInput && suggestionsBox) {
     searchInput.addEventListener('input', () => {
       clearTimeout(searchDebounceTimer);
       const query = searchInput.value.trim();
+      activeSuggIndex = -1;
 
       if (query.length < 2) {
         suggestionsBox.classList.remove('active');
@@ -972,6 +986,8 @@ document.addEventListener('DOMContentLoaded', () => {
               searchInput.value = item.title;
               suggestionsBox.classList.remove('active');
               suggestionsBox.innerHTML = '';
+              activeSuggIndex = -1;
+              expandCenterWorkspace();
               updatePoster(item.image, item.title, item.meta);
               setUnifiedTitle(item.title);
 
@@ -1000,9 +1016,34 @@ document.addEventListener('DOMContentLoaded', () => {
       }, 220);
     });
 
+    // Control de teclado: flechas, enter y escape
+    searchInput.addEventListener('keydown', (e) => {
+      const items = suggestionsBox.querySelectorAll('.sugg-item');
+      if (!suggestionsBox.classList.contains('active') || items.length === 0) return;
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        activeSuggIndex = (activeSuggIndex + 1) % items.length;
+        updateSelectedSuggestion(items);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        activeSuggIndex = (activeSuggIndex - 1 + items.length) % items.length;
+        updateSelectedSuggestion(items);
+      } else if (e.key === 'Enter') {
+        if (activeSuggIndex >= 0 && items[activeSuggIndex]) {
+          e.preventDefault();
+          items[activeSuggIndex].click();
+        }
+      } else if (e.key === 'Escape') {
+        suggestionsBox.classList.remove('active');
+        activeSuggIndex = -1;
+      }
+    });
+
     window.addEventListener('click', (e) => {
       if (!e.target.closest('.search-container')) {
         suggestionsBox.classList.remove('active');
+        activeSuggIndex = -1;
       }
     });
   }
@@ -1222,12 +1263,24 @@ document.addEventListener('DOMContentLoaded', () => {
     refreshNamingDisplay();
   });
 
-  // REFRESCO AL EDITAR MANUALMENTE EL PREFIJO
+// REFRESCO AL EDITAR MANUALMENTE EL PREFIJO
   document.getElementById('cfg-prefix')?.addEventListener('input', (e) => {
     modeStates[currentMode].prefix = e.target.value;
     const tTitle = document.getElementById('token-title');
     if (tTitle && e.target.value.trim()) {
       tTitle.innerText = e.target.value.trim();
+    }
+  });
+
+  // BOTÓN ? ALTERNA ENTRE EL PANEL PRINCIPAL Y LA BIENVENIDA / TUTORIAL
+  const btnHelp = document.getElementById('win-help');
+  btnHelp?.addEventListener('click', () => {
+    if (typeof playSynth === 'function') playSynth('click');
+    const isWorkspaceVisible = document.body.classList.contains('workspace-open');
+    if (isWorkspaceVisible) {
+      showWelcomeScreen();
+    } else {
+      expandCenterWorkspace();
     }
   });
 });

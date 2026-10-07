@@ -1681,3 +1681,262 @@ input {
   background: rgba(255, 255, 255, 0.12);
   border-radius: 4px;
 }
+
+/* =========================================================
+   BOTÓN GUÍA LIQUID GLASS CON RELIEVE Y BRILLO
+   ========================================================= */
+.nav-right-cluster {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  -webkit-app-region: no-drag !important;
+}
+
+.liquid-help-btn {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: radial-gradient(135% 135% at 25% 20%, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0.05) 50%, rgba(0, 0, 0, 0.45) 100%);
+  backdrop-filter: blur(14px) saturate(180%);
+  -webkit-backdrop-filter: blur(14px) saturate(180%);
+  box-shadow: 
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.65),
+    inset 0 -2px 4px 0 rgba(0, 0, 0, 0.5),
+    0 4px 12px rgba(0, 0, 0, 0.45),
+    0 0 16px var(--color-glow-subtle);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+  user-select: none;
+}
+
+.liquid-help-glow {
+  position: absolute;
+  top: 2px;
+  left: 6px;
+  width: 14px;
+  height: 7px;
+  background: radial-gradient(ellipse at center, rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0) 80%);
+  border-radius: 50%;
+  transform: rotate(-20deg);
+  pointer-events: none;
+}
+
+.liquid-help-txt {
+  position: relative;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 15px;
+  font-weight: 900;
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8), 0 0 10px var(--color-accent-1);
+  transition: transform 0.2s ease, text-shadow 0.2s ease;
+  line-height: 1;
+}
+
+.liquid-help-btn:hover {
+  transform: translateY(-1px) scale(1.08);
+  border-color: rgba(255, 255, 255, 0.55);
+  box-shadow: 
+    inset 0 1px 2px 0 rgba(255, 255, 255, 0.9),
+    inset 0 -2px 4px 0 rgba(0, 0, 0, 0.4),
+    0 6px 18px rgba(0, 0, 0, 0.55),
+    0 0 22px var(--color-glow);
+}
+
+.liquid-help-btn:hover .liquid-help-txt {
+  text-shadow: 0 0 14px var(--color-accent-1), 0 0 24px #ffffff;
+}
+
+.liquid-help-btn:active {
+  transform: translateY(1px) scale(0.96);
+  box-shadow: 
+    inset 0 2px 4px rgba(0, 0, 0, 0.7),
+    0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+/* =========================================================
+   RELIEVE 3D Y BISIELES ESPECULARES (RESPETANDO COLORES)
+   ========================================================= */
+
+/* 1. DISPARADOR DE SITIOS (Pulsación tranquila, fluida y con desaceleración suave) */
+.sites-trigger {
+  box-shadow: 
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 2px 0 rgba(0, 0, 0, 0.6),
+    0 3px 10px rgba(0, 0, 0, 0.45) !important;
+  transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.35s ease !important;
+}
+
+.sites-trigger:hover {
+  transform: translateY(-1px) scale(1.015);
+  box-shadow: 
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -1px 2px 0 rgba(0, 0, 0, 0.5),
+    0 5px 14px rgba(0, 0, 0, 0.5),
+    0 0 10px var(--color-glow-subtle) !important;
+}
+
+.sites-trigger:active {
+  /* Micro-compresión suave sin saltos bruscos */
+  transform: translateY(0.5px) scale(0.995);
+  box-shadow: 
+    inset 0 1px 3px rgba(0, 0, 0, 0.6),
+    0 2px 5px rgba(0, 0, 0, 0.35) !important;
+  transition: transform 0.15s ease-out, box-shadow 0.15s ease-out !important;
+}
+
+/* 2. CONMUTADOR ANIME / CINE (Bisel interior en el chasis y cápsula con relieve) */
+.matrix-switch {
+  box-shadow: 
+    inset 0 2px 5px rgba(0, 0, 0, 0.8),
+    inset 0 1px 1px rgba(255, 255, 255, 0.08),
+    0 4px 15px rgba(0, 0, 0, 0.4) !important;
+}
+
+.switch-opt.active {
+  box-shadow: 
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.7),
+    inset 0 -2px 4px 0 rgba(0, 0, 0, 0.35),
+    0 2px 8px var(--color-glow) !important;
+}
+
+/* 3. BOTÓN EXAMINAR CARPETA Y RESET PREFIJO */
+#btn-browse-dir,
+#btn-reset-prefix {
+  box-shadow: 
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 -1px 2px 0 rgba(0, 0, 0, 0.6),
+    0 2px 8px rgba(0, 0, 0, 0.35) !important;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease !important;
+}
+
+#btn-browse-dir:hover,
+#btn-reset-prefix:hover {
+  transform: translateY(-1px) scale(1.04);
+  box-shadow: 
+    inset 0 1px 2px 0 rgba(255, 255, 255, 0.5),
+    0 4px 14px var(--color-glow-subtle) !important;
+}
+
+#btn-browse-dir:active,
+#btn-reset-prefix:active {
+  transform: translateY(1px) scale(0.96);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.6) !important;
+}
+
+/* 4. CÁPSULAS DESLIZANTES DE LOS CHIPS (Relieve 3D sin tapar los textos ni cambiar colores) */
+.chip-group {
+  box-shadow: 
+    inset 0 2px 5px rgba(0, 0, 0, 0.7),
+    inset 0 1px 1px rgba(255, 255, 255, 0.06) !important;
+}
+
+.chip-glider {
+  box-shadow: 
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.75),
+    inset 0 -2px 3px 0 rgba(0, 0, 0, 0.35),
+    0 2px 10px var(--color-glow) !important;
+}
+
+.chip-btn {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), color 0.2s ease !important;
+}
+
+.chip-btn:hover {
+  transform: translateY(-0.5px);
+}
+
+.chip-btn:active {
+  transform: translateY(0.5px);
+}
+
+/* 5. STEPPERS (+ Y - EN TEMPORADA Y CAPÍTULO) */
+.step-btn {
+  box-shadow: 
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.25),
+    inset 0 -1px 2px 0 rgba(0, 0, 0, 0.5),
+    0 2px 6px rgba(0, 0, 0, 0.35) !important;
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.18s ease !important;
+}
+
+.step-btn:hover {
+  transform: translateY(-1px) scale(1.08);
+  box-shadow: 
+    inset 0 1px 2px 0 rgba(255, 255, 255, 0.45),
+    0 4px 10px var(--color-glow-subtle) !important;
+}
+
+.step-btn:active {
+  transform: translateY(1px) scale(0.94);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.7) !important;
+}
+
+/* 6. BOTÓN VACIAR COLA (Relieve conservando su tono original) */
+#btn-clear {
+  box-shadow: 
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.2),
+    inset 0 -1px 2px 0 rgba(0, 0, 0, 0.5),
+    0 2px 8px rgba(0, 0, 0, 0.35) !important;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease !important;
+}
+
+#btn-clear:hover {
+  transform: translateY(-1px) scale(1.02);
+  box-shadow: 
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.35),
+    0 4px 12px var(--color-glow-subtle) !important;
+}
+
+#btn-clear:active {
+  transform: translateY(1px) scale(0.98);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.6) !important;
+}
+
+/* =========================================================
+   SCROLLBAR ULTRAFINA Y ADAPTATIVA PARA SUGERENCIAS
+   ========================================================= */
+
+/* Suavizado del contenedor desplegable */
+#search-suggestions {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-accent-1) transparent;
+  padding-right: 2px;
+}
+
+/* Riel completamente limpio y transparente */
+#search-suggestions::-webkit-scrollbar {
+  width: 5px;
+}
+
+#search-suggestions::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 6px 0;
+}
+
+/* Cápsula deslizante conectada al color de la portada/modo */
+#search-suggestions::-webkit-scrollbar-thumb {
+  background: var(--color-accent-1);
+  border-radius: 10px;
+  opacity: 0.7;
+  box-shadow: 0 0 8px var(--color-glow);
+  transition: background 0.3s ease, opacity 0.2s ease;
+}
+
+#search-suggestions::-webkit-scrollbar-thumb:hover {
+  opacity: 1;
+  box-shadow: 0 0 12px var(--color-glow);
+}
+
+/* =========================================================
+   ELEMENTO SELECCIONADO POR TECLADO EN SUGERENCIAS
+   ========================================================= */
+.sugg-item.selected {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-left: 3px solid var(--color-accent-1) !important;
+  box-shadow: inset 0 0 12px var(--color-glow-subtle) !important;
+}
