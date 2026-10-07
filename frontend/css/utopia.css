@@ -374,35 +374,35 @@ input[type=number] {
   position: relative;
   z-index: 10;
   display: flex !important;
-  justify-content: space-between !important;
+  justify-content: center !important;
   align-items: stretch !important;
-  gap: 22px !important;
-  width: 100% !important;
-  max-width: 1360px !important;
-  margin: 0 auto !important;
-  padding: 10px 24px 22px 24px !important;
-  box-sizing: border-box !important;
-  height: calc(100vh - 72px) !important;
-  max-height: 710px !important;
+  gap: 24px;
+  width: 100%;
+  max-width: 1380px;
+  margin: 0 auto;
+  padding: 10px 24px 20px 24px;
+  box-sizing: border-box;
+  height: calc(100vh - 74px);
   overflow: visible !important;
+  transition: max-width 0.3s ease, gap 0.3s ease, padding 0.3s ease;
   -webkit-app-region: no-drag !important;
 }
 
 .glass-box {
-  flex: 0 0 345px !important;
-  width: 345px !important;
-  height: 100% !important;
+  flex: 0 0 350px;
+  width: 350px;
+  height: 100%;
   display: flex !important;
   flex-direction: column !important;
   box-sizing: border-box !important;
   background: linear-gradient(165deg, rgba(17, 23, 34, 0.85) 0%, rgba(10, 14, 21, 0.82) 100%) !important;
   backdrop-filter: blur(34px) saturate(190%) !important;
   border: 1px solid rgba(255, 255, 255, 0.09) !important;
-  border-radius: 26px !important;
+  border-radius: 26px;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.65), 
               inset 0 1px 1px rgba(255, 255, 255, 0.18),
               inset 0 -1px 2px rgba(0, 0, 0, 0.4) !important;
-  transition: border-color 0.3s ease;
+  transition: flex 0.3s ease, width 0.3s ease, border-radius 0.3s ease;
   -webkit-app-region: no-drag !important;
 }
 
@@ -736,14 +736,14 @@ input:checked + .switch-slider:before {
 .chip-glider {
   position: absolute;
   top: 3px;
-  left: 3px;
+  left: 0; /* Origen 0 para que translate coincida 1:1 con offsetLeft */
   height: calc(100% - 6px);
   background: linear-gradient(135deg, var(--color-accent-1) 0%, #ffffff 180%);
   border-radius: 11px;
   box-shadow: 0 4px 14px var(--color-glow), 
               inset 0 1px 2px rgba(255, 255, 255, 0.75), 
               inset 0 -1px 2px rgba(0, 0, 0, 0.35);
-  transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1), width 0.24s ease;
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), width 0.22s ease;
   pointer-events: none;
 }
 
@@ -1670,88 +1670,200 @@ input {
 }
 
 /* =========================================================
-   2. ADAPTACIÓN FLUIDA AL MAXIMIZAR VENTANA
+   ADAPTACIÓN FLUIDA AL MAXIMIZAR VENTANA (ESCALADO PRO)
    ========================================================= */
 
-/* Permitir que la cabina aproveche toda la altura y anchura libre */
+/* Comportamiento base fluido */
 .cockpit {
-  max-width: 1700px !important;
+  width: 100% !important;
+  max-width: 1720px !important;
   max-height: none !important;
-  height: calc(100vh - 75px) !important;
-  padding: 10px 30px 24px 30px !important;
-  gap: 28px !important;
+  height: calc(100vh - 74px) !important;
+  padding: 10px 24px 20px 24px !important;
+  gap: 22px !important;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Permitir que los paneles laterales ganen presencia si la pantalla es gigante */
-.glass-box {
-  flex: 0 0 380px !important;
-  width: 380px !important;
-  height: 100% !important;
-}
-
-/* En el escenario central, permitir que el póster escale en altura al maximizar */
-.center-stage {
-  max-width: 650px !important;
-  height: 100% !important;
-}
-
-/* Escenario de carátula: dimensiones naturales en ventana */
-.workspace-card {
-  max-width: 380px;
-  width: 100%;
-  height: 100%;
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  transition: max-width 0.3s ease;
-}
-
-/* Contenedor transparente: sin fondos, sin marcos y sin recortes */
 .parallax-wrap {
   position: relative;
   width: 100%;
-  aspect-ratio: 2 / 3;
-  max-height: calc(100vh - 210px);
+  height: 100%;
   border-radius: 20px;
   overflow: visible !important;
   background: none !important;
   border: none !important;
   box-shadow: none !important;
   perspective: 1200px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
-/* La tarjeta limpia que se dobla en 3D libremente */
 .parallax-poster {
   position: relative;
   width: 100%;
   height: 100%;
-  border-radius: 20px;
+  border-radius: 22px;
   overflow: hidden;
   background-size: cover !important;
   background-position: center !important;
-  box-shadow: 0 14px 35px rgba(0, 0, 0, 0.75);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.75);
   animation: posterBreathGlow 4.5s ease-in-out infinite;
   transform-style: preserve-3d;
   will-change: transform;
 }
 
 /* =========================================================
-   SOLO CUANDO LA VENTANA ESTÁ MAXIMIZADA / PANTALLA COMPLETA
+   MODO MAXIMIZADO: EXPANSIÓN, TAMAÑO CÓMODO Y LEGIBILIDAD
+   (Se aplica al pulsar Maximizar en la app o por pantalla grande)
    ========================================================= */
-@media (min-width: 1400px) and (min-height: 800px) {
+body.is-maximized .cockpit,
+@media (min-width: 1440px) and (min-height: 820px) {
+  .cockpit {
+    height: calc(100vh - 80px) !important;
+    padding: 12px 36px 24px 36px !important;
+    gap: 32px !important;
+  }
+
+  /* 1. Paneles laterales más anchos y espaciosos */
+  .glass-box {
+    flex: 0 0 420px !important;
+    width: 420px !important;
+    border-radius: 30px !important;
+  }
+
+  .glass-inner {
+    padding: 24px 26px !important;
+    gap: 16px !important;
+  }
+
+  /* Títulos y etiquetas con mayor jerarquía y presencia */
+  .box-header {
+    font-size: 13.5px !important;
+    letter-spacing: 2px !important;
+    padding-bottom: 10px !important;
+    margin-bottom: 6px !important;
+  }
+
+  .section-label {
+    font-size: 11.5px !important;
+    letter-spacing: 1px !important;
+    margin-bottom: 7px !important;
+  }
+
+  .settings-area {
+    gap: 16px !important;
+  }
+
+  /* Inputs y barras más altas para lectura descansada */
+  .search-input {
+    font-size: 13px !important;
+    padding: 11px 16px !important;
+    border-radius: 15px !important;
+  }
+
+  .toggle-card {
+    padding: 12px 18px !important;
+    border-radius: 16px !important;
+  }
+
+  .toggle-label {
+    font-size: 11.5px !important;
+  }
+
+  /* Steppers y Chips con presencia física superior */
+  .stepper-box {
+    padding: 5px 8px !important;
+    border-radius: 14px !important;
+  }
+
+  .step-btn {
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    font-size: 16px !important;
+    border-radius: 10px !important;
+  }
+
+  .step-val {
+    font-size: 15px !important;
+  }
+
+  .chip-group {
+    height: 44px !important;
+    border-radius: 16px !important;
+    padding: 4px !important;
+  }
+
+  .chip-btn {
+    font-size: 12px !important;
+  }
+
+  .chip-glider {
+    border-radius: 13px !important;
+  }
+
+  /* Telemetría inferior */
+  .telemetry-card {
+    padding: 12px 16px !important;
+    border-radius: 15px !important;
+    margin-top: auto !important;
+  }
+
+  #disk-drive-name {
+    font-size: 12px !important;
+  }
+
+  #disk-free-txt {
+    font-size: 11.5px !important;
+  }
+
+  /* 2. Escenario central y carátula protagonista */
   .center-stage {
-    max-width: 720px !important;
+    max-width: 580px !important;
   }
 
   .workspace-card {
-    max-width: 530px !important; /* Más ancha para mantener proporción perfecta */
+    max-width: 480px !important;
+    gap: 18px !important;
   }
 
   .parallax-wrap {
-    max-height: calc(100vh - 230px) !important;
+    max-height: calc(100vh - 250px) !important;
+    aspect-ratio: 2 / 2.9 !important;
+  }
+
+  .poster-title {
+    font-size: 21px !important;
+  }
+
+  .poster-tags {
+    font-size: 11px !important;
+  }
+
+  /* Botón maestro ampliado */
+  .btn-god {
+    width: 340px !important;
+    height: 52px !important;
+  }
+
+  .btn-god-txt {
+    font-size: 13.5px !important;
+    letter-spacing: 2.2px !important;
+  }
+
+  .btn-god.loading {
+    width: 52px !important;
+  }
+
+  /* Tarjetas de la cola de descargas */
+  .queue-card {
+    padding: 12px 16px !important;
+    border-radius: 16px !important;
+  }
+
+  .queue-card-title {
+    font-size: 12.5px !important;
   }
 }
 
@@ -2180,4 +2292,242 @@ body > *:not(.top-nav) * {
 /* En modo película, el botón de temporada única también se oculta como los steppers */
 .mode-movie #card-single-season {
   display: none !important;
+}
+
+/* =========================================================
+   SISTEMA RESPONSIVO MULTI-RESOLUCIÓN (1080p / 1440p 2K / 4K)
+   ========================================================= */
+
+/* --- NIVEL 1: PANTALLAS 1080p (Full HD maximizado) --- */
+body.is-maximized .cockpit {
+  max-width: 1480px !important;
+  width: 96vw !important;
+  height: calc(100vh - 78px) !important;
+  gap: 24px !important;
+  padding: 10px 24px 16px 24px !important;
+}
+
+body.is-maximized .glass-box {
+  flex: 0 0 395px !important;
+  width: 395px !important;
+  border-radius: 26px !important;
+}
+
+body.is-maximized .glass-inner {
+  padding: 20px 22px !important;
+  gap: 12px !important;
+}
+
+body.is-maximized .settings-area {
+  gap: 13px !important;
+}
+
+body.is-maximized .search-input {
+  font-size: 12.5px !important;
+  padding: 10px 14px !important;
+}
+
+body.is-maximized .toggle-card {
+  padding: 11px 16px !important;
+}
+
+body.is-maximized .stepper-box {
+  padding: 4px 8px !important;
+}
+
+body.is-maximized .step-btn {
+  width: 30px !important;
+  height: 30px !important;
+  font-size: 16px !important;
+}
+
+body.is-maximized .step-val {
+  font-size: 15px !important;
+}
+
+body.is-maximized .chip-group {
+  height: 42px !important;
+}
+
+body.is-maximized .chip-btn {
+  font-size: 12px !important;
+}
+
+body.is-maximized .center-stage {
+  max-width: 540px !important;
+}
+
+body.is-maximized .workspace-card {
+  max-width: 420px !important;
+  gap: 12px !important;
+}
+
+body.is-maximized .parallax-wrap {
+  width: 100% !important;
+  height: calc(100vh - 235px) !important;
+  max-height: 540px !important;
+}
+
+body.is-maximized .parallax-poster {
+  border-radius: 22px !important;
+}
+
+body.is-maximized .btn-god {
+  width: 320px !important;
+  height: 48px !important;
+}
+
+body.is-maximized .btn-god-txt {
+  font-size: 12.5px !important;
+}
+
+
+/* --- NIVEL 2: PANTALLAS 1440p (2K) Y SUPERIORES (>= 2200px o altura >= 1200px) --- */
+@media (min-width: 2200px), (min-height: 1200px) {
+  body.is-maximized .cockpit {
+    max-width: 1850px !important;
+    gap: 40px !important;
+    padding: 16px 36px 26px 36px !important;
+  }
+
+  body.is-maximized .glass-box {
+    flex: 0 0 490px !important;
+    width: 490px !important;
+    border-radius: 34px !important;
+  }
+
+  body.is-maximized .glass-inner {
+    padding: 28px 32px !important;
+    gap: 18px !important;
+  }
+
+  body.is-maximized .box-header {
+    font-size: 15px !important;
+    letter-spacing: 2.4px !important;
+    padding-bottom: 12px !important;
+    margin-bottom: 8px !important;
+  }
+
+  body.is-maximized .section-label {
+    font-size: 13px !important;
+    letter-spacing: 1.2px !important;
+    margin-bottom: 9px !important;
+  }
+
+  body.is-maximized .settings-area {
+    gap: 18px !important;
+  }
+
+  body.is-maximized .search-input {
+    font-size: 14.5px !important;
+    padding: 13px 18px !important;
+    border-radius: 16px !important;
+  }
+
+  body.is-maximized .toggle-card {
+    padding: 15px 22px !important;
+    border-radius: 18px !important;
+  }
+
+  body.is-maximized .toggle-label {
+    font-size: 13px !important;
+  }
+
+  body.is-maximized .switch-toggle {
+    width: 52px !important;
+    height: 28px !important;
+  }
+
+  body.is-maximized .switch-slider:before {
+    height: 22px !important;
+    width: 22px !important;
+  }
+
+  body.is-maximized input:checked + .switch-slider:before {
+    transform: translateX(24px) !important;
+  }
+
+  body.is-maximized .stepper-box {
+    padding: 6px 10px !important;
+    border-radius: 16px !important;
+  }
+
+  body.is-maximized .step-btn {
+    width: 38px !important;
+    height: 38px !important;
+    font-size: 20px !important;
+    border-radius: 12px !important;
+  }
+
+  body.is-maximized .step-viewport {
+    height: 34px !important;
+  }
+
+  body.is-maximized .step-val {
+    font-size: 18px !important;
+  }
+
+  body.is-maximized .chip-group {
+    height: 50px !important;
+    border-radius: 18px !important;
+    padding: 4px !important;
+  }
+
+  body.is-maximized .chip-btn {
+    font-size: 14px !important;
+  }
+
+  body.is-maximized .center-stage {
+    max-width: 720px !important;
+  }
+
+  body.is-maximized .workspace-card {
+    max-width: 530px !important;
+    gap: 18px !important;
+  }
+
+  body.is-maximized .search-container .search-input {
+    font-size: 15px !important;
+    padding: 14px 20px !important;
+  }
+
+  body.is-maximized .parallax-wrap {
+    height: calc(100vh - 280px) !important;
+    max-height: 680px !important;
+  }
+
+  body.is-maximized .parallax-poster {
+    border-radius: 28px !important;
+  }
+
+  body.is-maximized .poster-title {
+    font-size: 24px !important;
+  }
+
+  body.is-maximized .poster-tags {
+    font-size: 13px !important;
+  }
+
+  body.is-maximized .btn-god {
+    width: 400px !important;
+    height: 58px !important;
+    border-radius: 32px !important;
+  }
+
+  body.is-maximized .btn-god-txt {
+    font-size: 15px !important;
+    letter-spacing: 2.4px !important;
+  }
+
+  body.is-maximized .telemetry-card {
+    padding: 16px 22px !important;
+  }
+
+  body.is-maximized #disk-drive-name {
+    font-size: 14px !important;
+  }
+
+  body.is-maximized #disk-free-txt {
+    font-size: 13.5px !important;
+  }
 }

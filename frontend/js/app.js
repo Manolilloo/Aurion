@@ -132,14 +132,20 @@ function updateChipGlider(group, targetBtn) {
   const glider = group.querySelector('.chip-glider');
   if (!glider) return;
 
-  const groupRect = group.getBoundingClientRect();
-  const btnRect = targetBtn.getBoundingClientRect();
-
-  const leftOffset = btnRect.left - groupRect.left - 4;
-  const width = btnRect.width;
+  // Cálculo geométrico exacto basado en el contenedor, sin offsets arbitrarios
+  const leftOffset = targetBtn.offsetLeft;
+  const width = targetBtn.offsetWidth;
 
   glider.style.width = `${width}px`;
   glider.style.transform = `translateX(${leftOffset}px)`;
+}
+
+// Función global para recalcular todas las pastillas sin desfases
+function refreshAllGliders() {
+  document.querySelectorAll('.chip-group').forEach(group => {
+    const activeBtn = group.querySelector('.chip-btn.active');
+    if (activeBtn) updateChipGlider(group, activeBtn);
+  });
 }
 
 function applyChipsState(state) {
@@ -1210,6 +1216,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (btnMax) btnMax.innerText = isMax ? '❐' : '□';
+
+    // Recalcular gliders de inmediato y tras la transición visual
+    setTimeout(refreshAllGliders, 50);
+    setTimeout(refreshAllGliders, 320);
   });
 
   btnClose?.addEventListener('click', () => {
@@ -1399,8 +1409,6 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 window.addEventListener('resize', () => {
-  document.querySelectorAll('.chip-group').forEach(group => {
-    const activeBtn = group.querySelector('.chip-btn.active');
-    if (activeBtn) updateChipGlider(group, activeBtn);
-  });
+  refreshAllGliders();
+  setTimeout(refreshAllGliders, 200);
 });
