@@ -27,8 +27,8 @@ const modeStates = {
     startEp: 1,
     singleSeason: false,
     saveCover: true,
-    res: 'max',
-    fmt: 'mp4',
+    openFolder: true,
+    fmt: 'mkv',
     threads: '32',
     simul: '20',
     bg: '',
@@ -44,9 +44,10 @@ const modeStates = {
     dir: 'J:\\ANIME\\animes\\pelisypeliu',
     season: 1,
     startEp: 1,
+    singleSeason: false,
     saveCover: true,
-    res: 'max',
-    fmt: 'mp4',
+    openFolder: true,
+    fmt: 'mkv',
     threads: '32',
     simul: '5',
     bg: '',
@@ -132,7 +133,6 @@ function updateChipGlider(group, targetBtn) {
   const glider = group.querySelector('.chip-glider');
   if (!glider) return;
 
-  // Cálculo geométrico exacto basado en el contenedor, sin offsets arbitrarios
   const leftOffset = targetBtn.offsetLeft;
   const width = targetBtn.offsetWidth;
 
@@ -140,7 +140,6 @@ function updateChipGlider(group, targetBtn) {
   glider.style.transform = `translateX(${leftOffset}px)`;
 }
 
-// Función global para recalcular todas las pastillas sin desfases
 function refreshAllGliders() {
   document.querySelectorAll('.chip-group').forEach(group => {
     const activeBtn = group.querySelector('.chip-btn.active');
@@ -149,7 +148,7 @@ function refreshAllGliders() {
 }
 
 function applyChipsState(state) {
-  ['res', 'fmt', 'threads', 'simul'].forEach(key => {
+  ['fmt', 'threads', 'simul'].forEach(key => {
     const val = state[key];
     const group = document.querySelector(`.chip-group[data-cfg="${key}"]`);
     if (group && val) {
@@ -169,7 +168,7 @@ function applyChipsState(state) {
   });
 }
 
-// 4. STEPPERS NUMÉRICOS (TEMPORADA Y EPISODIO) DE 1 EN 1 ESTRICTO
+// 4. STEPPERS NUMÉRICOS
 function setStepperValue(id, val, delta) {
   const targetVal = delta === 0 ? val : (parseInt(document.getElementById(id)?.value, 10) || val) + delta;
   const newVal = Math.max(1, targetVal);
@@ -196,7 +195,58 @@ function setStepperValue(id, val, delta) {
   return newVal;
 }
 
-// 5. CAMBIO DE MODO Y GUARDADO
+// 5. EXTRACTOR Y CONTROL DE TEMPORADA
+function extractSeasonNumber(rawText) {
+  if (!rawText) return 1;
+
+  // 1. Ordinales ingleses: '2nd Season', '3rd Season', '4th Season'
+  const ordMatch = rawText.match(/(\d{1,2})(?:st|nd|rd|th)\s*(?:season|temp|temporada)/i);
+  if (ordMatch) return parseInt(ordMatch[1], 10);
+
+  // 2. Prefijos explícitos: Season 2, Temporada 3, Temp 2, S2, T2
+  const prefixMatch = rawText.match(/(?:season|temporada|temp|s|t)[\s\.\-_]*(\d{1,2})(?:[^\d]|$)/i);
+  if (prefixMatch) return parseInt(prefixMatch[1], 10);
+
+  // 3. Formato Season x Episode: 2x04, 3x12
+  const seMatch = rawText.match(/(\d{1,2})x\d{1,4}/i);
+  if (seMatch) return parseInt(seMatch[1], 10);
+
+  // 4. Números romanos comunes en títulos de anime: II, III, IV, V
+  if (/\b(part|parte|season|temporada)?\s*IV\b/i.test(rawText)) return 4;
+  if (/\b(part|parte|season|temporada)?\s*III\b/i.test(rawText)) return 3;
+  if (/\b(part|parte|season|temporada)?\s*II\b/i.test(rawText)) return 2;
+  if (/\b(part|parte|season|temporada)?\s*V\b/i.test(rawText)) return 5;
+
+  return 1;
+}
+
+function updateSingleSeasonState(seasonNum) {
+  const cfgSingle = document.getElementById('cfg-single-season');
+  const cardSingle = document.getElementById('card-single-season') || cfgSingle?.closest('.toggle-card');
+
+  if (seasonNum > 1) {
+    modeStates[currentMode].singleSeason = false;
+    if (cfgSingle) {
+      cfgSingle.checked = false;
+      cfgSingle.disabled = true;
+    }
+    if (cardSingle) {
+      cardSingle.style.opacity = '0.4';
+      cardSingle.style.pointerEvents = 'none';
+      cardSingle.title = 'No aplicable para temporadas posteriores a la 1';
+    }
+    document.body.classList.remove('is-single-season');
+  } else {
+    if (cfgSingle) cfgSingle.disabled = false;
+    if (cardSingle) {
+      cardSingle.style.opacity = '1';
+      cardSingle.style.pointerEvents = 'auto';
+      cardSingle.title = '';
+    }
+  }
+}
+
+// 6. PERSISTENCIA
 function saveCurrentState() {
   const state = modeStates[currentMode];
   const sInput = document.getElementById('search-input');
@@ -205,12 +255,9 @@ function saveCurrentState() {
   const sCover = document.getElementById('cfg-save-cover');
 
   if (sInput) state.query = sInput.value;
-  if (pInput) state.prefix = pInput.value;
+  if (pInput) state.prefix = pInput.value || '';
   if (dInput) state.dir = dInput.value;
   if (sCover) state.saveCover = sCover.checked;
-
-  // NO leemos mPoster.style.backgroundImage del DOM aquí para evitar contaminación cruzada entre modos.
-  // El fondo (state.bg) y el título (state.title) se guardan únicamente cuando seleccionas un anime o película real.
 
   pyCall('save_config', {
     active_mode: currentMode,
@@ -219,7 +266,7 @@ function saveCurrentState() {
       season: state.season,
       start_ep: state.startEp,
       save_cover: state.saveCover,
-      res: state.res,
+      open_folder: state.openFolder,
       fmt: state.fmt,
       threads: state.threads,
       simul: state.simul
@@ -227,12 +274,46 @@ function saveCurrentState() {
   });
 }
 
+function formatBytes(bytes) {
+  if (!bytes || bytes <= 0) return '-- MB';
+  const mb = bytes / (1024 * 1024);
+  if (mb >= 1024) {
+    return (mb / 1024).toFixed(2).replace('.', ',') + ' GB';
+  }
+  return (mb.toFixed(1)).replace('.', ',') + ' MB';
+}
+
+function updateTotalQueueSize() {
+  const currentQueue = modeStates[currentMode].queue || [];
+  let totalBytes = 0;
+
+  currentQueue.forEach(item => {
+    if (item.bytes && item.bytes > 0) {
+      totalBytes += item.bytes;
+    }
+  });
+
+  const badgeEl = document.getElementById('val-total-size');
+  if (!badgeEl) return;
+
+  if (totalBytes > 0) {
+    badgeEl.innerText = formatBytes(totalBytes);
+  } else {
+    badgeEl.innerText = `${currentQueue.length} ${currentQueue.length === 1 ? 'ítem' : 'ítems'}`;
+  }
+}
+
 function renderFullQueue(mode) {
   const container = document.getElementById('queue-list');
   if (!container) return;
   container.innerHTML = '';
 
-  const list = modeStates[mode].queue;
+  const singleSeasonBadge = document.getElementById('badge-single-season');
+  if (singleSeasonBadge) {
+    singleSeasonBadge.style.display = mode === 'movie' ? 'none' : 'inline-block';
+  }
+
+  const list = modeStates[mode].queue || [];
   if (list.length === 0) {
     container.innerHTML = `
       <div style="text-align: center; color: var(--color-text-dim); font-size: 12px; margin-top: 40px;">
@@ -245,47 +326,101 @@ function renderFullQueue(mode) {
   updateTotalQueueSize();
 }
 
+function renderQueueCard(task) {
+  const container = document.getElementById('queue-list');
+  if (!container) return;
+
+  const emptyPlaceholder = container.querySelector('div[style*="text-align: center"]');
+  if (emptyPlaceholder) emptyPlaceholder.remove();
+
+  const isCompleted = task.status === 'Completado' || (task.progress >= 100);
+  const sizeBytes = task.bytes || 0;
+  const sizeStr = sizeBytes > 0 ? formatBytes(sizeBytes) : '-- MB';
+  const resStr = task.resolution || 'N/D';
+  const percent = task.progress !== undefined ? task.progress : 0;
+
+  const card = document.createElement('div');
+  card.className = `pipeline-card ${isCompleted ? 'completed' : ''}`;
+  card.id = task.id;
+
+  card.innerHTML = `
+    <div class="pipeline-card-top">
+      <span class="pipeline-card-title" title="${task.title}">${task.title}</span>
+      <button class="pipeline-card-btn-del" title="Eliminar">✕</button>
+    </div>
+    <div class="pipeline-card-meta">
+      <div class="pipeline-tags-cluster">
+        <span class="pipeline-card-size" id="task-size-${task.id}">${sizeStr}</span>
+        <span class="pipeline-card-res" id="task-res-${task.id}">${resStr}</span>
+      </div>
+      <span class="pipeline-card-status" id="task-status-${task.id}">${task.status}</span>
+    </div>
+    <div class="pipeline-progress-track">
+      <div class="pipeline-progress-fill" id="task-progress-${task.id}" style="width: ${percent}%;"></div>
+    </div>
+  `;
+
+  card.querySelector('.pipeline-card-btn-del').addEventListener('click', () => {
+    if (typeof playSynth === 'function') playSynth('click');
+    pyCall('cancel_download_task', task.id);
+
+    const currentQueue = modeStates[currentMode].queue;
+    const idx = currentQueue.findIndex(t => t.id === task.id);
+    if (idx > -1) currentQueue.splice(idx, 1);
+    card.remove();
+
+    if (currentQueue.length === 0) {
+      container.innerHTML = `
+        <div style="text-align: center; color: var(--color-text-dim); font-size: 12px; margin-top: 40px;">
+          A la espera de transmisiones...
+        </div>
+      `;
+    }
+    updateTotalQueueSize();
+  });
+
+  container.appendChild(card);
+}
+
 function loadState(mode) {
   const state = modeStates[mode];
   const sInput = document.getElementById('search-input');
   const pInput = document.getElementById('cfg-prefix');
   const dInput = document.getElementById('cfg-dir');
   const sCover = document.getElementById('cfg-save-cover');
+  const sOpen = document.getElementById('cfg-open-folder');
   const pTitle = document.getElementById('poster-title');
   const pTags = document.getElementById('poster-tags');
   const mPoster = document.getElementById('main-poster');
   const aL1 = document.getElementById('ambient-layer-1');
   const aL2 = document.getElementById('ambient-layer-2');
-  const welcome = document.getElementById('welcome-card');
-  const workspace = document.getElementById('workspace-card');
 
   if (sInput) sInput.value = state.query || '';
   if (pInput) pInput.value = state.prefix || '';
-  if (dInput) dInput.value = state.dir;
+  if (dInput && state.dir) dInput.value = state.dir;
 
   setStepperValue('cfg-season', state.season || 1, 0);
   setStepperValue('cfg-start-ep', state.startEp || 1, 0);
 
   if (sCover) sCover.checked = state.saveCover !== false;
+  if (sOpen) sOpen.checked = state.openFolder !== false;
+
   const sSingle = document.getElementById('cfg-single-season');
   if (sSingle) {
     sSingle.checked = !!state.singleSeason;
     document.body.classList.toggle('is-single-season', !!state.singleSeason);
   }
 
-  // Verificación estricta: sólo tiene portada si bg existe, no es vacío ni 'none'
   const hasCover = typeof state.bg === 'string' && state.bg.trim() !== '' && state.bg !== 'none' && state.title && state.title !== 'Esperando consulta...';
-
-  // SIEMPRE DIRECTO AL ESPACIO DE TRABAJO (SIN PANTALLA DE BIENVENIDA)
-  expandCenterWorkspace();
-
   if (hasCover) {
+    expandCenterWorkspace();
     if (pTitle) pTitle.innerText = state.title;
     if (pTags) pTags.innerHTML = state.tags || 'SISTEMA LISTO';
     if (mPoster) mPoster.style.backgroundImage = state.bg;
     if (aL1) aL1.style.backgroundImage = state.bg;
     if (aL2) aL2.style.backgroundImage = state.bg;
   } else {
+    // Si este modo no tiene obra activa, limpiar los fondos y volver a la bienvenida limpia
     if (pTitle) pTitle.innerText = 'Esperando consulta...';
     if (pTags) pTags.innerHTML = 'SISTEMA LISTO';
     if (mPoster) {
@@ -294,13 +429,13 @@ function loadState(mode) {
     }
     if (aL1) aL1.style.backgroundImage = '';
     if (aL2) aL2.style.backgroundImage = '';
+    showWelcomeScreen();
   }
 
   applyChipsState(state);
   applyDynamicPalette(state.accent1, state.accent2);
   renderFullQueue(mode);
   updateDiskTelemetry(state.dir);
-  // updatePrefixTags();
 }
 
 function setAppMode(mode, save = true) {
@@ -333,60 +468,6 @@ function setAppMode(mode, save = true) {
   if (save) pyCall('toggle_mode', mode);
 }
 
-// ACTUALIZADOR INTELIGENTE DE TOKENS DE NOMENCLATURA EN VIVO
-function refreshNamingDisplay() {
-  const state = modeStates[currentMode];
-  const tTitle = document.getElementById('token-title');
-  const tSeason = document.getElementById('token-season');
-  const tEp = document.getElementById('token-ep');
-  const tQuality = document.getElementById('token-quality');
-  const tExt = document.getElementById('token-ext');
-  const tMode = document.getElementById('naming-mode-indicator');
-  const pInput = document.getElementById('cfg-prefix');
-
-  const rawTitle = state.title && state.title !== 'Esperando consulta...' ? state.title : 'Aurion';
-  const cleanTitle = `[${rawTitle}]`;
-
-  if (tTitle) {
-    tTitle.innerText = cleanTitle;
-    tTitle.title = cleanTitle;
-  }
-
-  if (currentMode === 'anime') {
-    const sNum = String(state.season || 1).padStart(2, '0');
-    const epNum = String(state.startEp || 1).padStart(2, '0');
-    if (tSeason) {
-      tSeason.style.display = 'inline-block';
-      tSeason.innerText = `S${sNum}`;
-    }
-    if (tEp) {
-      tEp.style.display = 'inline-block';
-      tEp.innerText = `E${epNum}`;
-    }
-    if (tMode) tMode.innerText = 'SERIE/ANIME';
-  } else {
-    if (tSeason) tSeason.style.display = 'none';
-    if (tEp) tEp.style.display = 'none';
-    if (tMode) tMode.innerText = 'PELÍCULA';
-  }
-
-  // Calidad y Contenedor actuales
-  if (tQuality) tQuality.innerText = state.res === 'max' ? 'MAX-RES' : state.res;
-  if (tExt) tExt.innerText = `.${state.fmt || 'mp4'}`;
-
-  // Si el usuario no ha puesto algo completamente manual, generar prefijo óptimo
-  if (pInput && (!pInput.value || pInput.value.startsWith('[Aurion]') || pInput.value.startsWith(`[${state.title}`))) {
-    if (currentMode === 'anime') {
-      const sNum = String(state.season || 1).padStart(2, '0');
-      const epNum = String(state.startEp || 1).padStart(2, '0');
-      pInput.value = `${cleanTitle} S${sNum}E${epNum} - `;
-    } else {
-      pInput.value = `${cleanTitle} (${state.res || '1080p'}) - `;
-    }
-    state.prefix = pInput.value;
-  }
-}
-
 function setUnifiedTitle(title) {
   const pInput = document.getElementById('cfg-prefix');
   const state = modeStates[currentMode];
@@ -403,20 +484,6 @@ function setUnifiedTitle(title) {
     state.prefix = prefix;
   }
 }
-
-// Al seleccionar desde el buscador central principal
-const originalSelectSuggestion = window.selectSuggestion;
-window.selectSuggestion = function(item) {
-  if (typeof originalSelectSuggestion === 'function') {
-    originalSelectSuggestion(item);
-  }
-  // Guardar explícitamente la portada solo en el modo actual
-  if (item && item.image) {
-    modeStates[currentMode].bg = `url('${item.image}')`;
-    modeStates[currentMode].title = item.title;
-    modeStates[currentMode].tags = item.meta || 'SISTEMA LISTO';
-  }
-};
 
 function getContrastColor(rgbStr) {
   const match = rgbStr.match(/\d+/g);
@@ -448,8 +515,6 @@ function applyDynamicPalette(c1, c2) {
     modeStates[currentMode].accent1 = c1;
     modeStates[currentMode].accent2 = c2;
   }
-
-  
 }
 
 function updatePoster(imgUrl, title, meta) {
@@ -473,95 +538,6 @@ function updatePoster(imgUrl, title, meta) {
   if (typeof playSynth === 'function') playSynth('click');
 }
 
-// 6. PIPELINE DE COLA Y PESO TOTAL
-function updateTotalQueueSize() {
-  const currentQueue = modeStates[currentMode].queue;
-  let totalBytes = 0;
-  let hasKnownSizes = false;
-
-  currentQueue.forEach(item => {
-    if (item.bytes && item.bytes > 0) {
-      totalBytes += item.bytes;
-      hasKnownSizes = true;
-    }
-  });
-
-  const badgeEl = document.getElementById('val-total-size');
-  if (!badgeEl) return;
-
-  if (!hasKnownSizes) {
-    badgeEl.innerText = `${currentQueue.length} ${currentQueue.length === 1 ? 'ítem' : 'ítems'}`;
-  } else {
-    const mb = (totalBytes / (1024 * 1024)).toFixed(1);
-    badgeEl.innerText = `${mb} MB`;
-  }
-}
-
-function renderQueueCard(task) {
-  const container = document.getElementById('queue-list');
-  if (!container) return;
-
-  // Si aún está el mensaje gris de espera, retirarlo de inmediato
-  const emptyPlaceholder = container.querySelector('div[style*="text-align: center"]');
-  if (emptyPlaceholder) {
-    emptyPlaceholder.remove();
-  }
-
-  const card = document.createElement('div');
-  card.className = 'queue-card';
-  card.id = task.id;
-
-  card.innerHTML = `
-    <div class="queue-card-top">
-      <div class="queue-card-title">${task.title}</div>
-      <button class="queue-card-del" title="Eliminar">✕</button>
-    </div>
-    <div class="queue-progress-bar" id="bar-${task.id}">
-      <div class="queue-progress-fill" style="width: ${task.progress}%"></div>
-    </div>
-    <div class="queue-card-meta">
-      <span class="queue-card-status">${task.status}</span>
-      <span class="queue-card-speed">${task.sizeStr ? task.sizeStr + ' • ' : ''}${task.speed}</span>
-    </div>
-  `;
-
-  card.querySelector('.queue-card-del').addEventListener('click', () => {
-    if (typeof playSynth === 'function') playSynth('click');
-
-    // Notificar inmediatamente a Python para que aborte la descarga física
-    pyCall('cancel_download_task', task.id);
-
-    const currentQueue = modeStates[currentMode].queue;
-    const idx = currentQueue.findIndex(t => t.id === task.id);
-    if (idx > -1) currentQueue.splice(idx, 1);
-    card.remove();
-
-    if (currentQueue.length === 0) {
-      container.innerHTML = `
-        <div style="text-align: center; color: var(--color-text-dim); font-size: 12px; margin-top: 40px;">
-          A la espera de transmisiones...
-        </div>
-      `;
-    }
-    updateTotalQueueSize();
-  });
-
-  container.appendChild(card);
-}
-
-// 7. AUTO-MATCHING CON BBDD Y RECEPCIÓN DE EXTENSIÓN
-// Limpiador agresivo de metadatos de páginas web
-function extractSearchQuery(rawTitle) {
-  if (!rawTitle) return '';
-  return rawTitle
-    .replace(/^(Ver|Watch|Descargar|Download)\s+/i, '')
-    .replace(/\s*(Episodio|Episode|Capitulo|Capítulo|Cap)\s*[\d\.\-]+.*/i, '')
-    .replace(/\s*(Sub\s*Español|Castellano|Latino|Dual|Audio|HD|FHD|1080p|720p|Online).*/i, '')
-    .replace(/[-–—|•].*$/, '')
-    .replace(/[\(\[\{].*?[\)\]\}]/g, '')
-    .trim();
-}
-
 function calculateWordMatchScore(query, candidateTitle) {
   const normalize = (s) => s.toLowerCase().replace(/[^a-z0-9]/g, ' ').split(/\s+/).filter(Boolean);
   const qWords = normalize(query);
@@ -576,49 +552,6 @@ function calculateWordMatchScore(query, candidateTitle) {
 
   return common / Math.max(qWords.length, cWords.length);
 }
-
-// Auto-matching inteligente contra AniList / IMDb
-async function autoMatchWithDatabase(rawTitle) {
-  const cleanName = extractSearchQuery(rawTitle);
-  if (!cleanName || cleanName.length < 2) return null;
-
-  try {
-    const results = await pyCall('search_media', currentMode, cleanName);
-    if (results && results.length > 0) {
-      // Ordenar los resultados por coincidencia real de palabras contra el título extraído
-      let bestMatch = results[0];
-      let highestScore = -1;
-
-      results.forEach(item => {
-        const score = calculateWordMatchScore(cleanName, item.title);
-        if (score > highestScore) {
-          highestScore = score;
-          bestMatch = item;
-        }
-      });
-
-      if (modeStates[currentMode].title === 'Esperando consulta...' || modeStates[currentMode].title !== bestMatch.title) {
-        updatePoster(bestMatch.image, bestMatch.title, bestMatch.meta);
-        setUnifiedTitle(bestMatch.title);
-
-        if (bestMatch.image && window.pywebview && window.pywebview.api && window.pywebview.api.get_dominant_colors) {
-          const pal = await pyCall('get_dominant_colors', bestMatch.image);
-          if (pal && pal.accent1) applyDynamicPalette(pal.accent1, pal.accent2);
-        } else if (bestMatch.color) {
-          applyDynamicPalette(bestMatch.color, '#8a2be2');
-        }
-      }
-      return bestMatch.title;
-    }
-  } catch (e) {
-    console.log('[AutoMatch] Error en consulta automática:', e);
-  }
-  return cleanName;
-}
-
-// ========================================================
-// SISTEMA DE CONFIRMACIÓN HUD INTERACTIVO // ORQUESTACIÓN
-// ========================================================
 
 let pendingTransmission = null;
 let modalTargetMode = 'anime';
@@ -666,6 +599,7 @@ function showWelcomeScreen() {
   if (guides) guides.classList.remove('is-hidden');
   document.querySelectorAll('.hud-pointer').forEach(p => p.style.display = 'flex');
 }
+
 function showMatchModal(proposedItem, rawData, detectedEp) {
   const backdrop = document.getElementById('match-modal-backdrop');
   const thumb = document.getElementById('modal-prop-thumb');
@@ -696,110 +630,130 @@ function closeMatchModal() {
 }
 
 function commitTransmission(chosenItem, targetMode, episodeNum) {
-  if (currentMode !== targetMode) {
-    setAppMode(targetMode, true);
+  try {
+    if (currentMode !== targetMode) {
+      setAppMode(targetMode, true);
+    }
+
+    const rawData = (pendingTransmission && pendingTransmission.raw) ? pendingTransmission.raw : {};
+    const fullText = (rawData.page_title || '') + ' ' + (rawData.page_url || '') + ' ' + (chosenItem.title || '');
+    const detectedSeason = extractSeasonNumber(fullText);
+
+    if (targetMode === 'anime') {
+      setStepperValue('cfg-season', detectedSeason, 0);
+      updateSingleSeasonState(detectedSeason);
+    }
+
+    expandCenterWorkspace();
+    updatePoster(chosenItem.image, chosenItem.title, chosenItem.meta);
+    
+    modeStates[targetMode].title = chosenItem.title;
+    modeStates[targetMode].tags = chosenItem.meta || 'SISTEMA LISTO';
+    modeStates[targetMode].bg = chosenItem.image ? `url('${chosenItem.image}')` : 'none';
+
+    if (chosenItem.image && window.pywebview && window.pywebview.api && window.pywebview.api.get_dominant_colors) {
+      pyCall('get_dominant_colors', chosenItem.image).then(pal => {
+        if (pal && pal.accent1) applyDynamicPalette(pal.accent1, pal.accent2);
+      });
+    } else if (chosenItem.color) {
+      applyDynamicPalette(chosenItem.color, '#8a2be2');
+    }
+
+    const state = modeStates[targetMode];
+    let fileName = chosenItem.title;
+    if (targetMode === 'anime') {
+      let epVal = episodeNum || state.startEp || 1;
+
+      // Autoincrementar si ya existe una tarea con el mismo episodio en la cola
+      const existingEps = state.queue.map(t => {
+        const m = t.title.match(/ - Ep (\d+)/i);
+        return m ? parseInt(m[1], 10) : null;
+      }).filter(n => n !== null);
+
+      if (existingEps.includes(epVal)) {
+        epVal = Math.max(...existingEps) + 1;
+      }
+
+      fileName = `${chosenItem.title} - Ep ${epVal}`;
+      setStepperValue('cfg-start-ep', epVal + 1, 0);
+    } else {
+      fileName = `${chosenItem.title}`;
+    }
+
+    const streamUrl = rawData.stream_url || rawData.page_url || '';
+
+    const task = {
+      id: 'task_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+      title: fileName,
+      url: streamUrl,
+      pageUrl: rawData.page_url || '',
+      status: 'En cola',
+      resolution: rawData.resolution || 'N/D',
+      bytes: rawData.bytes || 0,
+      progress: 0,
+      speed: '0 KB/s'
+    };
+
+    state.queue.push(task);
+    renderQueueCard(task);
+    updateTotalQueueSize();
+
+    if (streamUrl) {
+      pyCall('probe_stream_metadata', task.id, streamUrl, rawData.page_url || '');
+    }
+  } catch (err) {
+    console.error('[commitTransmission] Error al registrar transmisión:', err);
+  } finally {
+    closeMatchModal();
   }
-
-  expandCenterWorkspace();
-  updatePoster(chosenItem.image, chosenItem.title, chosenItem.meta);
-  
-  // Guardar en el estado para que persista
-  modeStates[targetMode].title = chosenItem.title;
-  modeStates[targetMode].tags = chosenItem.meta || 'SISTEMA LISTO';
-  modeStates[targetMode].bg = chosenItem.image ? `url('${chosenItem.image}')` : 'none';
-
-  if (chosenItem.image && window.pywebview && window.pywebview.api && window.pywebview.api.get_dominant_colors) {
-    pyCall('get_dominant_colors', chosenItem.image).then(pal => {
-      if (pal && pal.accent1) applyDynamicPalette(pal.accent1, pal.accent2);
-    });
-  } else if (chosenItem.color) {
-    applyDynamicPalette(chosenItem.color, '#8a2be2');
-  }
-
-  if (targetMode === 'anime') {
-    setStepperValue('cfg-start-ep', episodeNum || 1, 0);
-  }
-  setUnifiedTitle(chosenItem.title);
-
-  const state = modeStates[targetMode];
-  let fileName = chosenItem.title;
-  if (targetMode === 'anime') {
-    const epVal = episodeNum || state.startEp || 1;
-    fileName = `${chosenItem.title} - Ep ${epVal}`;
-    // Mantenemos el episodio exacto, SIN sumarle 1
-    setStepperValue('cfg-start-ep', epVal, 0);
-  } else {
-    fileName = `${chosenItem.title}`;
-  }
-
-  const streamUrl = pendingTransmission.raw.stream_url || pendingTransmission.raw.page_url;
-  const task = {
-    id: 'task_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
-    title: fileName,
-    url: streamUrl,
-    pageUrl: pendingTransmission.raw.page_url,
-    status: 'En cola',
-    sizeStr: '',
-    bytes: 0,
-    progress: 0,
-    speed: '0 KB/s'
-  };
-
-  state.queue.push(task);
-  renderQueueCard(task);
-  updateTotalQueueSize();
-
-  closeMatchModal();
 }
 
-// EXTRACTOR CANÓNICO DEFINITIVO (PULIDO QUIRÚRGICO DE CAP/EP)
 function extractSearchQuery(rawTitle, rawUrl = '') {
   let text = '';
-
-  // 1. Intentar sacar slug de la URL
   if (rawUrl && typeof rawUrl === 'string') {
     try {
       const urlObj = new URL(rawUrl);
       const segments = urlObj.pathname.split('/').filter(Boolean);
       let slug = segments[segments.length - 1] || segments[0] || '';
-      
-      // Eliminar prefijos y sufijos típicos de servidores y capítulos (-10, -cap-10, ver-)
       slug = slug.replace(/^ver[-_]/i, '')
                  .replace(/[-_](cap|episodio|episode)[-_]?\d+.*$/i, '')
                  .replace(/[-_]\d+$/, '');
-
       if (slug && slug.length > 3 && !slug.includes('.')) {
         text = slug.replace(/[-_]/g, ' ');
       }
     } catch (e) {}
   }
 
-  // 2. Si no hay slug o es muy corto, usar el título de la página
   if (!text || text.length < 3) {
     text = rawTitle || '';
   }
 
-  // 3. Limpieza profunda: eliminar "cap", "episodio", números aislados y coletillas
-  text = text
+  return text
     .replace(/^(Ver|Watch|Descargar|Download)\s+/i, '')
     .replace(/\b(sub\s*español|castellano|latino|dual|audio|hd|fhd|1080p|720p|online)\b.*/gi, '')
-    .replace(/\b(capitulo|capítulo|episodio|episode|cap)\b[\s\-_]*\d*.*/gi, '') // Quita "cap", "cap 10", "cap-10" o "cap" suelto
+    .replace(/\b(capitulo|capítulo|episodio|episode|cap)\b[\s\-_]*\d*.*/gi, '')
     .replace(/[-–—|•].*$/, '')
     .replace(/[\(\[\{].*?[\)\]\}]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
-
-  return text;
 }
 
 function extractEpisodeNumber(rawText) {
-  // Solo detectamos el episodio (ej: Cap 10, Ep 3, 3x02 -> ep 2)
-  const seMatch = rawText.match(/[xXeE_\-](\d{1,4})/i);
+  if (!rawText) return 1;
+
+  // 1. Patrones explícitos en español e inglés: episodio 3, cap-04, ep_5, etc.
+  const capMatch = rawText.match(/(?:episodio|episode|capitulo|capítulo|cap|ep)[\s\.\-_]*(\d{1,4})/i);
+  if (capMatch) return parseInt(capMatch[1], 10);
+
+  // 2. Patrón de temporada x episodio: 2x03, 1x08
+  const seMatch = rawText.match(/\d{1,2}[xX](\d{1,4})/i);
   if (seMatch) return parseInt(seMatch[1], 10);
 
-  const match = rawText.match(/(?:episodio|episode|capitulo|capítulo|cap)[^\d]*(\d{1,4})/i) ||
-                rawText.match(/[_\-\/](\d{1,4})(?:[_\-\.]|$)/);
-  return match ? parseInt(match[1], 10) : 1;
+  // 3. Patrón al final de la URL o slug: /overflow-cap-2/, /slime-3/
+  const endMatch = rawText.match(/[-_\/](\d{1,4})(?:\/|\?|$|\.html)/i);
+  if (endMatch) return parseInt(endMatch[1], 10);
+
+  return 1;
 }
 
 window.onLinkReceived = async function(data) {
@@ -813,19 +767,46 @@ window.onLinkReceived = async function(data) {
 
   const fullText = (data.page_title || '') + ' ' + (data.page_url || '');
   const detectedEp = extractEpisodeNumber(fullText);
+  const detectedSeason = extractSeasonNumber(fullText);
   const cleanName = extractSearchQuery(data.page_title, data.page_url);
 
+  if (currentMode === 'anime') {
+    setStepperValue('cfg-season', detectedSeason, 0);
+    updateSingleSeasonState(detectedSeason);
+  }
+
   const activeTitle = modeStates[currentMode].title;
-  if (activeTitle !== 'Esperando consulta...' && calculateWordMatchScore(cleanName, activeTitle) > 0.4) {
+  const state = modeStates[currentMode];
+
+  // Si ya tenemos una obra activa o la cola ya tiene capítulos, emparejar de forma permisiva
+  const hasActiveAnime = activeTitle && activeTitle !== 'Esperando consulta...';
+  const matchScore = hasActiveAnime ? calculateWordMatchScore(cleanName, activeTitle) : 0;
+  
+  // Acepta coincidencia o si el nombre limpio está contenido en el título activo
+  const isSameSeries = hasActiveAnime && (
+    matchScore >= 0.25 || 
+    activeTitle.toLowerCase().includes(cleanName.toLowerCase()) || 
+    cleanName.toLowerCase().includes(activeTitle.toLowerCase().split(' ')[0])
+  );
+
+  if (isSameSeries) {
     expandCenterWorkspace();
-    const state = modeStates[currentMode];
-    const epVal = detectedEp || state.startEp || 1;
-    const fileName = currentMode === 'anime' ? `${activeTitle} - Ep ${epVal}` : `${activeTitle}`;
+    let epVal = detectedEp || state.startEp || 1;
 
     if (currentMode === 'anime') {
-      setStepperValue('cfg-start-ep', epVal, 0);
-      setUnifiedTitle(activeTitle);
+      const existingEps = state.queue.map(t => {
+        const m = t.title.match(/ - Ep (\d+)/i);
+        return m ? parseInt(m[1], 10) : null;
+      }).filter(n => n !== null);
+
+      if (existingEps.includes(epVal)) {
+        epVal = Math.max(...existingEps) + 1;
+      }
+
+      setStepperValue('cfg-start-ep', epVal + 1, 0);
     }
+
+    const fileName = currentMode === 'anime' ? `${activeTitle} - Ep ${epVal}` : `${activeTitle}`;
 
     const task = {
       id: 'task_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
@@ -833,8 +814,8 @@ window.onLinkReceived = async function(data) {
       url: streamUrl,
       pageUrl: data.page_url,
       status: 'En cola',
-      sizeStr: '',
-      bytes: 0,
+      resolution: data.resolution || 'N/D',
+      bytes: data.bytes || 0,
       progress: 0,
       speed: '0 KB/s'
     };
@@ -842,6 +823,7 @@ window.onLinkReceived = async function(data) {
     state.queue.push(task);
     renderQueueCard(task);
     updateTotalQueueSize();
+    pyCall('probe_stream_metadata', task.id, streamUrl, data.page_url);
     return;
   }
 
@@ -868,15 +850,12 @@ window.onLinkReceived = async function(data) {
 // INICIALIZACIÓN Y EVENTOS DOM
 // ========================================================
 document.addEventListener('DOMContentLoaded', () => {
-  // Bloquear arrastre involuntario al pulsar sobre los controles superiores
   document.querySelectorAll('.sites-dock, .matrix-switch, .window-controls-box').forEach(el => {
     el.addEventListener('mousedown', (e) => e.stopPropagation());
   });
 
-  // Inicializar Dock de Sitios
   renderSitesDock('anime');
 
-  // Switch Anime / Cine
   const btnSwitch = document.getElementById('btn-switch-mode');
   if (btnSwitch) {
     btnSwitch.addEventListener('click', () => {
@@ -885,7 +864,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Explorador de carpetas
   const btnBrowse = document.getElementById('btn-browse-dir');
   const cfgDirInput = document.getElementById('cfg-dir');
   if (btnBrowse && cfgDirInput) {
@@ -907,7 +885,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Chips tácticos
   document.querySelectorAll('.chip-group').forEach(group => {
     const cfgKey = group.getAttribute('data-cfg');
     group.querySelectorAll('.chip-btn').forEach(btn => {
@@ -918,18 +895,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
         updateChipGlider(group, btn);
 
-        const val = btn.getAttribute('data-val');
+        let val = btn.getAttribute('data-val') || '';
+        if (cfgKey === 'fmt') {
+          val = val.replace('.', '').toLowerCase();
+        }
+
         modeStates[currentMode][cfgKey] = val;
 
         const badge = document.getElementById(`val-${cfgKey}`);
-        if (badge) badge.innerText = val;
+        if (badge) badge.innerText = btn.getAttribute('data-val');
 
         saveCurrentState();
       });
     });
   });
 
-  // Steppers de temporada y episodio (incrementos de 1 en 1 sin dobles sumas)
   document.querySelectorAll('.stepper-box').forEach(box => {
     const targetId = box.getAttribute('data-id');
 
@@ -949,7 +929,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Clic en toda la tarjeta de TEMPORADA ÚNICA
   const cardSingleSeason = document.getElementById('card-single-season') || document.getElementById('cfg-single-season')?.closest('.toggle-card');
   const cfgSingleSeason = document.getElementById('cfg-single-season');
 
@@ -972,7 +951,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Clic en toda la tarjeta de GUARDAR PORTADA
   const cardSaveCover = document.getElementById('cfg-save-cover')?.closest('.toggle-card');
   const cfgSaveCover = document.getElementById('cfg-save-cover');
 
@@ -987,15 +965,20 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Prefijo manual
-  const cfgPrefix = document.getElementById('cfg-prefix');
-  if (cfgPrefix) {
-    cfgPrefix.addEventListener('input', () => {
-      modeStates[currentMode].prefix = cfgPrefix.value;
+  const cardOpenFolder = document.getElementById('cfg-open-folder')?.closest('.toggle-card');
+  const cfgOpenFolder = document.getElementById('cfg-open-folder');
+
+  if (cardOpenFolder && cfgOpenFolder) {
+    cardOpenFolder.addEventListener('click', (e) => {
+      if (e.target !== cfgOpenFolder) {
+        cfgOpenFolder.checked = !cfgOpenFolder.checked;
+      }
+      if (typeof playSynth === 'function') playSynth('click');
+      modeStates[currentMode].openFolder = cfgOpenFolder.checked;
+      saveCurrentState();
     });
   }
 
-  // Búsqueda interactiva con navegación completa por teclado (Flechas, Enter, Esc)
   const searchInput = document.getElementById('search-input');
   const suggestionsBox = document.getElementById('search-suggestions');
   let searchDebounceTimer;
@@ -1072,7 +1055,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }, 220);
     });
 
-    // Control de teclado: flechas, enter y escape
     searchInput.addEventListener('keydown', (e) => {
       const items = suggestionsBox.querySelectorAll('.sugg-item');
       if (!suggestionsBox.classList.contains('active') || items.length === 0) return;
@@ -1104,7 +1086,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Vaciar cola del modo activo
   const btnClear = document.getElementById('btn-clear');
   if (btnClear) {
     btnClear.addEventListener('click', () => {
@@ -1122,7 +1103,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // CONTROLADOR ÚNICO DE ESTADO DINÁMICO (DEMO TÉCNICA 09)
   const btnMaster = document.getElementById('btn-master');
   const magTxt = document.getElementById('mag-txt');
   let isMasterRunning = false;
@@ -1135,14 +1115,12 @@ document.addEventListener('DOMContentLoaded', () => {
       const currentQueue = modeStates[currentMode].queue;
       const originalText = 'INICIAR EXTRACCIÓN';
 
-      // 1. Sondeo dinámico: encoger a esfera giratoria con neón
       if (typeof playSynth === 'function') playSynth('click');
       btnMaster.classList.add('loading');
 
       setTimeout(() => {
         btnMaster.classList.remove('loading');
 
-        // SI NO HAY NADA: Poner Cola Vacía y regresar del tirón
         if (currentQueue.length === 0) {
           btnMaster.classList.add('is-empty');
           magTxt.innerText = 'COLA VACÍA';
@@ -1156,7 +1134,6 @@ document.addEventListener('DOMContentLoaded', () => {
           return;
         }
 
-        // SI HAY DESCARGAS:
         const pendingTasks = currentQueue.filter(t => t.status !== 'Completado');
         if (pendingTasks.length === 0) {
           magTxt.innerText = 'COLA PROCESADA';
@@ -1169,32 +1146,38 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (typeof playSynth === 'function') playSynth('chord');
         magTxt.innerText = 'DESCARGANDO...';
-        pendingTasks.forEach(task => {
-          const bar = document.getElementById(`bar-${task.id}`);
-          if (bar) bar.classList.add('active');
-        });
 
         const currentManualDir = document.getElementById('cfg-dir')?.value || modeStates[currentMode].dir;
-        const currentManualPrefix = document.getElementById('cfg-prefix')?.value || modeStates[currentMode].prefix;
 
-        // Leer chips activos directamente del DOM para garantizar sincronización 100% real
-        const activeRes = document.querySelector('.chip-group[data-cfg="res"] .chip-btn.active')?.getAttribute('data-val') || modeStates[currentMode].res;
-        const activeFmt = document.querySelector('.chip-group[data-cfg="fmt"] .chip-btn.active')?.getAttribute('data-val') || modeStates[currentMode].fmt;
-        const activeThreads = document.querySelector('.chip-group[data-cfg="threads"] .chip-btn.active')?.getAttribute('data-val') || modeStates[currentMode].threads;
-        const activeSimul = document.querySelector('.chip-group[data-cfg="simul"] .chip-btn.active')?.getAttribute('data-val') || modeStates[currentMode].simul;
+        let cleanCoverUrl = '';
+        const bgRaw = modeStates[currentMode].bg || '';
+        const bgMatch = bgRaw.match(/url\(['"]?(.*?)['"]?\)/);
+        if (bgMatch && bgMatch[1]) {
+          cleanCoverUrl = bgMatch[1];
+        }
+
+        const rawFmt = document.querySelector('.chip-group[data-cfg="fmt"] .chip-btn.active')?.getAttribute('data-val') || modeStates[currentMode].fmt;
+        const rawThreads = document.querySelector('.chip-group[data-cfg="threads"] .chip-btn.active')?.getAttribute('data-val') || modeStates[currentMode].threads;
+        const rawSimul = document.querySelector('.chip-group[data-cfg="simul"] .chip-btn.active')?.getAttribute('data-val') || modeStates[currentMode].simul;
+
+        const cleanFmt = String(rawFmt).replace('.', '').toLowerCase().trim();
+
+        const activeSeasonNum = parseInt(document.getElementById('cfg-season')?.value, 10) || modeStates[currentMode].season || 1;
 
         pyCall('start_downloads', {
           tasks: pendingTasks,
           config: {
             ...modeStates[currentMode],
+            title: modeStates[currentMode].title,
+            cover_url: cleanCoverUrl,
+            save_cover: !!modeStates[currentMode].saveCover,
             dir: currentManualDir,
-            prefix: currentManualPrefix,
             is_single_season: !!modeStates[currentMode].singleSeason,
-            season_num: modeStates[currentMode].season || 1,
-            res: activeRes,
-            fmt: activeFmt,
-            threads: activeThreads,
-            simul: activeSimul
+            season_num: activeSeasonNum,
+            open_folder: !!modeStates[currentMode].openFolder,
+            fmt: cleanFmt,
+            threads: parseInt(rawThreads, 10) || 32,
+            simul: parseInt(rawSimul, 10) || 5
           }
         });
 
@@ -1203,12 +1186,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Sincronización inicial con Python
   pyCall('get_initial_state')?.then(config => {
     if (config) {
       if (config.anime) Object.assign(modeStates.anime, config.anime);
       if (config.movie) Object.assign(modeStates.movie, config.movie);
-      setAppMode('anime', false);    }
+      setAppMode('anime', false);
+    }
   });
 
   window.addEventListener('pywebviewready', function() {
@@ -1223,7 +1206,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   updateDiskTelemetry(modeStates.anime.dir);
 
-  // CONTROLES DE VENTANA
   const btnMin = document.getElementById('win-min');
   const btnMax = document.getElementById('win-max');
   const btnClose = document.getElementById('win-close');
@@ -1239,7 +1221,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const isMax = await pyCall('toggle_maximize_window');
     document.body.classList.toggle('is-maximized', !!isMax);
     
-    // Al maximizar se retira la clase de arrastre; al restaurar se vuelve a poner
     const topBar = document.getElementById('top-nav-bar');
     if (topBar) {
       if (isMax) {
@@ -1250,8 +1231,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (btnMax) btnMax.innerText = isMax ? '❐' : '□';
-
-    // Recalcular gliders de inmediato y tras la transición visual
     setTimeout(refreshAllGliders, 50);
     setTimeout(refreshAllGliders, 320);
   });
@@ -1268,12 +1247,14 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // LISTENERS DEL MODAL INTERACTIVO
   document.getElementById('modal-btn-dismiss')?.addEventListener('click', closeMatchModal);
 
   document.getElementById('modal-btn-confirm')?.addEventListener('click', () => {
-    if (pendingTransmission) {
+    if (typeof playSynth === 'function') playSynth('click');
+    if (pendingTransmission && pendingTransmission.proposed) {
       commitTransmission(pendingTransmission.proposed, modalTargetMode, pendingTransmission.ep);
+    } else {
+      closeMatchModal();
     }
   });
 
@@ -1282,11 +1263,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (manualSection) manualSection.classList.toggle('open');
   });
 
-  // Switch del modal con glider animado
   const mAnime = document.getElementById('modal-mode-anime');
   const mMovie = document.getElementById('modal-mode-movie');
   const mThumb = document.getElementById('modal-matrix-thumb');
-
 
   function setModalMode(mode) {
     modalTargetMode = mode;
@@ -1299,7 +1278,6 @@ document.addEventListener('DOMContentLoaded', () => {
       mAnime?.classList.add('active');
       if (mThumb) mThumb.style.transform = 'translateX(0%)';
     }
-    // Reejecutar búsqueda si hay texto escrito
     if (mSearch && mSearch.value.trim().length >= 2) {
       mSearch.dispatchEvent(new Event('input'));
     }
@@ -1314,7 +1292,6 @@ document.addEventListener('DOMContentLoaded', () => {
     setModalMode('movie');
   });
 
-  // Buscador interactivo corregido dentro del modal
   const mSearch = document.getElementById('modal-search-input');
   const mSugg = document.getElementById('modal-suggestions');
   let mTimer;
@@ -1343,7 +1320,6 @@ document.addEventListener('DOMContentLoaded', () => {
               </div>
             `;
             div.addEventListener('click', () => {
-              // Confirmar la elección manual directa
               commitTransmission(item, modalTargetMode, pendingTransmission?.ep || 1);
             });
             mSugg.appendChild(div);
@@ -1356,19 +1332,16 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // --- MENÚ DESPLEGABLE SITIOS (SOLO POR CLIC) ---
   const sitesDock = document.getElementById('sites-dock');
   const sitesTrigger = document.querySelector('.sites-trigger');
 
   if (sitesDock && sitesTrigger) {
-    // Abrir / Cerrar al pulsar en SITIOS
     sitesTrigger.addEventListener('click', (e) => {
       e.stopPropagation();
       const isOpen = sitesDock.classList.toggle('is-open');
       sitesTrigger.textContent = isOpen ? 'SITIOS ▼' : 'SITIOS ▶';
     });
 
-    // Cerrar si haces clic fuera
     document.addEventListener('click', (e) => {
       if (!sitesDock.contains(e.target) && sitesDock.classList.contains('is-open')) {
         sitesDock.classList.remove('is-open');
@@ -1376,30 +1349,12 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
-    // Cerrar automáticamente si cambias entre Anime y Cine
     document.getElementById('btn-switch-mode')?.addEventListener('click', () => {
       sitesDock.classList.remove('is-open');
       sitesTrigger.textContent = 'SITIOS ▶';
     });
   }
 
-  // RESET RÁPIDO DE PREFIJO A FORMATO ÓPTIMO
-  document.getElementById('btn-reset-prefix')?.addEventListener('click', () => {
-    const pInput = document.getElementById('cfg-prefix');
-    if (pInput) pInput.value = '';
-    refreshNamingDisplay();
-  });
-
-// REFRESCO AL EDITAR MANUALMENTE EL PREFIJO
-  document.getElementById('cfg-prefix')?.addEventListener('input', (e) => {
-    modeStates[currentMode].prefix = e.target.value;
-    const tTitle = document.getElementById('token-title');
-    if (tTitle && e.target.value.trim()) {
-      tTitle.innerText = e.target.value.trim();
-    }
-  });
-
-  // BOTÓN ? ALTERNA ENTRE EL PANEL PRINCIPAL Y LA BIENVENIDA / TUTORIAL
   const btnHelp = document.getElementById('win-help');
   btnHelp?.addEventListener('click', () => {
     if (typeof playSynth === 'function') playSynth('click');
@@ -1410,30 +1365,26 @@ document.addEventListener('DOMContentLoaded', () => {
       expandCenterWorkspace();
     }
   });
-  // ========================================================
-  // ATAJOS GLOBALES DE TECLADO INTELIGENTES (TAB & ESPACIO)
-  // ========================================================
+
   window.addEventListener('keydown', (e) => {
-    // Si el usuario está escribiendo en cualquier input o editable, dejarlo actuar normal
     const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
     const isEditing = activeTag === 'input' || activeTag === 'textarea' || document.activeElement?.isContentEditable;
-    
-    // Tampoco interferir si el modal de confirmación HUD está abierto
     const isModalOpen = document.getElementById('match-modal-backdrop')?.classList.contains('active');
 
     if (isEditing || isModalOpen) return;
 
-    // 1. TECLA TAB: Alternar entre Anime y Cine
     if (e.key === 'Tab') {
-      e.preventDefault(); // Evitar el salto de foco nativo del navegador
+      e.preventDefault();
+      if (document.activeElement && typeof document.activeElement.blur === 'function') {
+        document.activeElement.blur();
+      }
       const newMode = currentMode === 'anime' ? 'movie' : 'anime';
       setAppMode(newMode, true);
       return;
     }
 
-    // 2. TECLA ESPACIO: Iniciar Extracción
     if (e.code === 'Space' || e.key === ' ') {
-      e.preventDefault(); // Evitar que la ventana haga scroll hacia abajo
+      e.preventDefault();
       const masterBtn = document.getElementById('btn-master');
       if (masterBtn && !masterBtn.classList.contains('loading')) {
         masterBtn.click();
@@ -1447,25 +1398,73 @@ window.addEventListener('resize', () => {
   setTimeout(refreshAllGliders, 200);
 });
 
-// Receptor de progreso desde Python en tiempo real
+// Receptor de progreso desde Python con persistencia entre modos
 window.updateDownloadProgress = function(taskId, progress, speed, status) {
+  ['anime', 'movie'].forEach(m => {
+    const t = modeStates[m].queue.find(x => x.id === taskId);
+    if (t) {
+      t.progress = progress;
+      t.speed = speed;
+      t.status = progress >= 100 ? 'Completado' : status;
+    }
+  });
+
   const card = document.getElementById(taskId);
-  if (!card) return;
+  const fill = document.getElementById(`task-progress-${taskId}`);
+  const statusEl = document.getElementById(`task-status-${taskId}`);
 
-  const bar = document.getElementById(`bar-${taskId}`);
-  const fill = bar?.querySelector('.queue-progress-fill');
-  const statusEl = card.querySelector('.queue-card-status');
-  const speedEl = card.querySelector('.queue-card-speed');
-
-  if (bar && !bar.classList.contains('active')) bar.classList.add('active');
   if (fill) fill.style.width = `${progress}%`;
-  if (statusEl) statusEl.innerText = status;
-  if (speedEl) speedEl.innerText = speed;
+  if (statusEl) statusEl.innerText = `${status} ${speed ? '• ' + speed : ''}`;
 
-  if (status === 'Completado') {
-    statusEl.style.color = 'var(--color-accent-1)';
-    const masterBtn = document.getElementById('btn-master');
+  if (card && (status === 'Completado' || progress >= 100)) {
+    card.classList.add('completed');
     const magTxt = document.getElementById('mag-txt');
     if (magTxt) magTxt.innerText = 'EXTRACCIÓN COMPLETADA';
   }
+};
+
+window.updateTaskMetadata = function(taskId, bytes, resolution) {
+  const finalBytes = (bytes && bytes > 0) ? bytes : 0;
+  const finalRes = (resolution && resolution !== 'Auto') ? resolution : 'N/D';
+
+  ['anime', 'movie'].forEach(m => {
+    const t = modeStates[m].queue.find(x => x.id === taskId);
+    if (t) {
+      if (finalBytes > 0) t.bytes = finalBytes;
+      t.resolution = finalRes;
+    }
+  });
+
+  const sizeEl = document.getElementById(`task-size-${taskId}`);
+  const resEl = document.getElementById(`task-res-${taskId}`);
+
+  if (sizeEl) sizeEl.innerText = formatBytes(finalBytes);
+  if (resEl) resEl.innerText = finalRes;
+
+  const card = document.getElementById(taskId);
+  if (card) {
+    const sizeBadge = card.querySelector('.pipeline-card-size');
+    const resBadge = card.querySelector('.pipeline-card-res');
+    if (sizeBadge) sizeBadge.innerText = formatBytes(finalBytes);
+    if (resBadge) resBadge.innerText = finalRes;
+  }
+
+  updateTotalQueueSize();
+};
+
+window.updateRealSizeOnly = function(taskId, totalBytes) {
+  if (!totalBytes || totalBytes <= 0) return;
+
+  ['anime', 'movie'].forEach(m => {
+    const t = modeStates[m].queue.find(x => x.id === taskId);
+    if (t && (!t.bytes || t.bytes <= 0)) {
+      t.bytes = totalBytes;
+    }
+  });
+
+  const sizeEl = document.getElementById(`task-size-${taskId}`);
+  if (sizeEl) {
+    sizeEl.innerText = formatBytes(totalBytes);
+  }
+  updateTotalQueueSize();
 };

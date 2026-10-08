@@ -46,7 +46,7 @@ function playSynth(type) {
 window.addEventListener('contextmenu', (e) => e.preventDefault());
 
 // ========================================================
-// MOTOR PARALLAX ULTRA-FLUIDO (LERP + RAF POR HARDWARE)
+// MOTOR PARALLAX
 // ========================================================
 const sensor = document.getElementById('parallax-sensor');
 const poster = document.getElementById('main-poster');
@@ -59,7 +59,6 @@ let isHovered = false;
 let rafId = null;
 
 function renderParallax() {
-  // Interpolación LERP (0.08) para suavidad extrema sin tirones
   currentX += (targetX - currentX) * 0.08;
   currentY += (targetY - currentY) * 0.08;
 
@@ -67,7 +66,6 @@ function renderParallax() {
     poster.style.transform = `rotateX(${currentX.toFixed(2)}deg) rotateY(${currentY.toFixed(2)}deg)`;
   }
 
-  // Si sigue el cursor o aún no ha vuelto al centro exacto, sigue el bucle a 60/144hz
   if (isHovered || Math.abs(targetX - currentX) > 0.01 || Math.abs(targetY - currentY) > 0.01) {
     rafId = requestAnimationFrame(renderParallax);
   } else {
@@ -104,43 +102,4 @@ if (sensor && poster) {
       rafId = requestAnimationFrame(renderParallax);
     }
   });
-}
-
-// ========================================================
-// BOTÓN MAGNÉTICO
-// ========================================================
-const magWrap = document.getElementById('mag-wrap');
-const magBtn = document.getElementById('btn-master');
-const magTxt = document.getElementById('mag-txt');
-let scrambleInterval;
-
-if(magWrap && magBtn) {
-  magWrap.addEventListener('mousemove', (e) => {
-    if(magBtn.classList.contains('loading') || magBtn.classList.contains('done')) return;
-    const rect = magBtn.getBoundingClientRect();
-    const cx = rect.left + rect.width / 2;
-    const cy = rect.top + rect.height / 2;
-    const dx = e.clientX - cx;
-    const dy = e.clientY - cy;
-    
-    magBtn.style.transform = `translate(${dx * 0.1}px, ${dy * 0.1}px)`;
-    magTxt.style.transform = `translate(${dx * 0.05}px, ${dy * 0.05}px)`;
-  });
-
-  magWrap.addEventListener('mouseenter', () => {
-    if(magBtn.classList.contains('loading') || magBtn.classList.contains('is-empty')) return;
-    playSynth('hover');
-  });
-
-  magWrap.addEventListener('mouseleave', () => {
-    magBtn.style.transform = `translate(0px, 0px)`;
-    magTxt.style.transform = `translate(0px, 0px)`;
-    clearInterval(scrambleInterval);
-    // Si no está en plena transición o error, asegurar que el texto sea visible siempre
-    if (!magBtn.classList.contains('loading') && !magBtn.classList.contains('is-empty')) {
-      magTxt.innerText = magTxt.getAttribute('data-target') || 'INICIAR EXTRACCIÓN';
-    }
-  });
-
-  
 }

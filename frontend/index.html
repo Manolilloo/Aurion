@@ -10,7 +10,7 @@
   <div class="ambient-layer ambient-primary" id="ambient-layer-1"></div>
   <div class="ambient-layer ambient-secondary" id="ambient-layer-2"></div>
 
-<!-- BARRA SUPERIOR CUSTOM FRAMELESS -->
+  <!-- BARRA SUPERIOR CUSTOM FRAMELESS -->
   <div class="top-nav pywebview-drag-region" id="top-nav-bar">
     <div class="sites-dock" id="sites-dock">
       <div class="sites-trigger">SITIOS ▶</div>
@@ -43,12 +43,11 @@
     </div>
   </div>
 
-  <!-- TELÓN DE DESENFOQUE TOTAL (BLUR A FONDO MENOS BIENVENIDA Y FLECHAS) -->
+  <!-- TELÓN DE DESENFOQUE TOTAL -->
   <div class="welcome-cinematic-backdrop" id="welcome-backdrop"></div>
 
   <!-- FLECHAS DIRECCIONALES SVG FLUIDAS -->
   <div class="welcome-guide-layer" id="welcome-guides">
-    <!-- FLECHA HACIA SITIOS (IZQUIERDA ARRIBA) -->
     <div class="hero-arrow-box arrow-box-sites">
       <svg class="hero-arrow-svg" viewBox="0 0 100 100" fill="none">
         <path d="M75 75 L30 30 M30 30 L60 30 M30 30 L30 60" stroke="currentColor" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
@@ -56,7 +55,6 @@
       <span class="hero-arrow-label">PORTALES</span>
     </div>
 
-    <!-- FLECHA HACIA ANIME / CINE (CENTRO ARRIBA) -->
     <div class="hero-arrow-box arrow-box-switch">
       <svg class="hero-arrow-svg" viewBox="0 0 100 100" fill="none">
         <path d="M50 80 L50 25 M50 25 L30 45 M50 25 L70 45" stroke="currentColor" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
@@ -65,7 +63,7 @@
     </div>
   </div>
 
-  <!-- CABINA PRINCIPAL: EXACTAMENTE 3 COLUMNAS -->
+  <!-- CABINA PRINCIPAL -->
   <div class="cockpit" id="cockpit-grid">
     
     <!-- COLUMNA 1: PIPELINE ACTIVO (IZQUIERDA) -->
@@ -73,7 +71,7 @@
       <div class="glass-inner">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255, 255, 255, 0.06); padding-bottom: 6px; margin-bottom: 4px;">
           <div class="box-header" style="border-bottom: none; margin-bottom: 0; padding-bottom: 0;">PIPELINE ACTIVO</div>
-          <span style="font-size: 8.5px; font-weight: 800; color: #ffaa00; background: rgba(255, 170, 0, 0.1); border: 1px solid rgba(255, 170, 0, 0.25); padding: 2px 6px; border-radius: 6px; letter-spacing: 0.5px;">1 TEMPORADA A LA VEZ</span>
+          <span id="badge-single-season" style="font-size: 8.5px; font-weight: 800; color: #ffaa00; background: rgba(255, 170, 0, 0.1); border: 1px solid rgba(255, 170, 0, 0.25); padding: 2px 6px; border-radius: 6px; letter-spacing: 0.5px;">1 TEMPORADA A LA VEZ</span>
         </div>
         <div class="queue-area" id="queue-list">
           <div style="text-align: center; color: var(--color-text-dim); font-size: 12px; margin-top: 40px;">
@@ -82,7 +80,7 @@
         </div>
         <div class="neu-controls">
           <button class="btn-neu" id="btn-clear" style="flex: 1;">🧹 VACIAR</button>
-          <div class="total-size-badge" id="total-queue-size" title="Peso estimado acumulado">
+          <div class="total-size-badge" id="total-queue-size" title="Peso total acumulado">
             TOTAL: <span id="val-total-size">0 MB</span>
           </div>
         </div>
@@ -92,7 +90,7 @@
     <!-- COLUMNA 2: ESCENARIO CENTRAL -->
     <div class="center-stage" id="center-stage">
       
-      <!-- ESTADO A: BIENVENIDA (MODO COLEGUEO) -->
+      <!-- ESTADO A: BIENVENIDA -->
       <div class="welcome-card" id="welcome-card">
         <h2 class="shimmer-text">QUÉ PASA GENTE</h2>
         <p class="welcome-desc">
@@ -103,7 +101,7 @@
         </p>
       </div>
 
-      <!-- ESTADO B: WORKSPACE (PÓSTER + BÚSQUEDA + BOTÓN MAESTRO) -->
+      <!-- ESTADO B: WORKSPACE -->
       <div class="workspace-card" id="workspace-card" style="display: none;">
         <div class="search-container">
           <input type="text" class="search-input" id="search-input" placeholder="Invoca un anime..." autocomplete="off">
@@ -142,19 +140,16 @@
               <button class="btn-neu" id="btn-browse-dir" style="padding: 0 14px; border-radius: 12px;" title="Buscar en explorador">📂</button>
             </div>
           </div>
+          <input type="hidden" id="cfg-prefix" value="">
 
-          <!-- PREFIJO DE SALIDA -->
-          <div>
-            <label class="section-label">PREFIJO DE SALIDA</label>
-            <input type="text" class="search-input" id="cfg-prefix" placeholder="Nombre - T1_Ep1" style="width: 100%;">
-          </div>
+          
 
-          <!-- NUMERACIÓN COLAPSABLE (SOLO ANIME) CON CENTRADO FLUIDO -->
+          <!-- NUMERACIÓN COLAPSABLE (SOLO ANIME) -->
           <div class="collapsible-section" id="section-steppers">
             <div class="collapsible-inner">
-              <div class="steppers-grid-wrapper" id="steppers-wrapper">
-                <div class="stepper-wrapper-col" id="col-season">
-                  <label class="section-label">TEMPORADA</label>
+              <div class="steppers-grid-wrapper" id="steppers-wrapper" style="justify-content: center;">
+                <div class="stepper-wrapper-col" id="col-season" style="max-width: 100%; width: 100%;">
+                  <label class="section-label" style="text-align: center;">TEMPORADA</label>
                   <div class="stepper-box" data-id="cfg-season" data-min="1" data-max="99">
                     <button class="step-btn step-dec" type="button">−</button>
                     <div class="step-viewport">
@@ -164,22 +159,13 @@
                     <input type="hidden" id="cfg-season" value="1">
                   </div>
                 </div>
-                <div class="stepper-wrapper-col" id="col-start-ep">
-                  <label class="section-label">EPISODIO INICIAL</label>
-                  <div class="stepper-box" data-id="cfg-start-ep" data-min="1" data-max="9999">
-                    <button class="step-btn step-dec" type="button">−</button>
-                    <div class="step-viewport">
-                      <span class="step-val" id="disp-cfg-start-ep">1</span>
-                    </div>
-                    <button class="step-btn step-inc" type="button">+</button>
-                    <input type="hidden" id="cfg-start-ep" value="1">
-                  </div>
-                </div>
+                <!-- Episodio inicial mantenido solo como valor oculto para la lógica interna -->
+                <input type="hidden" id="cfg-start-ep" value="1">
               </div>
             </div>
           </div>
 
-          <!-- TOGGLE: TEMPORADA ÚNICA (MISMO FORMATO QUE GUARDAR PORTADA) -->
+          <!-- TOGGLE: TEMPORADA ÚNICA (SOLO ANIME) -->
           <div class="toggle-card" id="card-single-season">
             <span class="toggle-label">TEMPORADA ÚNICA</span>
             <label class="switch-toggle">
@@ -188,7 +174,7 @@
             </label>
           </div>
 
-          <!-- TOGGLE PORTADA -->
+          <!-- TOGGLE: PORTADA -->
           <div class="toggle-card">
             <span class="toggle-label">GUARDAR PORTADA (FOLDER.JPG)</span>
             <label class="switch-toggle">
@@ -197,24 +183,22 @@
             </label>
           </div>
 
-          <!-- CHIPS: CALIDAD Y CONTENEDOR -->
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-            <div>
-              <label class="section-label">CALIDAD</label>
-              <div class="chip-group" data-cfg="res">
-                <div class="chip-glider"></div>
-                <button class="chip-btn active" data-val="max">MAX</button>
-                <button class="chip-btn" data-val="1080p">1080p</button>
-                <button class="chip-btn" data-val="720p">720p</button>
-              </div>
-            </div>
-            <div>
-              <label class="section-label">CONTENEDOR</label>
-              <div class="chip-group" data-cfg="fmt">
-                <div class="chip-glider"></div>
-                <button class="chip-btn active" data-val="mp4">.MP4</button>
-                <button class="chip-btn" data-val="mkv">.MKV</button>
-              </div>
+          <!-- TOGGLE: ABRIR CARPETA AL FINALIZAR (NUEVO) -->
+          <div class="toggle-card">
+            <span class="toggle-label">ABRIR CARPETA AL FINALIZAR</span>
+            <label class="switch-toggle">
+              <input type="checkbox" id="cfg-open-folder" checked>
+              <span class="switch-slider"></span>
+            </label>
+          </div>
+
+          <!-- CHIP: CONTENEDOR (MKV POR DEFECTO) -->
+          <div>
+            <label class="section-label">CONTENEDOR</label>
+            <div class="chip-group" data-cfg="fmt">
+              <div class="chip-glider"></div>
+              <button class="chip-btn" data-val="mp4">.MP4</button>
+              <button class="chip-btn active" data-val="mkv">.MKV</button>
             </div>
           </div>
 
@@ -295,7 +279,6 @@
 
     </div>
   </div>
-  
 
   <script src="js/animations.js"></script>
   <script src="js/app.js"></script>

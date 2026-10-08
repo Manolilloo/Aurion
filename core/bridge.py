@@ -86,7 +86,7 @@ class AurionBridge:
                 "start_ep": 1,
                 "save_cover": True,
                 "res": "max",
-                "fmt": "mp4",
+                "fmt": "mkv",
                 "threads": "32",
                 "simul": "20"
             },
@@ -96,7 +96,7 @@ class AurionBridge:
                 "start_ep": 1,
                 "save_cover": True,
                 "res": "max",
-                "fmt": "mp4",
+                "fmt": "mkv",
                 "threads": "32",
                 "simul": "5"
             }
@@ -379,3 +379,15 @@ class AurionBridge:
         for t in tasks:
             print(f"   -> Episodio: {t.get('title')} | URL: {t.get('url')}")
         return self.downloader.start_engine(config, tasks)
+
+    def probe_stream_metadata(self, task_id, stream_url, page_url):
+        """Sonda asíncrona de metadatos exactos (tamaño en bytes y resolución)."""
+        import threading
+        def worker():
+            size_bytes, res_str = self.downloader.probe_media_info(stream_url, page_url)
+            if self._window:
+                self._window.evaluate_js(
+                    f"window.updateTaskMetadata && window.updateTaskMetadata('{task_id}', {size_bytes}, '{res_str}');"
+                )
+        threading.Thread(target=worker, daemon=True).start()
+        return True

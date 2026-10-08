@@ -20,6 +20,11 @@
   padding: 0;
   font-family: var(--font-stack);
   -webkit-font-smoothing: antialiased;
+  outline: none !important; /* Elimina cualquier recuadro blanco de selección nativo */
+}
+
+*:focus, *:focus-visible {
+  outline: none !important;
 }
 
 html, body, #cockpit-grid, .cockpit, .glass-box, .center-stage, .workspace-card, .welcome-card {
@@ -444,24 +449,40 @@ input[type=number] {
   display: block !important;
 }
 
-/* ÁREA DE COLA IZQUIERDA */
+/* ÁREA DE COLA IZQUIERDA CON SCROLL ADAPTATIVO DINÁMICO */
 .queue-area {
-  flex: 1 1 auto !important;
-  height: 100% !important;
-  overflow-y: auto !important;
+  flex: 1 1 0 !important;
+  min-height: 0 !important;
+  max-height: 100% !important;
+  overflow-y: overlay !important;
+  overflow-x: hidden !important;
   display: flex !important;
   flex-direction: column !important;
-  gap: 8px !important;
-  padding-right: 2px;
+  gap: 10px !important;
+  padding: 8px 6px 8px 2px !important;
+  scrollbar-width: thin !important;
+  scrollbar-color: var(--color-accent-1) transparent !important;
 }
 
 .queue-area::-webkit-scrollbar {
-  width: 4px;
+  width: 5px !important;
+}
+
+.queue-area::-webkit-scrollbar-track {
+  background: transparent !important;
+  margin: 6px 0 !important;
 }
 
 .queue-area::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.12);
-  border-radius: 4px;
+  background: var(--color-accent-1) !important;
+  border-radius: 10px !important;
+  opacity: 0.75 !important;
+  box-shadow: 0 0 8px var(--color-glow) !important;
+}
+
+.queue-area::-webkit-scrollbar-thumb:hover {
+  opacity: 1 !important;
+  box-shadow: 0 0 12px var(--color-glow) !important;
 }
 
 .neu-controls {
@@ -895,6 +916,7 @@ input:checked + .switch-slider:before {
   background: linear-gradient(90deg, #ffffff 0%, var(--color-accent-1) 35%, var(--color-accent-2) 65%, #ffffff 100%);
   background-size: 250% auto;
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
   animation: shineInfinite 4s linear infinite;
 }
@@ -1178,92 +1200,7 @@ input:checked + .switch-slider:before {
   border-color: var(--color-accent-1);
   box-shadow: 0 0 8px var(--color-glow-subtle), inset 0 1px 2px rgba(0, 0, 0, 0.6) !important;
 }
-/* =========================================================
-   TARJETAS DE COLA DE DESCARGA
-   ========================================================= */
 
-.queue-card {
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.5) 0%, rgba(0, 0, 0, 0.35) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.08), 0 4px 12px rgba(0, 0, 0, 0.3);
-  border-radius: 13px;
-  padding: 9px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  transition: border-color 0.2s ease;
-}
-
-.queue-card:hover {
-  border-color: rgba(255, 255, 255, 0.16);
-}
-
-.queue-card-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 6px;
-}
-
-.queue-card-title {
-  font-size: 11px;
-  font-weight: 700;
-  color: #fff;
-  line-height: 1.3;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-}
-
-.queue-card-del {
-  background: transparent;
-  border: none;
-  color: #64748b;
-  font-size: 14px;
-  cursor: pointer;
-  padding: 0 4px;
-  transition: color 0.18s;
-}
-
-.queue-card-del:hover {
-  color: #ff3366;
-}
-
-.queue-progress-bar {
-  display: none;
-  width: 100%;
-  height: 5px;
-  border-radius: 3px;
-  background: rgba(255, 255, 255, 0.08);
-  overflow: hidden;
-}
-
-.queue-progress-bar.active {
-  display: block;
-}
-
-.queue-progress-fill {
-  height: 100%;
-  width: 0%;
-  background: linear-gradient(90deg, var(--color-accent-1), var(--color-accent-2));
-  border-radius: 3px;
-  transition: width 0.3s ease;
-}
-
-.queue-card-meta {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 10px;
-  font-weight: 700;
-  color: #94a3b8;
-}
-
-.queue-card-status {
-  color: var(--color-accent-1);
-}
 
 /* =========================================================
    MODAL HUD LIQUID GLASS
@@ -1733,7 +1670,12 @@ input {
    MODO MAXIMIZADO: EXPANSIÓN, TAMAÑO CÓMODO Y LEGIBILIDAD
    (Se aplica al pulsar Maximizar en la app o por pantalla grande)
    ========================================================= */
-body.is-maximized .cockpit,
+body.is-maximized .cockpit {
+  height: calc(100vh - 80px) !important;
+  padding: 12px 36px 24px 36px !important;
+  gap: 32px !important;
+}
+
 @media (min-width: 1440px) and (min-height: 820px) {
   .cockpit {
     height: calc(100vh - 80px) !important;
@@ -2267,9 +2209,9 @@ body > *:not(.top-nav) * {
 .steppers-grid-wrapper {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   width: 100%;
-  gap: 10px;
+  gap: 0;
   transition: gap 0.35s cubic-bezier(0.2, 0.8, 0.25, 1);
 }
 
@@ -2280,7 +2222,7 @@ body > *:not(.top-nav) * {
   transition: max-width 0.35s cubic-bezier(0.2, 0.8, 0.25, 1),
               opacity 0.25s ease,
               transform 0.35s cubic-bezier(0.2, 0.8, 0.25, 1);
-  max-width: 170px;
+  max-width: 100%;
 }
 
 #col-season {
@@ -2598,4 +2540,270 @@ body.is-maximized .btn-god-txt {
   body.is-maximized #disk-free-txt {
     font-size: 13.5px !important;
   }
+}
+
+/* ==========================================================================
+   TARJETAS DEL PIPELINE // TELEMETRÍA EXACTA (CALIDAD + PESO)
+   ========================================================================== */
+
+.pipeline-card {
+  position: relative;
+  background: radial-gradient(120% 120% at 15% 10%, rgba(22, 30, 46, 0.75) 0%, rgba(10, 14, 22, 0.85) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 12px 14px;
+  margin-bottom: 2px;
+  flex-shrink: 0 !important; /* IMPIDE ROTUNDAMENTE QUE SE APLASTEN */
+  min-height: 82px !important;
+  box-shadow: 
+    0 6px 18px rgba(0, 0, 0, 0.45),
+    inset 0 1px 1px rgba(255, 255, 255, 0.12),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease, box-shadow 0.22s ease;
+  overflow: hidden;
+}
+
+.pipeline-card::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+  background-size: 8px 8px;
+  pointer-events: none;
+}
+
+.pipeline-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(0, 255, 170, 0.28);
+  box-shadow: 
+    0 10px 24px rgba(0, 0, 0, 0.6),
+    0 0 16px rgba(0, 255, 170, 0.12),
+    inset 0 1px 1px rgba(255, 255, 255, 0.2);
+}
+
+.pipeline-card.completed {
+  border-color: rgba(0, 255, 170, 0.4);
+  background: radial-gradient(120% 120% at 15% 10%, rgba(10, 36, 26, 0.8) 0%, rgba(8, 18, 14, 0.9) 100%);
+}
+
+.pipeline-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: relative;
+  z-index: 1;
+}
+
+.pipeline-card-title {
+  font-size: 11.5px;
+  font-weight: 800;
+  color: #f1f5f9;
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 220px;
+}
+
+.pipeline-card-btn-del {
+  background: transparent;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.pipeline-card-btn-del:hover {
+  color: #ff3366;
+  background: rgba(255, 51, 102, 0.12);
+}
+
+/* Ocultar bloque del prefijo de salida y sus textos */
+#cfg-prefix,
+.prefix-group,
+.prefix-container,
+[data-cfg-group="prefix"],
+.token-naming-bar,
+.prefix-box,
+.settings-area > div:has(#cfg-prefix) {
+  display: none !important;
+}
+
+.pipeline-card-meta {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  font-size: 10px;
+  font-weight: 700;
+  color: #94a3b8;
+  position: relative;
+  z-index: 1;
+  gap: 8px !important;
+}
+
+.pipeline-tags-cluster {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  flex-shrink: 0 !important; /* Impide que el texto de velocidad encoja o deforme los badges */
+}
+
+.pipeline-card-size {
+  color: var(--color-accent-1, #00ffaa);
+  background: rgba(0, 255, 170, 0.08);
+  border: 1px solid rgba(0, 255, 170, 0.2);
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-weight: 800;
+  white-space: nowrap !important;
+  min-width: 64px !important;
+  text-align: center !important;
+  flex-shrink: 0 !important;
+}
+
+.pipeline-card-status {
+  letter-spacing: 0.3px;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important; /* Si la velocidad es larga, coloca '...' sin romper el diseño */
+  text-align: right !important;
+}
+
+.pipeline-card-res {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-weight: 800;
+  font-size: 9px;
+  letter-spacing: 0.5px;
+}
+
+.pipeline-card-status {
+  letter-spacing: 0.3px;
+}
+
+.pipeline-progress-track {
+  width: 100%;
+  height: 5px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 10px;
+  overflow: hidden;
+  position: relative;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  z-index: 1;
+}
+
+.pipeline-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #00b377 0%, #00ffaa 100%);
+  border-radius: 10px;
+  box-shadow: 0 0 10px rgba(0, 255, 170, 0.5);
+  transition: width 0.2s ease-out;
+}
+
+.pipeline-card.completed .pipeline-progress-fill {
+  background: #00ffaa;
+  width: 100% !important;
+}
+
+/* ==========================================================================
+   BOTÓN MAESTRO GRUESO HIPERREALISTA & ENCLAVE TÁCTIL
+   ========================================================================== */
+
+.mag-wrapper {
+  position: relative;
+  margin: 18px auto 0 auto !important;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px !important;
+  width: 100%;
+}
+
+.btn-god {
+  position: relative;
+  width: 320px !important;
+  height: 52px !important;
+  min-height: 52px !important;
+  border-radius: 18px !important;
+  border: 1px solid rgba(255, 255, 255, 0.28) !important;
+  /* Respeta el patrón de colores dinámicos del modo activo (anime/cine/portada) */
+  background: linear-gradient(180deg, var(--color-accent-1, #00ffaa) 0%, var(--color-accent-2, #8a2be2) 160%) !important;
+  color: var(--color-btn-text, #000000) !important;
+  font-size: 13px !important;
+  font-weight: 900 !important;
+  letter-spacing: 2px !important;
+  cursor: pointer;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  /* Relieve 3D físico con bisel superior e inferior */
+  box-shadow: 
+    0 1px 0 rgba(255, 255, 255, 0.45) inset,
+    0 -3px 0 rgba(0, 0, 0, 0.4) inset,
+    0 10px 24px var(--color-glow, rgba(0, 255, 170, 0.3)),
+    0 4px 12px rgba(0, 0, 0, 0.5) !important;
+  transition: transform 0.15s ease, box-shadow 0.2s ease, filter 0.2s ease !important;
+  overflow: hidden;
+  user-select: none;
+}
+
+/* Brillo especular superior de vidrio */
+.btn-god::before {
+  content: "" !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  height: 48% !important;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.35) 0%, rgba(255, 255, 255, 0.02) 100%) !important;
+  border-radius: 17px 17px 60px 60px / 17px 17px 12px 12px !important;
+  pointer-events: none !important;
+}
+
+.btn-god:hover:not(.loading) {
+  filter: brightness(1.1) !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 
+    0 1px 0 rgba(255, 255, 255, 0.6) inset,
+    0 -3px 0 rgba(0, 0, 0, 0.4) inset,
+    0 14px 32px var(--color-glow, rgba(0, 255, 170, 0.5)),
+    0 6px 16px rgba(0, 0, 0, 0.6) !important;
+}
+
+.btn-god:active:not(.loading) {
+  transform: translateY(2px) !important;
+  box-shadow: 
+    0 1px 0 rgba(0, 0, 0, 0.5) inset,
+    0 -1px 0 rgba(255, 255, 255, 0.2) inset,
+    0 2px 6px rgba(0, 0, 0, 0.6) !important;
+}
+
+.btn-god.loading {
+  width: 56px !important;
+  height: 56px !important;
+  border-radius: 50% !important;
+}
+
+.btn-god-hotkey-below {
+  font-size: 9.5px !important;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  color: #94a3b8 !important;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 3px 12px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }

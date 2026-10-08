@@ -1,6 +1,7 @@
 import os
 import shutil
 import threading
+from urllib.parse import urlparse
 from concurrent.futures import ThreadPoolExecutor
 import yt_dlp
 
@@ -12,7 +13,6 @@ class AurionDownloader:
         self.cancelled_tasks = set()
         self.lock = threading.Lock()
 
-        # Comprobación de binarios clave en el sistema
         self.has_aria2 = shutil.which("aria2c") is not None
         self.has_ffmpeg = shutil.which("ffmpeg") is not None
         
@@ -27,11 +27,23 @@ class AurionDownloader:
         base_dir = config.get("dir", "J:\\ANIME\\animes")
         is_single = config.get("is_single_season", False)
         season_num = config.get("season_num", 1)
+        anime_title = config.get("title", "").strip()
 
-        if not is_single and season_num:
-            final_dir = os.path.join(base_dir, f"Temporada {season_num}")
+        # Limpiar caracteres ilegales para rutas en Windows
+        clean_title = "".join(c for c in anime_title if c not in r'\/:*?"<>|').strip()
+
+        if is_single:
+            # Temporada única: Nombre del anime como carpeta directa
+            if clean_title and clean_title != "Esperando consulta...":
+                final_dir = os.path.join(base_dir, clean_title)
+            else:
+                final_dir = base_dir
         else:
-            final_dir = base_dir
+            # Varias temporadas: Nombre del anime / Temporada X
+            if clean_title and clean_title != "Esperando consulta...":
+                final_dir = os.path.join(base_dir, clean_title, f"Temporada {season_num}")
+            else:
+                final_dir = os.path.join(base_dir, f"Temporada {season_num}")
 
         try:
             os.makedirs(final_dir, exist_ok=True)
@@ -40,16 +52,100 @@ class AurionDownloader:
 
         return final_dir
 
-    def _build_format_selector(self, res_choice):
-        """Traduce la elección del chip de Calidad al selector exacto de yt-dlp."""
-        res = str(res_choice).lower().strip()
-        if res == "720p":
-            return "bestvideo[height<=720]+bestaudio/best[height<=720]/best"
-        elif res == "1080p":
-            return "bestvideo[height<=1080]+bestaudio/best[height<=1080]/best"
-        else:
-            # MAX: La máxima calidad absoluta disponible en el servidor
-            return "bestvideo+bestaudio/best"
+    def _probe_resolution_ffprobe(self, media_url, headers):
+        """Usa ffprobe para leer la resolución exacta de los primeros paquetes sin inventar nada."""
+        if not self.has_ffmpeg:
+            return None
+        try:
+            import subprocess
+            import json
+
+            header_str = "".join([f"{k}: {v}\r\n" for k, v in headers.items()])
+            cmd = [
+                'ffprobe',
+                '-v', 'quiet',
+                '-print_format', 'json',
+                '-show_streams',
+                '-headers', header_str,
+                media_url
+            ]
+
+            proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=4)
+            if proc.returncode == 0:
+                data = json.loads(proc.stdout.decode('utf-8'))
+                for s in data.get('streams', []):
+                    if s.get('codec_type') == 'video':
+                        height = s.get('height')
+                        if height:
+                            return f"{height}p"
+        except Exception:
+            pass
+        return None
+
+    def probe_media_info(self, url, page_url=""):
+        """
+        Inspecciona el flujo real mediante yt-dlp y ffprobe.
+        Si no se puede determinar fehacientemente, devuelve (0, 'N/D').
+        Jamás devuelve un valor simulado o inventado.
+        """
+        if not url:
+            return 0, "N/D"
+
+        parsed_url = urlparse(url)
+        origin_domain = f"{parsed_url.scheme}://{parsed_url.netloc}"
+        referer = origin_domain + "/"
+
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+            'Referer': referer,
+            'Origin': origin_domain
+        }
+
+        ydl_opts = {
+            'quiet': True,
+            'no_warnings': True,
+            'nocheckcertificate': True,
+            'http_headers': headers,
+            'skip_download': True
+        }
+
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=False)
+                if not info:
+                    return 0, "N/D"
+
+                # 1. Resolución real
+                real_height = info.get('height')
+                if not real_height and 'formats' in info:
+                    for f in reversed(info['formats']):
+                        if f.get('height'):
+                            real_height = f.get('height')
+                            break
+
+                res_str = f"{real_height}p" if real_height else None
+
+                # Si yt-dlp no extrajo la resolución del texto del m3u8, consultar a ffprobe
+                if not res_str:
+                    res_str = self._probe_resolution_ffprobe(url, headers)
+
+                if not res_str:
+                    res_str = "N/D"
+
+                # 2. Tamaño real
+                size_bytes = info.get('filesize') or info.get('filesize_approx') or 0
+                if size_bytes == 0:
+                    duration = info.get('duration') or 0
+                    tbr = info.get('tbr') or 0  # Total bitrate en kbps
+                    if duration > 0 and tbr > 0:
+                        size_bytes = int((tbr * 1000 * duration) / 8)
+
+                return int(size_bytes), res_str
+
+        except Exception as e:
+            print(f"[Core Sonda] Metadatos iniciales no disponibles en el manifiesto: {e}")
+            res_str = self._probe_resolution_ffprobe(url, headers) or "N/D"
+            return 0, res_str
 
     def start_engine(self, config, tasks=None):
         if self.is_downloading:
@@ -63,12 +159,49 @@ class AurionDownloader:
         threading.Thread(target=self._orchestrate_downloads, args=(config, target_tasks), daemon=True).start()
         return True
 
+    def _save_cover_image(self, config):
+        """Descarga la portada en la carpeta raíz del anime (nunca en subcarpetas)."""
+        if not config.get("save_cover", True):
+            return
+
+        cover_url = config.get("cover_url", "").strip()
+        if not cover_url or cover_url.startswith("data:"):
+            return
+
+        base_dir = config.get("dir", "J:\\ANIME\\animes")
+        anime_title = config.get("title", "").strip()
+        clean_title = "".join(c for c in anime_title if c not in r'\/:*?"<>|').strip()
+
+        # Carpeta raíz del anime (no la subcarpeta de temporada)
+        if clean_title and clean_title != "Esperando consulta...":
+            root_anime_dir = os.path.join(base_dir, clean_title)
+        else:
+            root_anime_dir = base_dir
+
+        try:
+            os.makedirs(root_anime_dir, exist_ok=True)
+            cover_path = os.path.join(root_anime_dir, "cover.jpg")
+
+            # Descargar solo si aún no existe
+            if not os.path.exists(cover_path):
+                import urllib.request
+                req = urllib.request.Request(cover_url, headers={
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+                })
+                with urllib.request.urlopen(req, timeout=10) as resp, open(cover_path, 'wb') as out_f:
+                    out_f.write(resp.read())
+                print(f"[Core] Portada guardada en raíz: {cover_path}")
+        except Exception as e:
+            print(f"[Core] Error descargando portada: {e}")
+
     def _orchestrate_downloads(self, config, tasks):
-        # Chip PARALELAS (20, 10, 5)
         simul_workers = int(config.get("simul", 5))
         dest_folder = self.resolve_destination_folder(config)
 
-        print(f"[Core] Iniciando pool de descargas: {simul_workers} hilos paralelos activos.")
+        # Guardar portada en la carpeta principal del anime antes de iniciar descargas
+        self._save_cover_image(config)
+
+        print(f"\n[Core] Iniciando pool de descargas: {simul_workers} simultáneas en '{dest_folder}'")
 
         with ThreadPoolExecutor(max_workers=simul_workers) as executor:
             futures = [
@@ -79,10 +212,20 @@ class AurionDownloader:
                 try:
                     f.result()
                 except Exception as e:
-                    print(f"[Core] Error en worker: {e}")
+                    print(f"[Core] Error no capturado en worker: {e}")
 
         self.is_downloading = False
-        print("[Core] Pool de descargas finalizado con éxito.")
+        print("\n[Core] Todas las tareas del lote han concluido.")
+
+        # Abrir la carpeta garantizada en Windows Explorer
+        if config.get("open_folder", True):
+            try:
+                abs_dest = os.path.abspath(dest_folder)
+                os.makedirs(abs_dest, exist_ok=True)
+                print(f"[Core] Abriendo carpeta en explorador: {abs_dest}")
+                os.startfile(abs_dest)
+            except Exception as e:
+                print(f"[Core] Error abriendo carpeta: {e}")
 
     def _download_single_task(self, task, dest_folder, config):
         task_id = task.get("id")
@@ -96,15 +239,28 @@ class AurionDownloader:
             if task_id in self.cancelled_tasks:
                 return
 
-        # 1. Leer chips de configuración seleccionados por el usuario
-        threads_count = int(config.get("threads", 32))
-        res_choice = config.get("res", "max")
-        fmt_choice = config.get("fmt", "mp4").lower()
-        
-        format_selector = self._build_format_selector(res_choice)
-        out_template = os.path.join(dest_folder, f"{title}.%(ext)s")
+        # En streams HLS, limitar a 8 hilos por tarea para no saturar al servidor y evitar que aborte la conexión
+        raw_threads = int(config.get("threads", 16))
+        is_m3u8 = '.m3u8' in url.lower()
+        threads_count = min(raw_threads, 8) if is_m3u8 else raw_threads
 
-        print(f"[Core] Tarea '{title}' -> Calidad: {res_choice} | Formato: {fmt_choice} | Hilos: {threads_count}")
+        fmt_choice = str(config.get("fmt", "mp4")).replace(".", "").lower().strip()
+        if fmt_choice not in ["mp4", "mkv"]:
+            fmt_choice = "mp4"
+
+        format_selector = "bestvideo[height<=1080]+bestaudio/best[height<=1080]/bestvideo+bestaudio/best"
+
+        # Directorio temporal aislado por tarea para evitar bloqueos WinError 32 entre descargas simultáneas
+        task_temp_dir = os.path.join(dest_folder, f".tmp_{task_id}")
+        os.makedirs(task_temp_dir, exist_ok=True)
+        out_template = os.path.join(task_temp_dir, f"{title}.%(ext)s")
+
+        parsed_url = urlparse(url)
+        origin_domain = f"{parsed_url.scheme}://{parsed_url.netloc}"
+        referer = origin_domain + "/"
+
+        print(f"\n[Core -> Tarea Iniciada] {title}")
+        print(f"      Formato: .{fmt_choice} | Hilos: {threads_count}")
 
         def progress_hook(d):
             with self.lock:
@@ -113,10 +269,22 @@ class AurionDownloader:
 
             if d.get("status") == "downloading":
                 downloaded = d.get("downloaded_bytes", 0)
-                total = d.get("total_bytes") or d.get("total_bytes_estimate", 0)
+                # Usar total real si existe; si es estimado, descartar estimaciones infladas mayores a 1.2 GB en episodios
+                total = d.get("total_bytes") or 0
+                if total <= 0:
+                    est = d.get("total_bytes_estimate", 0)
+                    if 0 < est < (1500 * 1024 * 1024):  # Ignora lecturas absurdas del arranque
+                        total = est
+
                 percent = round((downloaded / total) * 100, 1) if total > 0 else 0
                 speed_bytes = d.get("speed", 0) or 0
-                speed_str = f"{round(speed_bytes / 1024 / 1024, 2)} MB/s" if speed_bytes > 0 else "Acelerando..."
+                speed_str = f"{round(speed_bytes / 1024 / 1024, 2)} MB/s" if speed_bytes > 0 else "Descargando..."
+
+                # Solo actualizar tamaño en UI si es un valor razonable y no un pico inflado
+                if total > 0 and total < (1500 * 1024 * 1024) and self.bridge and self.bridge._window:
+                    self.bridge._window.evaluate_js(
+                        f"window.updateRealSizeOnly && window.updateRealSizeOnly('{task_id}', {total});"
+                    )
 
                 if self.bridge and self.bridge._window:
                     self.bridge._window.evaluate_js(
@@ -125,10 +293,17 @@ class AurionDownloader:
             elif d.get("status") == "finished":
                 if self.bridge and self.bridge._window:
                     self.bridge._window.evaluate_js(
-                        f"window.updateDownloadProgress && window.updateDownloadProgress('{task_id}', 100, '0 KB/s', 'Completado');"
+                        f"window.updateDownloadProgress && window.updateDownloadProgress('{task_id}', 100, '0 KB/s', 'Procesando formato...');"
                     )
 
-        # Opciones avanzadas de saturación de ancho de banda y máxima resolución
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+            'Referer': referer,
+            'Origin': origin_domain,
+            'Accept': '*/*',
+            'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8'
+        }
+
         ydl_opts = {
             'outtmpl': out_template,
             'format': format_selector,
@@ -137,18 +312,20 @@ class AurionDownloader:
             'nocheckcertificate': True,
             'quiet': True,
             'no_warnings': True,
-            'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-            'referer': task.get("pageUrl", ""),
-            # Aceleración extrema para streams HLS/DASH (descarga en ráfagas simultáneas)
+            'http_headers': headers,
             'concurrent_fragment_downloads': threads_count,
-            'buffersize': 1024 * 512,       # Buffer de medio mega por conexión
-            'http_chunk_size': 20971520,    # Bloques gigantes de 20 MB para exprimir fibra 1 Gbps
-            'retries': 10,
-            'fragment_retries': 10
+            'retries': 20,
+            'fragment_retries': 20,
+            'hls_use_mpegts': True,
+            'fixup': 'warn',
+            'postprocessors': [{
+                'key': 'FFmpegVideoRemuxer',
+                'preferedformat': fmt_choice
+            }]
         }
 
-        # Inyección de aria2c para enlaces directos HTTP/HTTPS
-        if self.has_aria2:
+        is_m3u8 = '.m3u8' in url.lower()
+        if self.has_aria2 and not is_m3u8:
             ydl_opts['external_downloader'] = 'aria2c'
             ydl_opts['external_downloader_args'] = {
                 'aria2c': [
@@ -158,25 +335,71 @@ class AurionDownloader:
                     '-k1M',
                     '--file-allocation=none',
                     '--summary-interval=0',
-                    '--retry-wait=1',
-                    '--max-tries=5'
+                    f'--header=Referer: {referer}',
+                    f'--header=Origin: {origin_domain}'
                 ]
             }
 
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([url])
-            print(f"[Core] Completado con máxima calidad: {title}")
+                info = ydl.extract_info(url, download=True)
+
+                width = info.get('width', 'N/A')
+                height = info.get('height', 'N/A')
+                vcodec = info.get('vcodec', 'N/A')
+                acodec = info.get('acodec', 'N/A')
+                fps = info.get('fps', 'N/A')
+
+                print(f"\n=======================================================")
+                print(f"[Core Telemetría] {title}")
+                print(f"   -> Archivo generado: {title}.{fmt_choice}")
+                print(f"   -> Resolución: {width}x{height} ({height}p)")
+                print(f"   -> FPS: {fps} | Códec Vídeo: {vcodec} | Audio: {acodec}")
+                print(f"   -> Hilos de fragmentos usados: {threads_count}")
+                print(f"=======================================================\n")
+
+            # Mover el archivo final a la carpeta de destino
+            temp_file_path = os.path.join(task_temp_dir, f"{title}.{fmt_choice}")
+            final_file_path = os.path.join(dest_folder, f"{title}.{fmt_choice}")
+
+            if os.path.exists(temp_file_path):
+                if os.path.exists(final_file_path):
+                    try:
+                        os.remove(final_file_path)
+                    except Exception:
+                        pass
+                shutil.move(temp_file_path, final_file_path)
+
+            real_file_bytes = 0
+            if os.path.exists(final_file_path):
+                real_file_bytes = os.path.getsize(final_file_path)
+
+            if self.bridge and self.bridge._window:
+                if real_file_bytes > 0:
+                    self.bridge._window.evaluate_js(
+                        f"window.updateRealSizeOnly && window.updateRealSizeOnly('{task_id}', {real_file_bytes});"
+                    )
+                self.bridge._window.evaluate_js(
+                    f"window.updateDownloadProgress && window.updateDownloadProgress('{task_id}', 100, '0 KB/s', 'Completado');"
+                )
         except Exception as e:
             if "TASK_CANCELLED_BY_USER" in str(e):
-                print(f"[Core] Descarga abortada por el usuario: {title}")
+                print(f"[Core] Descarga cancelada: {title}")
                 if self.bridge and self.bridge._window:
                     self.bridge._window.evaluate_js(
                         f"window.updateDownloadProgress && window.updateDownloadProgress('{task_id}', 0, 'Cancelado', 'Cancelado');"
                     )
             else:
-                print(f"[Core] Error descargando {title}: {e}")
+                import traceback
+                print(f"[Core] Error descargando {title}:")
+                traceback.print_exc()
                 if self.bridge and self.bridge._window:
                     self.bridge._window.evaluate_js(
                         f"window.updateDownloadProgress && window.updateDownloadProgress('{task_id}', 0, 'Error', 'Fallo al descargar');"
                     )
+        finally:
+            # Garantiza que la carpeta temporal siempre se borre, incluso si la descarga falla
+            try:
+                shutil.rmtree(task_temp_dir, ignore_errors=True)
+            except Exception:
+                pass
