@@ -1,22 +1,22 @@
 if (window.top !== window) {
-  // EJECUCIÓN DENTRO DE LOS IFRAMES DE STREAMWISH / FILELIONS / OTROS
+  // EJECUCIÓN DENTRO DE LOS IFRAMES DE LOS REPRODUCTORES
   function checkNativeVideoResolution() {
     const v = document.querySelector('video');
     if (v && v.videoHeight > 0) {
-      const detectedRes = `${v.videoHeight}p`;
+      const currentHeight = v.videoHeight;
       window.top.postMessage({
         aurionType: 'NATIVE_RES_DETECTED',
-        resolution: detectedRes,
+        height: currentHeight,
+        resolution: `${currentHeight}p`,
         frameUrl: window.location.href
       }, '*');
       chrome.runtime.sendMessage({
         type: 'UPDATE_MEDIA_RESOLUTION',
-        resolution: detectedRes
+        resolution: `${currentHeight}p`
       }).catch(() => {});
     }
   }
 
-  // Observar cuando el vídeo empiece a reproducirse para leer los píxeles reales del decodificador
   document.addEventListener('loadedmetadata', checkNativeVideoResolution, true);
   document.addEventListener('play', checkNativeVideoResolution, true);
   document.addEventListener('playing', checkNativeVideoResolution, true);
@@ -33,7 +33,7 @@ if (window.top !== window) {
   });
 
 } else {
-  // VENTANA PRINCIPAL
+  // EJECUCIÓN EN LA VENTANA PRINCIPAL DE LA PÁGINA
   let activeMedia = null;
   let activeFrameUrl = null;
 
@@ -221,12 +221,16 @@ if (window.top !== window) {
         const btn = document.getElementById('aurion-pill-send');
         btn.innerText = 'CONECTANDO...';
 
+        const currentMeta = document.getElementById('aurion-pill-meta-tag')?.innerText || 'Auto';
+        const finalRes = (currentMeta !== 'Auto' && currentMeta !== '') ? currentMeta : (activeMedia?.resolution || 'Auto');
+        const finalBytes = (activeMedia?.bytes && activeMedia.bytes > 0) ? activeMedia.bytes : 0;
+
         const payload = {
           page_title: document.title,
           page_url: window.location.href,
           stream_url: activeMedia?.url || window.location.href,
-          resolution: activeMedia?.resolution || 'Auto',
-          bytes: activeMedia?.bytes || 0
+          resolution: finalRes,
+          bytes: finalBytes
         };
 
         try {
@@ -248,13 +252,13 @@ if (window.top !== window) {
       });
     }
 
-    // Actualización de campos
-    const isDifferent = !activeMedia || (activeMedia.url !== media.url);
+    // Blindaje de calidad máxima: no degradar si la nueva es menor
+    const currentH = parseInt(media.resolution, 10) || 0;
+    const prevH = parseInt(activeMedia?.resolution, 10) || 0;
 
-    // Si es el mismo stream y la resolución entrante es 'Auto', mantener la detectada
-    if (!isDifferent && media.resolution === 'Auto' && activeMedia.resolution !== 'Auto') {
+    if (activeMedia && currentH < prevH && prevH > 0) {
       media.resolution = activeMedia.resolution;
-      media.bytes = activeMedia.bytes;
+      if (!media.bytes || media.bytes === 0) media.bytes = activeMedia.bytes;
     }
 
     activeMedia = media;
@@ -292,7 +296,6 @@ if (window.top !== window) {
     showHUD();
   }
 
-  // Recalcular posición dinámicamente
   window.addEventListener('resize', () => {
     const pill = document.getElementById('aurion-floating-pill');
     if (pill && pill.classList.contains('aurion-visible')) {
@@ -302,17 +305,16 @@ if (window.top !== window) {
 
   setInterval(() => {
     const pill = document.getElementById('aurion-floating-pill');
-    if (pill && pill.classList.contains('aurion-visible')) {
-      const player = findSurgicalPlayerElement();
-      if (!player) {
-        hideHUD();
-      } else {
-        positionHUDNearPlayer(pill);
-      }
+    if (!pill || !pill.classList.contains('aurion-visible')) return;
+
+    const player = findSurgicalPlayerElement();
+    if (!player) {
+      hideHUD();
+    } else {
+      positionHUDNearPlayer(pill);
     }
   }, 1200);
 
-  // Escuchar mensajes de background y sub-frames
   chrome.runtime.onMessage.addListener((msg) => {
     if (msg.type === 'AURION_MEDIA_DETECTED') {
       shouldShowHUD(window.location.hostname, (allowed) => {
@@ -329,10 +331,13 @@ if (window.top !== window) {
         createOrUpdateHUD(event.data.media, event.data.frameUrl);
       });
     } else if (event.data?.aurionType === 'NATIVE_RES_DETECTED') {
-      // El reproductor dentro del iframe ya midió la resolución nativa por hardware
       const metaTag = document.getElementById('aurion-pill-meta-tag');
-      if (metaTag && event.data.resolution) {
-        metaTag.innerText = event.data.resolution;
+      const prevH = parseInt(metaTag?.innerText, 10) || 0;
+      const newH = event.data.height || 0;
+
+      // Solo ascender en resolución
+      if (newH >= prevH && newH > 0) {
+        if (metaTag) metaTag.innerText = event.data.resolution;
         if (activeMedia) activeMedia.resolution = event.data.resolution;
       }
     }

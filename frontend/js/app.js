@@ -150,7 +150,6 @@ async function updateDiskTelemetry(path) {
 function updateChipGlider(group, targetBtn) {
   if (!group || !targetBtn) return;
   
-  // Si el grupo o el botón no están renderizados con tamaño real, NO calcular
   if (group.offsetParent === null || targetBtn.offsetWidth <= 0) return;
 
   const glider = group.querySelector('.chip-glider');
@@ -165,7 +164,6 @@ function updateChipGlider(group, targetBtn) {
 
 function refreshAllGliders() {
   document.querySelectorAll('.chip-group').forEach(group => {
-    // Blindaje estricto: ignorar grupos ocultos o con ancho cero
     if (!group.offsetParent || group.offsetWidth <= 0) return;
     const activeBtn = group.querySelector('.chip-btn.active');
     if (activeBtn && activeBtn.offsetWidth > 0) {
@@ -226,19 +224,15 @@ function setStepperValue(id, val, delta) {
 function extractSeasonNumber(rawText) {
   if (!rawText) return 1;
 
-  // 1. Ordinales ingleses: '2nd Season', '3rd Season', '4th Season'
   const ordMatch = rawText.match(/(\d{1,2})(?:st|nd|rd|th)\s*(?:season|temp|temporada)/i);
   if (ordMatch) return parseInt(ordMatch[1], 10);
 
-  // 2. Prefijos explícitos: Season 2, Temporada 3, Temp 2, S2, T2
   const prefixMatch = rawText.match(/(?:season|temporada|temp|s|t)[\s\.\-_]*(\d{1,2})(?:[^\d]|$)/i);
   if (prefixMatch) return parseInt(prefixMatch[1], 10);
 
-  // 3. Formato Season x Episode: 2x04, 3x12
   const seMatch = rawText.match(/(\d{1,2})x\d{1,4}/i);
   if (seMatch) return parseInt(seMatch[1], 10);
 
-  // 4. Números romanos comunes en títulos de anime: II, III, IV, V
   if (/\b(part|parte|season|temporada)?\s*IV\b/i.test(rawText)) return 4;
   if (/\b(part|parte|season|temporada)?\s*III\b/i.test(rawText)) return 3;
   if (/\b(part|parte|season|temporada)?\s*II\b/i.test(rawText)) return 2;
@@ -275,7 +269,6 @@ function updateSingleSeasonState(seasonNum) {
 
 // 6. PERSISTENCIA
 function saveCurrentState() {
-  // YouTube: CERO MEMORIA (solo persistimos la carpeta elegida)
   if (currentMode === 'youtube') {
     const ytDirInput = document.getElementById('yt-cfg-dir');
     const ytCfgOpen = document.getElementById('yt-cfg-open-folder');
@@ -294,7 +287,6 @@ function saveCurrentState() {
     return;
   }
 
-  // Anime y Cine: MEMORIA TOTAL (carátula, títulos, paleta cromática completa)
   const state = modeStates[currentMode];
   const sInput = document.getElementById('search-input');
   const pInput = document.getElementById('cfg-prefix');
@@ -500,7 +492,6 @@ function loadState(mode) {
   renderFullQueue(mode);
   updateDiskTelemetry(state.dir);
 
-  // Asegurar que el estado del botón refleje únicamente las tareas del modo actual
   const currentModeTasks = state.queue || [];
   const hasRunningTasks = currentModeTasks.some(t => t.status !== 'Completado' && t.status !== 'Cancelado' && t.status !== 'Error');
   if (typeof window.setMasterDownloadState === 'function') {
@@ -532,7 +523,6 @@ function setAppMode(mode, save = true) {
     if (cockpitGrid) cockpitGrid.style.display = 'none';
     if (ytStage) ytStage.style.display = 'flex';
 
-    // Cerrar cualquier tutorial previo y restaurar el espacio de trabajo limpio
     document.body.classList.add('workspace-open');
     const welcomeCard = document.getElementById('welcome-card');
     if (welcomeCard) welcomeCard.style.display = 'none';
@@ -543,7 +533,6 @@ function setAppMode(mode, save = true) {
     const ytCard = document.getElementById('yt-welcome-card');
     if (ytCard) ytCard.style.display = 'none';
 
-    // YouTube siempre arranca limpio sin elementos seleccionados
     document.body.classList.remove('yt-has-selection');
     document.querySelectorAll('.yt-video-card').forEach(c => c.classList.remove('selected', 'kb-focused'));
     modeStates.youtube.selectedVideo = null;
@@ -560,7 +549,6 @@ function setAppMode(mode, save = true) {
     if (pChannel) pChannel.innerText = 'Canal --';
     if (btnDownload) btnDownload.disabled = true;
 
-    // Restaurar el destino guardado en el input de YouTube
     const ytDirInput = document.getElementById('yt-cfg-dir');
     if (ytDirInput) {
       ytDirInput.value = modeStates.youtube.dir || '';
@@ -569,7 +557,6 @@ function setAppMode(mode, save = true) {
       }
     }
 
-    // Restaurar fondo ambiental si ya había un vídeo seleccionado
     const selected = modeStates.youtube.selectedVideo;
     if (selected && selected.thumbnail) {
       const bgVal = `url('${selected.thumbnail}')`;
@@ -579,12 +566,10 @@ function setAppMode(mode, save = true) {
       if (aL2) aL2.style.backgroundImage = bgVal;
     }
 
-    // Restaurar paleta cromática guardada
     const ytAccent1 = modeStates.youtube.accent1 || '#ff0055';
     const ytAccent2 = modeStates.youtube.accent2 || '#ff5500';
     applyDynamicPalette(ytAccent1, ytAccent2);
 
-    // Inicializar visualmente los chips de YouTube al hacerse visible la pestaña
     setTimeout(() => {
       const fChips = document.getElementById('yt-format-chips');
       const rChips = document.getElementById('yt-res-chips');
@@ -663,7 +648,6 @@ function applyDynamicPalette(c1, c2) {
     modeStates[currentMode].accent1 = c1;
     modeStates[currentMode].accent2 = c2;
   }
-  // Si estamos en anime o cine, persistir la paleta cromática al instante
   if (currentMode !== 'youtube') {
     saveCurrentState();
   }
@@ -688,7 +672,7 @@ function updatePoster(imgUrl, title, meta) {
   modeStates[currentMode].bg = bgVal;
 
   if (typeof playSynth === 'function') playSynth('click');
-  saveCurrentState(); // Persistencia inmediata de portada y título
+  saveCurrentState();
 }
 
 function calculateWordMatchScore(query, candidateTitle) {
@@ -817,7 +801,6 @@ function commitTransmission(chosenItem, targetMode, episodeNum) {
     if (targetMode === 'anime') {
       let epVal = episodeNum || state.startEp || 1;
 
-      // Autoincrementar si ya existe una tarea con el mismo episodio en la cola
       const existingEps = state.queue.map(t => {
         const m = t.title.match(/ - Ep (\d+)/i);
         return m ? parseInt(m[1], 10) : null;
@@ -834,6 +817,8 @@ function commitTransmission(chosenItem, targetMode, episodeNum) {
     }
 
     const streamUrl = rawData.stream_url || rawData.page_url || '';
+    const incomingRes = (rawData.resolution && rawData.resolution !== 'Auto') ? rawData.resolution : 'N/D';
+    const incomingBytes = (rawData.bytes && rawData.bytes > 0) ? rawData.bytes : 0;
 
     const task = {
       id: 'task_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
@@ -841,8 +826,8 @@ function commitTransmission(chosenItem, targetMode, episodeNum) {
       url: streamUrl,
       pageUrl: rawData.page_url || '',
       status: 'En cola',
-      resolution: rawData.resolution || 'N/D',
-      bytes: rawData.bytes || 0,
+      resolution: incomingRes,
+      bytes: incomingBytes,
       progress: 0,
       speed: '0 KB/s'
     };
@@ -894,15 +879,12 @@ function extractSearchQuery(rawTitle, rawUrl = '') {
 function extractEpisodeNumber(rawText) {
   if (!rawText) return 1;
 
-  // 1. Patrones explícitos en español e inglés: episodio 3, cap-04, ep_5, etc.
   const capMatch = rawText.match(/(?:episodio|episode|capitulo|capítulo|cap|ep)[\s\.\-_]*(\d{1,4})/i);
   if (capMatch) return parseInt(capMatch[1], 10);
 
-  // 2. Patrón de temporada x episodio: 2x03, 1x08
   const seMatch = rawText.match(/\d{1,2}[xX](\d{1,4})/i);
   if (seMatch) return parseInt(seMatch[1], 10);
 
-  // 3. Patrón al final de la URL o slug: /overflow-cap-2/, /slime-3/
   const endMatch = rawText.match(/[-_\/](\d{1,4})(?:\/|\?|$|\.html)/i);
   if (endMatch) return parseInt(endMatch[1], 10);
 
@@ -913,7 +895,6 @@ window.onLinkReceived = async function(data) {
   const streamUrl = data.stream_url || (data.streams && data.streams[0]) || data.page_url;
   if (!streamUrl) return;
 
-  // Si estás en YouTube, conmutar inmediatamente a Anime para recibir el enlace capturado
   if (currentMode === 'youtube') {
     setAppMode('anime', true);
   }
@@ -936,11 +917,9 @@ window.onLinkReceived = async function(data) {
   const activeTitle = modeStates[currentMode].title;
   const state = modeStates[currentMode];
 
-  // Si ya tenemos una obra activa o la cola ya tiene capítulos, emparejar de forma permisiva
   const hasActiveAnime = activeTitle && activeTitle !== 'Esperando consulta...';
   const matchScore = hasActiveAnime ? calculateWordMatchScore(cleanName, activeTitle) : 0;
   
-  // Acepta coincidencia o si el nombre limpio está contenido en el título activo
   const isSameSeries = hasActiveAnime && (
     matchScore >= 0.25 || 
     activeTitle.toLowerCase().includes(cleanName.toLowerCase()) || 
@@ -965,6 +944,8 @@ window.onLinkReceived = async function(data) {
     }
 
     const fileName = currentMode === 'anime' ? `${activeTitle} - Ep ${epVal}` : `${activeTitle}`;
+    const incomingRes = (data.resolution && data.resolution !== 'Auto') ? data.resolution : 'N/D';
+    const incomingBytes = (data.bytes && data.bytes > 0) ? data.bytes : 0;
 
     const task = {
       id: 'task_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
@@ -972,8 +953,8 @@ window.onLinkReceived = async function(data) {
       url: streamUrl,
       pageUrl: data.page_url,
       status: 'En cola',
-      resolution: data.resolution || 'N/D',
-      bytes: data.bytes || 0,
+      resolution: incomingRes,
+      bytes: incomingBytes,
       progress: 0,
       speed: '0 KB/s'
     };
@@ -1024,7 +1005,6 @@ document.addEventListener('DOMContentLoaded', () => {
         else if (targetOpt.id === 'mode-youtube') setAppMode('youtube', true);
         return;
       }
-      // Si pulsa fuera de las etiquetas, rota en ciclo de 3
       const order = ['anime', 'movie', 'youtube'];
       const nextIdx = (order.indexOf(currentMode) + 1) % order.length;
       setAppMode(order[nextIdx], true);
@@ -1280,7 +1260,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnCancelMaster = document.getElementById('btn-cancel-master');
   let isMasterRunning = false;
 
-  // FUNCIONES DE CONTROL GLOBALES (Accesibles para window y Python)
   window.setMasterDownloadState = function(isDownloading) {
     const sMaster = document.getElementById('split-cluster-master');
     const bMaster = document.getElementById('btn-master');
@@ -1316,7 +1295,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  // BOTÓN CANCELAR EN ANIME Y CINE: FUSIONA DE VUELTA
   btnCancelMaster?.addEventListener('click', () => {
     if (typeof playSynth === 'function') playSynth('origami');
     const currentQueue = modeStates[currentMode].queue || [];
@@ -1340,7 +1318,6 @@ document.addEventListener('DOMContentLoaded', () => {
       const currentQueue = modeStates[currentMode].queue;
       const originalText = 'INICIAR EXTRACCIÓN';
 
-      // 1. Si la cola está vacía
       if (currentQueue.length === 0) {
         if (typeof playSynth === 'function') playSynth('click');
         btnMaster.classList.add('is-empty');
@@ -1352,7 +1329,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      // 2. Si todo ya está descargado
       const pendingTasks = currentQueue.filter(t => t.status !== 'Completado');
       if (pendingTasks.length === 0) {
         magTxt.innerText = 'COLA PROCESADA';
@@ -1362,7 +1338,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      // 3. Bifurcación instantánea y elástica directa (sin estado circular residual)
       isMasterRunning = true;
       if (typeof playSynth === 'function') playSynth('chord');
       setMasterDownloadState(true);
@@ -1408,7 +1383,6 @@ document.addEventListener('DOMContentLoaded', () => {
   function applyLoadedConfig(config) {
     if (!config) return;
 
-    // Restaurar memoria en Anime con paleta
     if (config.anime) {
       Object.assign(modeStates.anime, config.anime);
       if (config.anime.active_title) modeStates.anime.title = config.anime.active_title;
@@ -1420,7 +1394,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    // Restaurar memoria en Cine con paleta
     if (config.movie) {
       Object.assign(modeStates.movie, config.movie);
       if (config.movie.active_title) modeStates.movie.title = config.movie.active_title;
@@ -1432,7 +1405,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    // YouTube: CERO MEMORIA (siempre reseteado a limpio)
     if (config.youtube && config.youtube.dir) {
       modeStates.youtube.dir = config.youtube.dir;
     }
@@ -1597,7 +1569,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }, 150);
     });
 
-    // Control por teclado con flechas Arriba, Abajo y Enter
     mSearch.addEventListener('keydown', (e) => {
       const items = mSugg.querySelectorAll('.sugg-item');
       if (!mSugg.classList.contains('active') || items.length === 0) return;
@@ -1646,15 +1617,12 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   const btnHelp = document.getElementById('win-help');
-  
-  // Activar animación en el botón hasta su primera interacción
   btnHelp?.classList.add('pulse-attention');
 
   btnHelp?.addEventListener('click', () => {
     if (typeof playSynth === 'function') playSynth('click');
     btnHelp.classList.remove('pulse-attention');
 
-    // Comportamiento contextual exclusivo en modo YouTube con desenfoque total
     if (currentMode === 'youtube') {
       const ytCard = document.getElementById('yt-welcome-card');
       const ytBackdrop = document.getElementById('yt-tutorial-backdrop');
@@ -1682,7 +1650,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Cerrar el tutorial de YouTube y retirar el desenfoque
   const closeYtTutorial = () => {
     const ytCard = document.getElementById('yt-welcome-card');
     const ytBackdrop = document.getElementById('yt-tutorial-backdrop');
@@ -1693,14 +1660,12 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('yt-tutorial-close-btn')?.addEventListener('click', closeYtTutorial);
   document.getElementById('yt-tutorial-backdrop')?.addEventListener('click', closeYtTutorial);
 
-  // Cerrar el tutorial de Anime/Cine al pulsar en la zona desenfocada o en el telón
   const welcomeBackdrop = document.getElementById('welcome-backdrop');
   welcomeBackdrop?.addEventListener('click', () => {
     if (typeof playSynth === 'function') playSynth('click');
     expandCenterWorkspace();
   });
 
-  // Delegar el clic de cierre si pulsa sobre los paneles desenfocados en Anime/Cine
   document.addEventListener('click', (e) => {
     const isWelcomeOpen = !document.body.classList.contains('workspace-open') && currentMode !== 'youtube';
     if (isWelcomeOpen) {
@@ -1721,7 +1686,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const isModalOpen = document.getElementById('match-modal-backdrop')?.classList.contains('active');
     if (isModalOpen) return;
 
-    // TAB SIEMPRE alterna de modo, sin importar si estás escribiendo en el buscador
     if (e.key === 'Tab') {
       e.preventDefault();
       if (document.activeElement && typeof document.activeElement.blur === 'function') {
@@ -1736,7 +1700,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
     const isAnyInputFocused = activeTag === 'input' || activeTag === 'textarea' || document.activeElement?.isContentEditable;
 
-    // Si estás escribiendo en CUALQUIER input (incluido el de YouTube), NO capturar el espacio
     if (isAnyInputFocused) return;
 
     if (e.code === 'Space' || e.key === ' ') {
@@ -1749,7 +1712,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // ========================================================
-  // INICIALIZACIÓN MÓDULO YOUTUBE (EVENTOS Y BÚSQUEDA)
+  // INICIALIZACIÓN MÓDULO YOUTUBE
   // ========================================================
   const ytSearchInput = document.getElementById('yt-search-input');
   const ytHeroWrapper = document.getElementById('yt-hero-wrapper');
@@ -1790,7 +1753,6 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('.yt-video-card').forEach(c => c.classList.remove('selected', 'kb-focused'));
         card.classList.add('selected');
 
-        // Resetear la barra de progreso de la descarga anterior al seleccionar un nuevo vídeo
         const pBox = document.getElementById('yt-dl-progress-box');
         const pBar = document.getElementById('yt-dl-bar');
         const pStatus = document.getElementById('yt-dl-status');
@@ -1800,16 +1762,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (pStatus) pStatus.innerText = 'Iniciando...';
         if (pSpeed) pSpeed.innerText = '0% • 0 KB/s';
 
-        // Restaurar estado del botón maestro en YouTube si estaba bifurcado
         if (typeof window.setYtDownloadState === 'function') {
           window.setYtDownloadState(false);
         }
 
         modeStates.youtube.selectedVideo = video;
         document.body.classList.add('yt-has-selection');
-        saveCurrentState(); // Guardar el vídeo activo en memoria
+        saveCurrentState();
 
-        // Al seleccionar, dar 150ms para que el panel derecho termine su animación y luego posicionar sus chips
         setTimeout(() => {
           refreshAllGliders();
         }, 150);
@@ -1828,7 +1788,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (pTitle) pTitle.innerText = video.title;
         if (pChannel) pChannel.innerText = video.uploader;
 
-        // Desbloquear al 100% el botón de descarga permitiendo clics
         if (btnDownload) {
           btnDownload.disabled = false;
           btnDownload.removeAttribute('disabled');
@@ -1836,14 +1795,12 @@ document.addEventListener('DOMContentLoaded', () => {
           btnDownload.style.opacity = '1';
         }
 
-        // Actualizar capas ambientales de fondo con desenfoque
         const bgVal = video.thumbnail ? `url('${video.thumbnail}')` : 'none';
         const aL1 = document.getElementById('ambient-layer-1');
         const aL2 = document.getElementById('ambient-layer-2');
         if (aL1) aL1.style.backgroundImage = bgVal;
         if (aL2) aL2.style.backgroundImage = bgVal;
 
-        // Adaptar paleta cromática a la miniatura del vídeo y guardarla en el estado
         if (video.thumbnail && window.pywebview && window.pywebview.api && window.pywebview.api.get_dominant_colors) {
           const pal = await pyCall('get_dominant_colors', video.thumbnail);
           if (pal && pal.accent1) {
@@ -1957,7 +1914,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // BOTÓN PARA OCULTAR EL PANEL DERECHO DE YOUTUBE
   const ytBtnClosePanel = document.getElementById('yt-btn-close-panel');
   ytBtnClosePanel?.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -1966,7 +1922,6 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.yt-video-card').forEach(c => c.classList.remove('selected', 'kb-focused'));
   });
 
-  // OPCIONES DEL PANEL DERECHO (RESTAURADA VARIABLE FALTANTE)
   const ytFormatChips = document.getElementById('yt-format-chips');
   const ytResGroup = document.getElementById('yt-res-group');
   const ytBtnTxt = document.getElementById('yt-btn-txt');
@@ -1982,7 +1937,6 @@ document.addEventListener('DOMContentLoaded', () => {
       if (ytResGroup) {
         ytResGroup.style.display = isAudio ? 'none' : 'block';
         if (!isAudio) {
-          // Si volvemos a MP4, recalcular el glider en el frame siguiente para que no desaparezca
           requestAnimationFrame(() => {
             const rChips = document.getElementById('yt-res-chips');
             const activeRes = rChips?.querySelector('.chip-btn.active') || rChips?.querySelector(`[data-res="${modeStates.youtube.res}"]`);
@@ -2015,7 +1969,6 @@ document.addEventListener('DOMContentLoaded', () => {
       glider.style.width = `${width}px`;
       glider.style.transform = `translateX(${leftOffset}px)`;
 
-      // Rebote elástico gelatina en la dirección de arrastre/toque
       if (direction !== 0) {
         glider.classList.add(direction > 0 ? 'jelly-stretch-right' : 'jelly-stretch-left');
         setTimeout(() => {
@@ -2035,7 +1988,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let startX = 0;
     let lastActiveBtn = ytResChips.querySelector('.chip-btn.active');
 
-    // Clic directo
     ytResChips.querySelectorAll('.chip-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
         if (dragThreshold) return;
@@ -2046,7 +1998,6 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     });
 
-    // Iniciar arrastre con puntero/ratón
     ytResChips.addEventListener('pointerdown', (e) => {
       isDragging = true;
       dragThreshold = false;
@@ -2058,7 +2009,6 @@ document.addEventListener('DOMContentLoaded', () => {
       if (glider) glider.classList.add('is-dragging');
     });
 
-    // Seguimiento del cursor en tiempo real pegado al dedo o ratón
     ytResChips.addEventListener('pointermove', (e) => {
       if (!isDragging) return;
       if (Math.abs(e.clientX - startX) > 4) {
@@ -2091,7 +2041,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
-    // Soltar: snap elástico al botón más cercano
     const endGliderDrag = (e) => {
       if (!isDragging) return;
       isDragging = false;
@@ -2115,7 +2064,6 @@ document.addEventListener('DOMContentLoaded', () => {
     ytResChips.addEventListener('pointercancel', endGliderDrag);
   }
 
-  // Selección y persistencia garantizada de ruta de descarga en YouTube
   const ytBtnBrowse = document.getElementById('yt-btn-browse');
   const ytCfgDir = document.getElementById('yt-cfg-dir');
   ytBtnBrowse?.addEventListener('click', async () => {
@@ -2138,7 +2086,6 @@ document.addEventListener('DOMContentLoaded', () => {
     saveCurrentState();
   });
 
-  // Toggle abrir carpeta YouTube
   const ytCardOpen = document.getElementById('yt-card-open-folder');
   const ytCfgOpen = document.getElementById('yt-cfg-open-folder');
   if (ytCardOpen && ytCfgOpen) {
@@ -2149,7 +2096,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Botón de descarga de YouTube
   const ytBtnDownload = document.getElementById('yt-btn-download');
   ytBtnDownload?.addEventListener('click', (e) => {
     e.preventDefault();
@@ -2200,7 +2146,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // BOTÓN CANCELAR EN YOUTUBE: FUSIONA DE VUELTA
   const ytBtnCancel = document.getElementById('yt-btn-cancel');
   ytBtnCancel?.addEventListener('click', () => {
     if (typeof playSynth === 'function') playSynth('origami');
@@ -2221,9 +2166,7 @@ window.addEventListener('resize', () => {
   setTimeout(refreshAllGliders, 200);
 });
 
-// Receptor de progreso desde Python con persistencia entre modos
 window.updateDownloadProgress = function(taskId, progress, speed, status) {
-  // Si estamos en modo YouTube, actualizar su barra de progreso dedicada
   if (currentMode === 'youtube') {
     const pBox = document.getElementById('yt-dl-progress-box');
     const pBar = document.getElementById('yt-dl-bar');
@@ -2246,7 +2189,6 @@ window.updateDownloadProgress = function(taskId, progress, speed, status) {
         setTimeout(() => { btnTxt.innerText = 'DESCARGAR VÍDEO'; }, 2500);
       }
 
-      // Ocultar barra tras 2.5s para despejar la vista y dejar visible el disco en ventana pequeña
       setTimeout(() => {
         if (pBox) {
           pBox.style.display = 'none';
@@ -2283,30 +2225,37 @@ window.updateDownloadProgress = function(taskId, progress, speed, status) {
 };
 
 window.updateTaskMetadata = function(taskId, bytes, resolution) {
-  const finalBytes = (bytes && bytes > 0) ? bytes : 0;
-  const finalRes = (resolution && resolution !== 'Auto') ? resolution : 'N/D';
-
   ['anime', 'movie'].forEach(m => {
     const t = modeStates[m].queue.find(x => x.id === taskId);
     if (t) {
-      if (finalBytes > 0) t.bytes = finalBytes;
-      t.resolution = finalRes;
+      // 1. Conservar siempre la resolución previa si la nueva viene vacía o en Auto/N/D
+      if (resolution && resolution !== 'Auto' && resolution !== 'N/D') {
+        t.resolution = resolution;
+      } else if (!t.resolution || t.resolution === 'N/D' || t.resolution === 'Auto') {
+        t.resolution = (resolution && resolution !== 'Auto') ? resolution : 'N/D';
+      }
+
+      // 2. Conservar el peso si ya venía calculado desde la extensión y Python devuelve 0
+      if (bytes && bytes > 0) {
+        t.bytes = bytes;
+      }
+
+      // Actualizar los badges de la tarjeta con los datos definitivos y protegidos
+      const card = document.getElementById(taskId);
+      const sizeEl = document.getElementById(`task-size-${taskId}`);
+      const resEl = document.getElementById(`task-res-${taskId}`);
+
+      if (sizeEl) sizeEl.innerText = formatBytes(t.bytes);
+      if (resEl) resEl.innerText = t.resolution || 'N/D';
+
+      if (card) {
+        const sizeBadge = card.querySelector('.pipeline-card-size');
+        const resBadge = card.querySelector('.pipeline-card-res');
+        if (sizeBadge) sizeBadge.innerText = formatBytes(t.bytes);
+        if (resBadge) resBadge.innerText = t.resolution || 'N/D';
+      }
     }
   });
-
-  const sizeEl = document.getElementById(`task-size-${taskId}`);
-  const resEl = document.getElementById(`task-res-${taskId}`);
-
-  if (sizeEl) sizeEl.innerText = formatBytes(finalBytes);
-  if (resEl) resEl.innerText = finalRes;
-
-  const card = document.getElementById(taskId);
-  if (card) {
-    const sizeBadge = card.querySelector('.pipeline-card-size');
-    const resBadge = card.querySelector('.pipeline-card-res');
-    if (sizeBadge) sizeBadge.innerText = formatBytes(finalBytes);
-    if (resBadge) resBadge.innerText = finalRes;
-  }
 
   updateTotalQueueSize();
 };

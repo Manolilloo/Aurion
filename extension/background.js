@@ -12,25 +12,21 @@ const VERIFIED_VIDEO_DOMAINS = [
   'saidochesto.top', 'uqload.io', 'uqload.to', 'waaw.to', 'netu.tv'
 ];
 
-// Heurística de resolución por inspección de parámetros y slugs en URL (Streamwish, Voe, Filelions...)
 function extractResolutionFromUrl(url) {
   const u = url.toLowerCase();
-  
   if (/(?:[\/\._\-=])(2160|4k)(?:[\/\._\-=p]|$)/i.test(u)) return '4K';
   if (/(?:[\/\._\-=])(1440|2k)(?:[\/\._\-=p]|$)/i.test(u)) return '2K';
   if (/(?:[\/\._\-=])(1080)(?:[\/\._\-=p]|$)/i.test(u)) return '1080p';
   if (/(?:[\/\._\-=])(720)(?:[\/\._\-=p]|$)/i.test(u)) return '720p';
   if (/(?:[\/\._\-=])(480)(?:[\/\._\-=p]|$)/i.test(u)) return '480p';
   if (/(?:[\/\._\-=])(360)(?:[\/\._\-=p]|$)/i.test(u)) return '360p';
-  
   return null;
 }
 
-// Analizador profundo de manifiestos HLS / M3U8
 async function inspectManifest(url) {
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 2500);
+    const timeout = setTimeout(() => controller.abort(), 3000);
 
     const resp = await fetch(url, {
       method: 'GET',
@@ -42,7 +38,7 @@ async function inspectManifest(url) {
     if (!resp.ok) return { res: 'Auto', bytes: 0 };
     const text = await resp.text();
 
-    // 1. Detección directa por etiqueta RESOLUTION=WxH
+    // 1. Extraer todas las resoluciones y quedarse con la MÁXIMA disponible
     const resMatches = [...text.matchAll(/RESOLUTION=\d+x(\d+)/gi)];
     let bestHeight = 0;
     if (resMatches.length > 0) {
@@ -52,7 +48,6 @@ async function inspectManifest(url) {
       }
     }
 
-    // 2. Detección por NAME="720p" o etiquetas de variantes en Streamwish
     if (bestHeight === 0) {
       const nameMatches = [...text.matchAll(/NAME="?(\d{3,4})p?"?/gi)];
       for (const m of nameMatches) {
@@ -61,7 +56,7 @@ async function inspectManifest(url) {
       }
     }
 
-    // 3. Cálculo de bitrate / ancho de banda
+    // 2. Extraer el mayor BANDWIDTH
     const bwMatches = [...text.matchAll(/BANDWIDTH=(\d+)/gi)];
     let bestBw = 0;
     if (bwMatches.length > 0) {
@@ -71,15 +66,14 @@ async function inspectManifest(url) {
       }
     }
 
-    // 4. Estimación de resolución por ancho de banda si no está declarada la altura
     if (bestHeight === 0 && bestBw > 0) {
-      if (bestBw >= 3500000) bestHeight = 1080;
-      else if (bestBw >= 1800000) bestHeight = 720;
-      else if (bestBw >= 800000) bestHeight = 480;
+      if (bestBw >= 3200000) bestHeight = 1080;
+      else if (bestBw >= 1600000) bestHeight = 720;
+      else if (bestBw >= 750000) bestHeight = 480;
       else if (bestBw >= 300000) bestHeight = 360;
     }
 
-    // 5. Cálculo exacto de peso total en bytes
+    // 3. Cálculo de duración y bytes (con fallback de 24 min estándar para animes)
     const durMatches = [...text.matchAll(/#EXTINF:([\d\.]+)/gi)];
     let totalSec = 0;
     durMatches.forEach(d => { totalSec += parseFloat(d[1]); });
@@ -87,6 +81,12 @@ async function inspectManifest(url) {
     let bytes = 0;
     if (totalSec > 0 && bestBw > 0) {
       bytes = Math.round((bestBw * totalSec) / 8);
+    } else if (bestBw > 0) {
+      bytes = Math.round((bestBw * 1440) / 8);
+    } else if (bestHeight > 0) {
+      const bitrates = { 1080: 2800000, 720: 1600000, 480: 800000, 360: 450000 };
+      const estBw = bitrates[bestHeight] || 1500000;
+      bytes = Math.round((estBw * 1440) / 8);
     }
 
     return {
@@ -121,7 +121,6 @@ chrome.webRequest.onBeforeRequest.addListener(
     const { url, tabId, frameId } = details;
     if (tabId < 0) return;
 
-    // Descartar fragmentos o peticiones que no sean el flujo maestro
     if (url.includes('.ts') || url.includes('.m4s') || url.includes('.key') || url.includes('doubleclick') || url.includes('google') || url.includes('/ad/')) {
       return;
     }
@@ -144,16 +143,26 @@ chrome.webRequest.onBeforeRequest.addListener(
 
     if (!tabMediaData[tabId]) tabMediaData[tabId] = [];
 
-    // Inspección de manifiesto
     let probe = { res: 'Auto', bytes: 0 };
     if (url.includes('.m3u8')) {
       probe = await inspectManifest(url);
     }
 
-    // Si el manifiesto devolvió 'Auto', recurrir al escaneo de URL heurístico de Streamwish/Filelions
     if (probe.res === 'Auto') {
       const urlRes = extractResolutionFromUrl(url);
       if (urlRes) probe.res = urlRes;
+    }
+
+    // BLINDAJE ANTIDEGRADACIÓN: Si ya hay una calidad detectada superior (ej. 1080p),
+    // ninguna petición secundaria menor (480p/360p) la rebajará
+    const lastEntry = tabMediaData[tabId] ? tabMediaData[tabId][0] : null;
+    if (lastEntry && lastEntry.resolution && lastEntry.resolution !== 'Auto') {
+      const currentH = parseInt(probe.res, 10) || 0;
+      const prevH = parseInt(lastEntry.resolution, 10) || 0;
+      if (prevH > currentH) {
+        probe.res = lastEntry.resolution;
+        if (probe.bytes === 0) probe.bytes = lastEntry.bytes;
+      }
     }
 
     const mediaEntry = {
@@ -165,7 +174,6 @@ chrome.webRequest.onBeforeRequest.addListener(
       timestamp: Date.now()
     };
 
-    // Actualización reactiva sin duplicados
     const existIdx = tabMediaData[tabId].findIndex(item => item.url === url);
     if (existIdx > -1) {
       tabMediaData[tabId][existIdx] = mediaEntry;
@@ -173,7 +181,6 @@ chrome.webRequest.onBeforeRequest.addListener(
       tabMediaData[tabId].unshift(mediaEntry);
     }
 
-    // Transmitir inmediatamente la detección dopada a la pestaña
     chrome.tabs.sendMessage(tabId, {
       type: 'AURION_MEDIA_DETECTED',
       media: mediaEntry,
@@ -183,16 +190,18 @@ chrome.webRequest.onBeforeRequest.addListener(
   { urls: ["<all_urls>"] }
 );
 
-// Canal de respuesta para el popup
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === 'GET_MEDIA_INFO') {
     const list = tabMediaData[msg.tabId] || [];
     sendResponse({ mediaList: list });
   } else if (msg.type === 'UPDATE_MEDIA_RESOLUTION') {
-    // Si el content script detecta resolución nativa por etiqueta <video>, sincronizarla en el background
     const list = tabMediaData[msg.tabId];
     if (list && list[0] && msg.resolution && msg.resolution !== 'Auto') {
-      list[0].resolution = msg.resolution;
+      const currentH = parseInt(msg.resolution, 10) || 0;
+      const prevH = parseInt(list[0].resolution, 10) || 0;
+      if (currentH >= prevH) {
+        list[0].resolution = msg.resolution;
+      }
     }
   }
   return true;
