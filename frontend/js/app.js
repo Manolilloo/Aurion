@@ -1168,6 +1168,7 @@ document.addEventListener('DOMContentLoaded', () => {
           tasks: pendingTasks,
           config: {
             ...modeStates[currentMode],
+            active_mode: currentMode,
             title: modeStates[currentMode].title,
             cover_url: cleanCoverUrl,
             save_cover: !!modeStates[currentMode].saveCover,

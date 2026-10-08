@@ -25,25 +25,31 @@ class AurionDownloader:
 
     def resolve_destination_folder(self, config):
         base_dir = config.get("dir", "J:\\ANIME\\animes")
-        is_single = config.get("is_single_season", False)
-        season_num = config.get("season_num", 1)
+        mode = config.get("active_mode", "anime")
         anime_title = config.get("title", "").strip()
-
-        # Limpiar caracteres ilegales para rutas en Windows
         clean_title = "".join(c for c in anime_title if c not in r'\/:*?"<>|').strip()
 
-        if is_single:
-            # Temporada única: Nombre del anime como carpeta directa
+        # MODO CINE: Carpeta propia con el título de la película (sin temporadas)
+        if mode == "movie":
             if clean_title and clean_title != "Esperando consulta...":
                 final_dir = os.path.join(base_dir, clean_title)
             else:
                 final_dir = base_dir
         else:
-            # Varias temporadas: Nombre del anime / Temporada X
-            if clean_title and clean_title != "Esperando consulta...":
-                final_dir = os.path.join(base_dir, clean_title, f"Temporada {season_num}")
+            # MODO ANIME: Conserva su estructura original
+            is_single = config.get("is_single_season", False)
+            season_num = config.get("season_num", 1)
+
+            if is_single:
+                if clean_title and clean_title != "Esperando consulta...":
+                    final_dir = os.path.join(base_dir, clean_title)
+                else:
+                    final_dir = base_dir
             else:
-                final_dir = os.path.join(base_dir, f"Temporada {season_num}")
+                if clean_title and clean_title != "Esperando consulta...":
+                    final_dir = os.path.join(base_dir, clean_title, f"Temporada {season_num}")
+                else:
+                    final_dir = os.path.join(base_dir, f"Temporada {season_num}")
 
         try:
             os.makedirs(final_dir, exist_ok=True)
@@ -169,10 +175,11 @@ class AurionDownloader:
             return
 
         base_dir = config.get("dir", "J:\\ANIME\\animes")
+        mode = config.get("active_mode", "anime")
         anime_title = config.get("title", "").strip()
         clean_title = "".join(c for c in anime_title if c not in r'\/:*?"<>|').strip()
 
-        # Carpeta raíz del anime (no la subcarpeta de temporada)
+        # Tanto en anime como en cine se guarda en la carpeta con el título de la obra
         if clean_title and clean_title != "Esperando consulta...":
             root_anime_dir = os.path.join(base_dir, clean_title)
         else:
@@ -269,19 +276,35 @@ class AurionDownloader:
 
             if d.get("status") == "downloading":
                 downloaded = d.get("downloaded_bytes", 0)
-                # Usar total real si existe; si es estimado, descartar estimaciones infladas mayores a 1.2 GB en episodios
+                mode = config.get("active_mode", "anime")
+
                 total = d.get("total_bytes") or 0
                 if total <= 0:
                     est = d.get("total_bytes_estimate", 0)
-                    if 0 < est < (1500 * 1024 * 1024):  # Ignora lecturas absurdas del arranque
+                    # En modo cine se admiten tamaños mayores a 1.5 GB
+                    max_limit = (15000 * 1024 * 1024) if mode == "movie" else (1500 * 1024 * 1024)
+                    if 0 < est < max_limit:
                         total = est
 
-                percent = round((downloaded / total) * 100, 1) if total > 0 else 0
+                # En streams HLS, calcular el porcentaje mediante fragmentos para evitar que permanezca en 0%
+                frag_index = d.get("fragment_index")
+                frag_count = d.get("fragment_count")
+                if frag_index and frag_count and frag_count > 0:
+                    percent = round((frag_index / frag_count) * 100, 1)
+                else:
+                    percent = round((downloaded / total) * 100, 1) if total > 0 else 0
+
+                # Asegurar avance continuo sin oscilaciones hacia atrás
+                last_p = getattr(self, f"_p_{task_id}", 0)
+                if percent >= last_p:
+                    setattr(self, f"_p_{task_id}", percent)
+                else:
+                    percent = last_p
+
                 speed_bytes = d.get("speed", 0) or 0
                 speed_str = f"{round(speed_bytes / 1024 / 1024, 2)} MB/s" if speed_bytes > 0 else "Descargando..."
 
-                # Solo actualizar tamaño en UI si es un valor razonable y no un pico inflado
-                if total > 0 and total < (1500 * 1024 * 1024) and self.bridge and self.bridge._window:
+                if total > 0 and self.bridge and self.bridge._window:
                     self.bridge._window.evaluate_js(
                         f"window.updateRealSizeOnly && window.updateRealSizeOnly('{task_id}', {total});"
                     )
@@ -358,17 +381,20 @@ class AurionDownloader:
                 print(f"   -> Hilos de fragmentos usados: {threads_count}")
                 print(f"=======================================================\n")
 
-            # Mover el archivo final a la carpeta de destino
-            temp_file_path = os.path.join(task_temp_dir, f"{title}.{fmt_choice}")
+            # Localizar el archivo de vídeo resultante en la carpeta temporal
+            generated_files = [f for f in os.listdir(task_temp_dir) if not f.endswith('.part') and not f.startswith('.')]
             final_file_path = os.path.join(dest_folder, f"{title}.{fmt_choice}")
 
-            if os.path.exists(temp_file_path):
+            if generated_files:
+                generated_files.sort(key=lambda x: os.path.getsize(os.path.join(task_temp_dir, x)), reverse=True)
+                source_temp = os.path.join(task_temp_dir, generated_files[0])
+
                 if os.path.exists(final_file_path):
                     try:
                         os.remove(final_file_path)
                     except Exception:
                         pass
-                shutil.move(temp_file_path, final_file_path)
+                shutil.move(source_temp, final_file_path)
 
             real_file_bytes = 0
             if os.path.exists(final_file_path):
