@@ -23,6 +23,7 @@
           <div class="matrix-thumb"></div>
           <div class="matrix-opt active" id="mode-anime">ANIME</div>
           <div class="matrix-opt" id="mode-movie">CINE</div>
+          <div class="matrix-opt" id="mode-youtube">YOUTUBE</div>
         </div>
         <span class="hotkey-pill" title="Pulsa TAB para alternar modo">TAB</span>
       </div>
@@ -103,7 +104,7 @@
         </p>
 
         <p class="welcome-subdesc">
-          Los de <b>ANIME</b> sirven, pero los de <b>CINE</b> son una mierda porque no encuentro buenos sitios (casi todas las pelis son idioma latino (perdón pero es verdad)).
+          Los de <b>ANIME</b> sirven, pero los de <b>CINE</b> son una mierda porque no encuentro buenos sitios (casi todas las pelis son idioma panchito (perdón pero es verdad)).
         </p>
 
         <p class="welcome-desc">
@@ -263,6 +264,122 @@
       </div>
     </div>
 
+  </div>
+
+  <!-- VISTA DEDICADA YOUTUBE (OCULTA POR DEFECTO) -->
+  <div class="cockpit yt-cockpit" id="yt-stage" style="display: none;">
+    <!-- COLUMNA IZQUIERDA: Buscador dinámico y Lista de resultados -->
+    <div class="yt-search-col">
+      <div class="yt-hero-wrapper" id="yt-hero-wrapper">
+        <div class="yt-search-input-box">
+          <svg class="yt-search-ico" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input type="text" class="search-input yt-input" id="yt-search-input" placeholder="Buscar vídeos o pegar enlace de YouTube..." autocomplete="off">
+          <button class="yt-clear-btn" id="yt-clear-btn" style="display: none;">✕</button>
+        </div>
+      </div>
+
+      <!-- LISTA DESPLEGABLE GRANDE CON ESTILO FLUIDO -->
+      <div class="yt-results-dock" id="yt-results-dock" style="display: none;">
+        <div class="yt-results-scroll" id="yt-results-list"></div>
+      </div>
+    </div>
+
+    <!-- COLUMNA DERECHA: Panel 'X' (Opciones, Previa y Descarga) -->
+    <div class="glass-box yt-sidebar-box">
+      <div class="glass-inner">
+        <div class="box-header">PANEL YOUTUBE</div>
+
+        <!-- Previsualización -->
+        <div class="yt-preview-card">
+          <div class="yt-preview-media" id="yt-preview-media">
+            <img id="yt-preview-img" src="" alt="Thumbnail" style="display: none;">
+            <div class="yt-preview-empty" id="yt-preview-empty">
+              <span>SELECCIONA UN VÍDEO</span>
+            </div>
+          </div>
+          <div class="yt-preview-meta">
+            <div class="yt-prev-title" id="yt-prev-title">Ningún vídeo activo</div>
+            <div class="yt-prev-channel" id="yt-prev-channel">Canal --</div>
+          </div>
+        </div>
+
+        <div class="settings-area" style="margin-top: 15px;">
+          <!-- Destino de descarga -->
+          <div>
+            <label class="section-label">DESTINO LOCAL</label>
+            <div style="display: flex; gap: 8px;">
+              <input type="text" class="search-input" id="yt-cfg-dir" style="flex: 1; border-radius: 12px; padding: 8px 12px; font-size: 11px; text-align: left;" value="Descargas">
+              <button class="btn-neu" id="yt-btn-browse" style="padding: 0 14px; border-radius: 12px;" title="Buscar carpeta">📂</button>
+            </div>
+          </div>
+
+          <!-- Selector de formato -->
+          <div>
+            <label class="section-label">FORMATO DE SALIDA</label>
+            <div class="chip-group" id="yt-format-chips">
+              <div class="chip-glider"></div>
+              <button class="chip-btn active" data-format="video">VÍDEO (MP4)</button>
+              <button class="chip-btn" data-format="audio">AUDIO (MP3)</button>
+            </div>
+          </div>
+
+          <!-- Selector de resolución (solo si es vídeo) -->
+          <div id="yt-res-group">
+            <label class="section-label">CALIDAD MÁXIMA</label>
+            <div class="chip-group yt-chips-resolutions" id="yt-res-chips">
+              <div class="chip-glider"></div>
+              <button class="chip-btn" data-res="720">720p</button>
+              <button class="chip-btn active" data-res="1080">1080p</button>
+              <button class="chip-btn" data-res="1440">2K</button>
+              <button class="chip-btn" data-res="2160">4K</button>
+              <button class="chip-btn" data-res="max">MÁX</button>
+            </div>
+          </div>
+
+          <!-- Toggle: Abrir carpeta al finalizar (YouTube) -->
+          <div class="toggle-card" id="yt-card-open-folder">
+            <span class="toggle-label">ABRIR CARPETA AL FINALIZAR</span>
+            <label class="switch-toggle">
+              <input type="checkbox" id="yt-cfg-open-folder" checked>
+              <span class="switch-slider"></span>
+            </label>
+          </div>
+
+          <!-- Botón de extracción -->
+          <div class="mag-wrapper" style="margin-top: 20px;">
+            <button class="btn-god" id="yt-btn-download" disabled>
+              <span class="btn-god-txt" id="yt-btn-txt">DESCARGAR VÍDEO</span>
+            </button>
+          </div>
+
+          <!-- Barra de progreso de descarga YouTube -->
+          <div class="yt-download-progress-box" id="yt-dl-progress-box" style="display: none;">
+            <div class="yt-progress-meta">
+              <span class="yt-progress-status" id="yt-dl-status">Iniciando...</span>
+              <span id="yt-dl-speed">0% • 0 KB/s</span>
+            </div>
+            <div class="yt-progress-track">
+              <div class="yt-progress-bar" id="yt-dl-bar"></div>
+            </div>
+          </div>
+
+          <!-- Telemetría de disco compacta en YouTube -->
+          <div class="telemetry-card yt-telemetry-box" style="margin-top: 6px; padding: 6px 10px;">
+            <div style="display: flex; justify-content: space-between; font-size: 10px; font-weight: 800;">
+              <span id="yt-disk-drive-name">DISCO</span>
+              <span id="yt-disk-free-txt" style="color: var(--color-accent-1);">Calculando...</span>
+            </div>
+            <div class="disk-bar-track" style="height: 4px; margin-top: 3px;">
+              <div class="disk-bar-fill" id="yt-disk-bar-fill" style="width: 0%;"></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
   </div>
 
   <!-- MODAL HUD INTELIGENTE -->

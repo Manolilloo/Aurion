@@ -327,7 +327,7 @@ input[type=number] {
   position: relative;
   display: flex;
   align-items: center;
-  width: 184px;
+  width: 270px;
   height: 38px;
   background: linear-gradient(180deg, rgba(18, 24, 34, 0.8), rgba(10, 14, 20, 0.85)) !important;
   backdrop-filter: blur(28px) saturate(190%) !important;
@@ -342,7 +342,7 @@ input[type=number] {
   position: absolute;
   top: 3px;
   left: 3px;
-  width: calc(50% - 3px);
+  width: calc((100% - 6px) / 3);
   height: calc(100% - 6px);
   background: linear-gradient(135deg, var(--color-accent-1), #ffffff 160%) !important;
   border-radius: 30px !important;
@@ -350,9 +350,18 @@ input[type=number] {
   transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), background 0.3s ease !important;
 }
 
+.mode-anime .matrix-thumb {
+  transform: translateX(0%);
+}
+
 .mode-movie .matrix-thumb {
   transform: translateX(100%);
-  background: linear-gradient(135deg, var(--color-accent-1), #ffffff 160%) !important;
+}
+
+.mode-youtube .matrix-thumb {
+  transform: translateX(200%);
+  background: linear-gradient(135deg, var(--color-accent-1, #ff0055), var(--color-accent-2, #ff5500) 160%) !important;
+  box-shadow: 0 4px 16px var(--color-glow, rgba(255, 0, 85, 0.4)), inset 0 1px 2px rgba(255, 255, 255, 0.65) !important;
 }
 
 .matrix-opt {
@@ -2357,7 +2366,7 @@ body.is-maximized .switch-center-anchor {
 }
 
 body.is-maximized .matrix-switch {
-  width: 220px !important;
+  width: 320px !important;
   height: 44px !important;
 }
 
@@ -2471,7 +2480,7 @@ body.is-maximized .btn-god-txt {
   }
 
   body.is-maximized .matrix-switch {
-    width: 240px !important;
+    width: 360px !important;
     height: 48px !important;
   }
 
@@ -2901,4 +2910,497 @@ body.is-maximized .btn-god-txt {
   padding: 3px 12px;
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+/* =========================================================
+   VISTA YOUTUBE: HERO SEARCH ANIMADO Y PANEL 'X'
+   ========================================================= */
+
+/* CONMUTACIÓN RADICAL DE VISTAS */
+body.mode-youtube #cockpit-grid {
+  display: none !important;
+}
+
+body.mode-youtube #yt-stage {
+  display: flex !important;
+}
+
+body:not(.mode-youtube) #yt-stage {
+  display: none !important;
+}
+
+.yt-cockpit {
+  display: flex !important;
+  gap: 28px;
+  width: 100%;
+  max-width: 1380px;
+  margin: 0 auto;
+  padding: 10px 24px 20px 24px;
+  height: calc(100vh - 74px);
+  box-sizing: border-box;
+}
+
+/* COLUMNA IZQUIERDA */
+.yt-search-col {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+/* CONTENEDOR HERO SEARCH (Centrado inicial y subida con bezier) */
+.yt-hero-wrapper {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  max-width: 580px;
+  z-index: 20;
+  transition: all 0.55s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Cuando se activa la búsqueda: sube arriba de forma fluida */
+.yt-hero-wrapper.is-searched {
+  position: relative;
+  top: 0;
+  left: 0;
+  transform: none;
+  max-width: 100%;
+  margin-bottom: 16px;
+}
+
+.yt-search-input-box {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.yt-search-ico {
+  position: absolute;
+  left: 18px;
+  color: #94a3b8;
+  pointer-events: none;
+  transition: color 0.2s ease;
+}
+
+.yt-input {
+  width: 100%;
+  height: 52px;
+  padding: 0 48px 0 50px !important;
+  font-size: 14px !important;
+  border-radius: 26px !important;
+  background: rgba(14, 19, 28, 0.85) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  backdrop-filter: blur(28px) saturate(190%) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.15) !important;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.yt-input:focus {
+  border-color: #ff3366 !important;
+  box-shadow: 0 8px 36px rgba(255, 51, 102, 0.25), inset 0 1px 2px rgba(255, 255, 255, 0.25) !important;
+}
+
+.yt-input:focus ~ .yt-search-ico {
+  color: #ff3366;
+}
+
+.yt-clear-btn {
+  position: absolute;
+  right: 18px;
+  background: transparent;
+  border: none;
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 50%;
+  transition: color 0.2s ease;
+}
+
+.yt-clear-btn:hover {
+  color: #ff3366;
+}
+
+/* LISTA DESPLEGABLE GRANDE CON SCROLL */
+.yt-results-dock {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.4s ease, transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.yt-results-dock.active {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.yt-results-scroll {
+  flex: 1 1 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-right: 14px; /* Margen de seguridad para que el hover nunca toque la scrollbar */
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-accent-1, #ff0055) transparent;
+}
+
+.yt-results-scroll::-webkit-scrollbar {
+  width: 5px;
+}
+
+.yt-results-scroll::-webkit-scrollbar-thumb {
+  background: var(--color-accent-1, #ff0055);
+  border-radius: 10px;
+  box-shadow: 0 0 10px var(--color-glow, rgba(255, 0, 85, 0.4));
+}
+
+/* TARJETAS HORIZONTALES FLUIDAS */
+.yt-video-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: rgba(17, 23, 34, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  padding: 10px;
+  cursor: pointer;
+  backdrop-filter: blur(20px);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+.yt-video-card:hover {
+  transform: translateX(4px);
+  border-color: rgba(255, 51, 102, 0.4);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 16px rgba(255, 51, 102, 0.2);
+  background: rgba(25, 34, 49, 0.85);
+}
+
+.yt-video-card.selected {
+  border-color: #ff3366 !important;
+  background: rgba(30, 20, 28, 0.9) !important;
+  box-shadow: 0 8px 28px rgba(255, 51, 102, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.15) !important;
+}
+
+.yt-thumb-box {
+  position: relative;
+  width: 140px;
+  aspect-ratio: 16 / 9;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #000;
+  flex-shrink: 0;
+}
+
+.yt-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.yt-duration-badge {
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  background: rgba(0, 0, 0, 0.8);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 800;
+  padding: 2px 5px;
+  border-radius: 5px;
+  backdrop-filter: blur(4px);
+}
+
+.yt-video-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+
+.yt-video-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: #f8fafc;
+  line-height: 1.35;
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.yt-video-channel {
+  font-size: 11px;
+  font-weight: 600;
+  color: #94a3b8;
+}
+
+/* COLUMNA DERECHA: PANEL LATERAL 'X' */
+.yt-sidebar-box {
+  flex: 0 0 380px !important;
+  width: 380px !important;
+}
+
+.yt-preview-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.yt-preview-media {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 16px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#yt-preview-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.yt-preview-empty {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  color: #64748b;
+}
+
+.yt-prev-title {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #ffffff;
+  line-height: 1.35;
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.yt-prev-channel {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--color-accent-1, #ff0055);
+  margin-top: 2px;
+  text-shadow: 0 0 10px var(--color-glow-subtle);
+}
+
+/* Transición fluida instantánea de desaparición del Dock de Sitios */
+#sites-dock {
+  transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  opacity: 1;
+  transform: translateX(0) scale(1);
+}
+
+body.mode-youtube #sites-dock {
+  opacity: 0 !important;
+  transform: translateX(-12px) scale(0.95) !important;
+  pointer-events: none !important;
+  visibility: hidden;
+  transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), visibility 0s linear 0.2s !important;
+}
+
+/* Rediseño estilizado del buscador de YouTube */
+.yt-search-input-box {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.yt-input {
+  width: 100%;
+  height: 52px;
+  padding: 0 50px 0 54px !important;
+  font-size: 13.5px !important;
+  font-weight: 600 !important;
+  border-radius: 28px !important;
+  background: linear-gradient(145deg, rgba(20, 27, 40, 0.88), rgba(12, 16, 25, 0.94)) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  backdrop-filter: blur(28px) saturate(190%) !important;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.65), inset 0 1px 1px rgba(255, 255, 255, 0.18) !important;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.yt-input:focus {
+  border-color: var(--color-accent-1, #ff0055) !important;
+  box-shadow: 0 12px 40px rgba(255, 0, 85, 0.25), inset 0 1px 2px rgba(255, 255, 255, 0.3) !important;
+}
+
+.yt-search-ico {
+  left: 20px !important;
+  color: var(--color-accent-1, #ff0055) !important;
+  filter: drop-shadow(0 0 8px var(--color-glow, rgba(255, 0, 85, 0.4)));
+}
+
+/* Rediseño estilizado de tarjetas en la lista de resultados */
+.yt-video-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: linear-gradient(135deg, rgba(20, 28, 42, 0.72) 0%, rgba(10, 14, 22, 0.85) 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 20px !important;
+  padding: 12px !important;
+  cursor: pointer;
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45), inset 0 1px 1px rgba(255, 255, 255, 0.08) !important;
+}
+
+.yt-video-card:hover {
+  transform: translateY(-2px) !important; /* Elevación vertical limpia sin expandirse hacia los lados */
+  border-color: var(--color-accent-1, #ff0055) !important;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.6), 0 0 16px var(--color-glow, rgba(255, 0, 85, 0.25)) !important;
+  background: linear-gradient(135deg, rgba(28, 38, 56, 0.85) 0%, rgba(14, 20, 32, 0.92) 100%) !important;
+}
+
+.yt-video-card.selected {
+  border-color: var(--color-accent-1, #ff0055) !important;
+  background: linear-gradient(135deg, rgba(38, 20, 32, 0.9) 0%, rgba(18, 10, 16, 0.95) 100%) !important;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.7), 0 0 24px var(--color-glow, rgba(255, 0, 85, 0.35)), inset 0 1px 2px rgba(255, 255, 255, 0.2) !important;
+}
+
+.yt-thumb-box {
+  width: 156px !important;
+  aspect-ratio: 16 / 9;
+  border-radius: 14px !important;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+.yt-duration-badge {
+  background: rgba(0, 0, 0, 0.85) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  padding: 3px 6px !important;
+  border-radius: 6px !important;
+  font-size: 9.5px !important;
+}
+
+.yt-video-title {
+  font-size: 13.5px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.2px;
+}
+
+.yt-chips-resolutions .chip-btn {
+  font-size: 10px !important;
+  padding: 8px 2px !important;
+}
+
+/* Panel derecho ultracompacto y simétrico */
+.yt-sidebar-box .glass-inner {
+  overflow-y: hidden !important;
+  justify-content: flex-start !important;
+  padding: 14px 18px !important;
+  gap: 8px !important;
+}
+
+.yt-sidebar-box .settings-area {
+  gap: 7px !important;
+  overflow: visible !important;
+  margin-top: 6px !important;
+}
+
+.yt-preview-media {
+  max-height: 120px !important;
+  border-radius: 12px !important;
+}
+
+.yt-prev-title {
+  font-size: 12.5px !important;
+  line-height: 1.25 !important;
+}
+
+.yt-sidebar-box .search-input {
+  padding: 6px 10px !important;
+  font-size: 10.5px !important;
+}
+
+.yt-sidebar-box .toggle-card {
+  padding: 6px 12px !important;
+}
+
+.yt-sidebar-box .chip-group {
+  height: 34px !important;
+}
+
+.yt-sidebar-box .mag-wrapper {
+  margin-top: 8px !important;
+  height: 42px !important;
+}
+
+.yt-sidebar-box .btn-god {
+  height: 42px !important;
+  min-height: 42px !important;
+  width: 100% !important;
+}
+
+.yt-sidebar-box .btn-god-txt {
+  font-size: 11.5px !important;
+}
+
+.yt-download-progress-box {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+}
+
+.yt-progress-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 900;
+  color: #cbd5e1;
+}
+
+.yt-progress-status {
+  color: var(--color-accent-1, #ff0055);
+  letter-spacing: 0.5px;
+}
+
+.yt-progress-track {
+  width: 100%;
+  height: 10px;
+  background: rgba(10, 14, 22, 0.9);
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.7);
+}
+
+.yt-progress-bar {
+  width: 0%;
+  height: 100%;
+  background: linear-gradient(90deg, #ff0055 0%, #ff7700 100%);
+  box-shadow: 0 0 14px rgba(255, 0, 85, 0.65);
+  border-radius: 12px;
+  transition: width 0.25s ease-out;
 }

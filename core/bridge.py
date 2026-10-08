@@ -391,3 +391,87 @@ class AurionBridge:
                 )
         threading.Thread(target=worker, daemon=True).start()
         return True
+
+    def search_youtube(self, query: str):
+        print(f"\n[BRIDGE YT] >>> Petición recibida desde el frontend con query: '{query}'")
+        if not query or not query.strip():
+            return []
+        
+        query = query.strip()
+        search_target = f"ytsearch8:{query}" if not (query.startswith("http://") or query.startswith("https://")) else query
+        
+        ydl_opts = {
+            'quiet': True,
+            'skip_download': True,
+            'extract_flat': 'in_playlist',
+            'no_warnings': True,
+        }
+        
+        results = []
+        try:
+            import yt_dlp
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(search_target, download=False)
+                entries = info.get('entries', []) if 'entries' in info else [info]
+                
+                for entry in entries:
+                    if not entry:
+                        continue
+                    
+                    duration_sec = entry.get('duration') or 0
+                    if duration_sec:
+                        total_s = int(duration_sec)
+                        h = total_s // 3600
+                        m = (total_s % 3600) // 60
+                        s = total_s % 60
+                        if h > 0:
+                            duration_str = f"{h} h {m} min"
+                        elif m > 0:
+                            duration_str = f"{m} min {s} s" if s > 0 else f"{m} min"
+                        else:
+                            duration_str = f"{s} s"
+                    else:
+                        duration_str = "--:--"
+                    
+                    vid_id = entry.get('id', '')
+                    thumb_url = entry.get('thumbnail') or f"https://i.ytimg.com/vi/{vid_id}/hqdefault.jpg"
+                    
+                    results.append({
+                        'id': vid_id,
+                        'title': entry.get('title', 'Sin título'),
+                        'uploader': entry.get('uploader') or entry.get('channel', 'Desconocido'),
+                        'duration': duration_str,
+                        'url': entry.get('url') or f"https://www.youtube.com/watch?v={vid_id}",
+                        'thumbnail': thumb_url
+                    })
+        except Exception as e:
+            print(f"[ERROR YT SEARCH] {e}")
+            return []
+            
+        return results
+
+    def get_yt_download_options(self, output_path: str, is_audio_only: bool = False, quality: str = "1080"):
+        """Genera las opciones de yt-dlp optimizadas para YouTube."""
+        opts = {
+            'outtmpl': os.path.join(output_path, '%(title)s.%(ext)s'),
+            'quiet': True,
+            'no_warnings': True,
+        }
+        
+        if is_audio_only:
+            opts.update({
+                'format': 'bestaudio/best',
+                'postprocessors': [{
+                    'key': 'FFmpegExtractAudio',
+                    'preferredcodec': 'mp3',
+                    'preferredquality': '192',
+                }]
+            })
+        else:
+            # Seleccionar resolución deseada combinada con el mejor audio
+            opts.update({
+                'format': f'bestvideo[height<={quality}]+bestaudio/best[height<={quality}]/best',
+                'merge_output_format': 'mp4'
+            })
+            
+        return opts

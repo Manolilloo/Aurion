@@ -56,6 +56,15 @@ const modeStates = {
     accent1: '#ff3366',
     accent2: '#ffaa00',
     queue: []
+  },
+  youtube: {
+    query: '',
+    dir: 'Descargas',
+    format: 'video',
+    res: '1080',
+    openFolder: true,
+    selectedVideo: null,
+    results: []
   }
 };
 
@@ -118,6 +127,7 @@ async function updateDiskTelemetry(path) {
   const data = await pyCall('get_disk_space', path);
   if (!data) return;
 
+  // Telemetría cabina Anime/Cine
   const driveEl = document.getElementById('disk-drive-name');
   const freeEl = document.getElementById('disk-free-txt');
   const fillEl = document.getElementById('disk-bar-fill');
@@ -125,6 +135,15 @@ async function updateDiskTelemetry(path) {
   if (driveEl) driveEl.innerText = `${data.drive} DISCO`;
   if (freeEl) freeEl.innerText = `${data.free_gb} GB Libres / ${data.total_gb} GB`;
   if (fillEl) fillEl.style.width = `${data.percent_used}%`;
+
+  // Telemetría panel lateral YouTube
+  const ytDriveEl = document.getElementById('yt-disk-drive-name');
+  const ytFreeEl = document.getElementById('yt-disk-free-txt');
+  const ytFillEl = document.getElementById('yt-disk-bar-fill');
+
+  if (ytDriveEl) ytDriveEl.innerText = `${data.drive} DISCO`;
+  if (ytFreeEl) ytFreeEl.innerText = `${data.free_gb} GB Libres / ${data.total_gb} GB`;
+  if (ytFillEl) ytFillEl.style.width = `${data.percent_used}%`;
 }
 
 // 3. GLIDERS DESLIZANTES
@@ -450,32 +469,78 @@ function loadState(mode) {
 }
 
 function setAppMode(mode, save = true) {
-  if (save) saveCurrentState();
+  if (save && currentMode !== 'youtube') saveCurrentState();
 
   currentMode = mode;
-  const isMovie = mode === 'movie';
-  
   if (typeof playSynth === 'function' && save) playSynth('chord');
 
   const animeOpt = document.getElementById('mode-anime');
   const movieOpt = document.getElementById('mode-movie');
+  const ytOpt = document.getElementById('mode-youtube');
   const sInput = document.getElementById('search-input');
+  const cockpitGrid = document.getElementById('cockpit-grid');
+  const ytStage = document.getElementById('yt-stage');
 
-  if (isMovie) {
-    document.body.classList.add('mode-movie');
-    if (animeOpt) animeOpt.classList.remove('active');
-    if (movieOpt) movieOpt.classList.add('active');
-    if (sInput) sInput.placeholder = 'Buscar película...';
+  document.body.classList.remove('mode-anime', 'mode-movie', 'mode-youtube');
+  document.body.classList.add(`mode-${mode}`);
+
+  if (animeOpt) animeOpt.classList.toggle('active', mode === 'anime');
+  if (movieOpt) movieOpt.classList.toggle('active', mode === 'movie');
+  if (ytOpt) ytOpt.classList.toggle('active', mode === 'youtube');
+
+  if (mode === 'youtube') {
+    if (cockpitGrid) cockpitGrid.style.display = 'none';
+    if (ytStage) ytStage.style.display = 'flex';
+
+    // Restaurar el destino guardado en el input y calcular su espacio libre
+    const ytDirInput = document.getElementById('yt-cfg-dir');
+    if (ytDirInput && modeStates.youtube.dir) {
+      ytDirInput.value = modeStates.youtube.dir;
+      updateDiskTelemetry(modeStates.youtube.dir);
+    }
+
+    // Restaurar fondo ambiental si ya había un vídeo seleccionado
+    const selected = modeStates.youtube.selectedVideo;
+    if (selected && selected.thumbnail) {
+      const bgVal = `url('${selected.thumbnail}')`;
+      const aL1 = document.getElementById('ambient-layer-1');
+      const aL2 = document.getElementById('ambient-layer-2');
+      if (aL1) aL1.style.backgroundImage = bgVal;
+      if (aL2) aL2.style.backgroundImage = bgVal;
+    }
+
+    // Restaurar paleta cromática guardada
+    const ytAccent1 = modeStates.youtube.accent1 || '#ff0055';
+    const ytAccent2 = modeStates.youtube.accent2 || '#ff5500';
+    applyDynamicPalette(ytAccent1, ytAccent2);
+
+    // Inicializar visualmente los chips de YouTube al hacerse visible la pestaña
+    setTimeout(() => {
+      const fChips = document.getElementById('yt-format-chips');
+      const rChips = document.getElementById('yt-res-chips');
+      if (fChips) {
+        const activeFmt = fChips.querySelector('.chip-btn.active') || fChips.querySelector('.chip-btn');
+        if (activeFmt) {
+          activeFmt.classList.add('active');
+          updateChipGlider(fChips, activeFmt);
+        }
+      }
+      if (rChips) {
+        const activeRes = rChips.querySelector('.chip-btn.active') || rChips.querySelector('.chip-btn');
+        if (activeRes) {
+          activeRes.classList.add('active');
+          updateChipGlider(rChips, activeRes);
+        }
+      }
+    }, 60);
   } else {
-    document.body.classList.remove('mode-movie');
-    if (movieOpt) movieOpt.classList.remove('active');
-    if (animeOpt) animeOpt.classList.add('active');
-    if (sInput) sInput.placeholder = 'Invoca un anime...';
+    if (ytStage) ytStage.style.display = 'none';
+    if (cockpitGrid) cockpitGrid.style.display = 'flex';
+    if (sInput) sInput.placeholder = mode === 'movie' ? 'Buscar película...' : 'Invoca un anime...';
+    loadState(mode);
   }
 
-  loadState(mode);
-  renderSitesDock(mode);
-
+  renderSitesDock(mode === 'youtube' ? 'anime' : mode);
   if (save) pyCall('toggle_mode', mode);
 }
 
@@ -869,9 +934,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const btnSwitch = document.getElementById('btn-switch-mode');
   if (btnSwitch) {
-    btnSwitch.addEventListener('click', () => {
-      const newMode = currentMode === 'anime' ? 'movie' : 'anime';
-      setAppMode(newMode, true);
+    btnSwitch.addEventListener('click', (e) => {
+      const targetOpt = e.target.closest('.matrix-opt');
+      if (targetOpt) {
+        if (targetOpt.id === 'mode-anime') setAppMode('anime', true);
+        else if (targetOpt.id === 'mode-movie') setAppMode('movie', true);
+        else if (targetOpt.id === 'mode-youtube') setAppMode('youtube', true);
+        return;
+      }
+      // Si pulsa fuera de las etiquetas, rota en ciclo de 3
+      const order = ['anime', 'movie', 'youtube'];
+      const nextIdx = (order.indexOf(currentMode) + 1) % order.length;
+      setAppMode(order[nextIdx], true);
     });
   }
 
@@ -1405,8 +1479,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (document.activeElement && typeof document.activeElement.blur === 'function') {
         document.activeElement.blur();
       }
-      const newMode = currentMode === 'anime' ? 'movie' : 'anime';
-      setAppMode(newMode, true);
+      const order = ['anime', 'movie', 'youtube'];
+      const nextIdx = (order.indexOf(currentMode) + 1) % order.length;
+      setAppMode(order[nextIdx], true);
       return;
     }
 
@@ -1418,6 +1493,256 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
   });
+
+  // ========================================================
+  // INICIALIZACIÓN MÓDULO YOUTUBE (EVENTOS Y BÚSQUEDA)
+  // ========================================================
+  const ytSearchInput = document.getElementById('yt-search-input');
+  const ytHeroWrapper = document.getElementById('yt-hero-wrapper');
+  const ytResultsDock = document.getElementById('yt-results-dock');
+  const ytResultsList = document.getElementById('yt-results-list');
+  const ytClearBtn = document.getElementById('yt-clear-btn');
+  let ytDebounce = null;
+
+  function renderYtResults(items) {
+    if (!ytResultsList) return;
+    ytResultsList.innerHTML = '';
+
+    if (!items || items.length === 0) {
+      ytResultsList.innerHTML = '<div style="text-align:center; padding:40px; color:#64748b; font-size:12px; font-weight:800;">NO SE ENCONTRARON RESULTADOS</div>';
+      return;
+    }
+
+    items.forEach(video => {
+      const card = document.createElement('div');
+      card.className = 'yt-video-card';
+      if (modeStates.youtube.selectedVideo && modeStates.youtube.selectedVideo.id === video.id) {
+        card.classList.add('selected');
+      }
+
+      card.innerHTML = `
+        <div class="yt-thumb-box">
+          <img class="yt-thumb-img" src="${video.thumbnail}" alt="Thumbnail" loading="lazy">
+          <span class="yt-duration-badge">${video.duration}</span>
+        </div>
+        <div class="yt-video-details">
+          <span class="yt-video-title" title="${video.title}">${video.title}</span>
+          <span class="yt-video-channel">${video.uploader}</span>
+        </div>
+      `;
+
+      card.addEventListener('click', async () => {
+        if (typeof playSynth === 'function') playSynth('click');
+        document.querySelectorAll('.yt-video-card').forEach(c => c.classList.remove('selected'));
+        card.classList.add('selected');
+
+        modeStates.youtube.selectedVideo = video;
+
+        const pImg = document.getElementById('yt-preview-img');
+        const pEmpty = document.getElementById('yt-preview-empty');
+        const pTitle = document.getElementById('yt-prev-title');
+        const pChannel = document.getElementById('yt-prev-channel');
+        const btnDownload = document.getElementById('yt-btn-download');
+
+        if (pImg) {
+          pImg.src = video.thumbnail;
+          pImg.style.display = 'block';
+        }
+        if (pEmpty) pEmpty.style.display = 'none';
+        if (pTitle) pTitle.innerText = video.title;
+        if (pChannel) pChannel.innerText = video.uploader;
+        if (btnDownload) btnDownload.disabled = false;
+
+        // Actualizar capas ambientales de fondo con desenfoque
+        const bgVal = video.thumbnail ? `url('${video.thumbnail}')` : 'none';
+        const aL1 = document.getElementById('ambient-layer-1');
+        const aL2 = document.getElementById('ambient-layer-2');
+        if (aL1) aL1.style.backgroundImage = bgVal;
+        if (aL2) aL2.style.backgroundImage = bgVal;
+
+        // Adaptar paleta cromática a la miniatura del vídeo y guardarla en el estado
+        if (video.thumbnail && window.pywebview && window.pywebview.api && window.pywebview.api.get_dominant_colors) {
+          const pal = await pyCall('get_dominant_colors', video.thumbnail);
+          if (pal && pal.accent1) {
+            const acc1 = pal.accent1;
+            const acc2 = pal.accent2 || '#ff5500';
+            modeStates.youtube.accent1 = acc1;
+            modeStates.youtube.accent2 = acc2;
+            applyDynamicPalette(acc1, acc2);
+          }
+        }
+      });
+
+      ytResultsList.appendChild(card);
+    });
+  }
+
+  async function triggerYoutubeSearch() {
+    if (!ytSearchInput) return;
+    const val = ytSearchInput.value.trim();
+    if (ytClearBtn) ytClearBtn.style.display = val.length > 0 ? 'block' : 'none';
+
+    if (val.length < 2) {
+      if (ytHeroWrapper) ytHeroWrapper.classList.remove('is-searched');
+      if (ytResultsDock) {
+        ytResultsDock.classList.remove('active');
+        ytResultsDock.style.display = 'none';
+      }
+      return;
+    }
+
+    if (ytHeroWrapper) ytHeroWrapper.classList.add('is-searched');
+    if (ytResultsDock) {
+      ytResultsDock.style.display = 'flex';
+      setTimeout(() => ytResultsDock.classList.add('active'), 50);
+    }
+
+    ytResultsList.innerHTML = '<div style="text-align:center; padding:40px; color:#ff3366; font-size:12px; font-weight:800; letter-spacing:1.5px;">BUSCANDO VÍDEOS EN DIRECTO...</div>';
+
+    const results = await pyCall('search_youtube', val);
+    modeStates.youtube.results = results || [];
+    renderYtResults(results);
+  }
+
+  if (ytSearchInput) {
+    ytSearchInput.addEventListener('input', () => {
+      clearTimeout(ytDebounce);
+      ytDebounce = setTimeout(triggerYoutubeSearch, 400);
+    });
+
+    ytSearchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        clearTimeout(ytDebounce);
+        triggerYoutubeSearch();
+      }
+    });
+  }
+
+  ytClearBtn?.addEventListener('click', () => {
+    if (ytSearchInput) {
+      ytSearchInput.value = '';
+      if (ytHeroWrapper) ytHeroWrapper.classList.remove('is-searched');
+      if (ytResultsDock) {
+        ytResultsDock.classList.remove('active');
+        ytResultsDock.style.display = 'none';
+      }
+      ytClearBtn.style.display = 'none';
+      ytSearchInput.focus();
+    }
+  });
+
+  // Opciones del panel de la derecha (Chips formato MP4/MP3)
+  const ytFormatChips = document.getElementById('yt-format-chips');
+  const ytResGroup = document.getElementById('yt-res-group');
+  const ytBtnTxt = document.getElementById('yt-btn-txt');
+
+  ytFormatChips?.querySelectorAll('.chip-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      ytFormatChips.querySelectorAll('.chip-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      updateChipGlider(ytFormatChips, btn);
+
+      const isAudio = btn.getAttribute('data-format') === 'audio';
+      modeStates.youtube.format = isAudio ? 'audio' : 'video';
+      if (ytResGroup) ytResGroup.style.display = isAudio ? 'none' : 'block';
+      if (ytBtnTxt) ytBtnTxt.innerText = isAudio ? 'DESCARGAR AUDIO (MP3)' : 'DESCARGAR VÍDEO';
+    });
+  });
+
+  const ytResChips = document.getElementById('yt-res-chips');
+  ytResChips?.querySelectorAll('.chip-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      ytResChips.querySelectorAll('.chip-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      updateChipGlider(ytResChips, btn);
+      modeStates.youtube.res = btn.getAttribute('data-res');
+    });
+  });
+
+  // Selección y persistencia de ruta de descarga en YouTube
+  const ytBtnBrowse = document.getElementById('yt-btn-browse');
+  const ytCfgDir = document.getElementById('yt-cfg-dir');
+  ytBtnBrowse?.addEventListener('click', async () => {
+    const selected = await pyCall('select_folder', ytCfgDir.value);
+    if (selected && selected !== ytCfgDir.value) {
+      ytCfgDir.value = selected;
+      modeStates.youtube.dir = selected;
+      updateDiskTelemetry(selected);
+    }
+  });
+
+  ytCfgDir?.addEventListener('change', () => {
+    modeStates.youtube.dir = ytCfgDir.value;
+  });
+  ytCfgDir?.addEventListener('input', () => {
+    modeStates.youtube.dir = ytCfgDir.value;
+  });
+
+  // Toggle abrir carpeta YouTube
+  const ytCardOpen = document.getElementById('yt-card-open-folder');
+  const ytCfgOpen = document.getElementById('yt-cfg-open-folder');
+  if (ytCardOpen && ytCfgOpen) {
+    ytCardOpen.addEventListener('click', (e) => {
+      if (e.target !== ytCfgOpen) ytCfgOpen.checked = !ytCfgOpen.checked;
+      if (typeof playSynth === 'function') playSynth('click');
+      modeStates.youtube.openFolder = ytCfgOpen.checked;
+    });
+  }
+
+  // Botón de descarga de YouTube
+  const ytBtnDownload = document.getElementById('yt-btn-download');
+  ytBtnDownload?.addEventListener('click', () => {
+    const video = modeStates.youtube.selectedVideo;
+    if (!video) return;
+
+    if (typeof playSynth === 'function') playSynth('chord');
+
+    const pBox = document.getElementById('yt-dl-progress-box');
+    const pBar = document.getElementById('yt-dl-bar');
+    const pStatus = document.getElementById('yt-dl-status');
+    const pSpeed = document.getElementById('yt-dl-speed');
+
+    if (pBox) pBox.style.display = 'flex';
+    if (pBar) pBar.style.width = '0%';
+    if (pStatus) pStatus.innerText = 'Descargando...';
+    if (pSpeed) pSpeed.innerText = '0%';
+
+    const isAudioOnly = modeStates.youtube.format === 'audio';
+    const quality = modeStates.youtube.res || '1080';
+    const targetDir = ytCfgDir?.value || modeStates.youtube.dir;
+    const shouldOpen = ytCfgOpen ? ytCfgOpen.checked : true;
+
+    const task = {
+      id: 'task_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+      title: video.title + (isAudioOnly ? ' [MP3]' : ''),
+      url: video.url,
+      pageUrl: video.url,
+      status: 'En cola',
+      resolution: isAudioOnly ? 'MP3' : `${quality}p`,
+      bytes: 0,
+      progress: 0,
+      speed: '0 KB/s'
+    };
+
+    pyCall('start_downloads', {
+      tasks: [task],
+      config: {
+        dir: targetDir,
+        is_youtube: true,
+        is_audio_only: isAudioOnly,
+        quality: quality,
+        title: video.title,
+        open_folder: shouldOpen
+      }
+    });
+
+    const bTxt = document.getElementById('yt-btn-txt');
+    if (bTxt) {
+      const orig = bTxt.innerText;
+      bTxt.innerText = 'DESCARGA ENVIADA ✔';
+      setTimeout(() => { bTxt.innerText = orig; }, 1800);
+    }
+  });
 });
 
 window.addEventListener('resize', () => {
@@ -1427,6 +1752,24 @@ window.addEventListener('resize', () => {
 
 // Receptor de progreso desde Python con persistencia entre modos
 window.updateDownloadProgress = function(taskId, progress, speed, status) {
+  // Si estamos en modo YouTube, actualizar su barra de progreso dedicada
+  if (currentMode === 'youtube') {
+    const pBox = document.getElementById('yt-dl-progress-box');
+    const pBar = document.getElementById('yt-dl-bar');
+    const pStatus = document.getElementById('yt-dl-status');
+    const pSpeed = document.getElementById('yt-dl-speed');
+
+    if (pBox) pBox.style.display = 'flex';
+    const numProg = Math.min(100, Math.max(0, parseFloat(progress) || 0));
+    if (pBar) pBar.style.width = `${numProg}%`;
+    if (pStatus) pStatus.innerText = numProg >= 100 ? 'Completado' : (status || 'Descargando...');
+    if (pSpeed) pSpeed.innerText = `${numProg.toFixed(1)}% ${speed ? '• ' + speed : ''}`;
+
+    if (numProg >= 100) {
+      const btnTxt = document.getElementById('yt-btn-txt');
+      if (btnTxt) btnTxt.innerText = 'DESCARGA COMPLETADA ✔';
+    }
+  }
   ['anime', 'movie'].forEach(m => {
     const t = modeStates[m].queue.find(x => x.id === taskId);
     if (t) {

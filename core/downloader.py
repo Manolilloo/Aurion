@@ -29,8 +29,12 @@ class AurionDownloader:
         anime_title = config.get("title", "").strip()
         clean_title = "".join(c for c in anime_title if c not in r'\/:*?"<>|').strip()
 
+        # MODO YOUTUBE: Crear carpeta con el nombre exacto del vídeo en el destino elegido
+        if config.get("is_youtube") or mode == "youtube":
+            yt_folder_name = clean_title or "Video_YouTube"
+            final_dir = os.path.abspath(os.path.join(base_dir, yt_folder_name))
         # MODO CINE: Carpeta propia con el título de la película (sin temporadas)
-        if mode == "movie":
+        elif mode == "movie":
             if clean_title and clean_title != "Esperando consulta...":
                 final_dir = os.path.join(base_dir, clean_title)
             else:
@@ -246,21 +250,37 @@ class AurionDownloader:
             if task_id in self.cancelled_tasks:
                 return
 
-        # En streams HLS, limitar a 8 hilos por tarea para no saturar al servidor y evitar que aborte la conexión
+        # 1. Configuración de hilos
         raw_threads = int(config.get("threads", 16))
         is_m3u8 = '.m3u8' in url.lower()
         threads_count = min(raw_threads, 8) if is_m3u8 else raw_threads
 
-        fmt_choice = str(config.get("fmt", "mp4")).replace(".", "").lower().strip()
-        if fmt_choice not in ["mp4", "mkv"]:
+        # 2. Formato, calidad y selectores
+        is_yt = config.get("is_youtube", False)
+        is_audio = config.get("is_audio_only", False)
+        quality = str(config.get("quality", "1080"))
+
+        if is_yt and is_audio:
+            fmt_choice = "mp3"
+            format_selector = "ba/b"
+        elif is_yt:
             fmt_choice = "mp4"
+            if str(quality).lower() == "max":
+                format_selector = "bestvideo+bestaudio/best"
+            else:
+                q_num = int(quality) if str(quality).isdigit() else 1080
+                format_selector = f"bestvideo[height<={q_num}]+bestaudio/best[height<={q_num}]/bestvideo+bestaudio/best"
+        else:
+            fmt_choice = str(config.get("fmt", "mp4")).replace(".", "").lower().strip()
+            if fmt_choice not in ["mp4", "mkv"]:
+                fmt_choice = "mp4"
+            format_selector = "bestvideo[height<=1080]+bestaudio/best[height<=1080]/bestvideo+bestaudio/best"
 
-        format_selector = "bestvideo[height<=1080]+bestaudio/best[height<=1080]/bestvideo+bestaudio/best"
-
-        # Directorio temporal aislado por tarea para evitar bloqueos WinError 32 entre descargas simultáneas
+        # 3. Directorio temporal y plantilla de nombre limpio
+        clean_file_title = "".join(c for c in title if c not in r'\/:*?"<>|').strip() or "video"
         task_temp_dir = os.path.join(dest_folder, f".tmp_{task_id}")
         os.makedirs(task_temp_dir, exist_ok=True)
-        out_template = os.path.join(task_temp_dir, f"{title}.%(ext)s")
+        out_template = os.path.join(task_temp_dir, f"{clean_file_title}.%(ext)s")
 
         parsed_url = urlparse(url)
         origin_domain = f"{parsed_url.scheme}://{parsed_url.netloc}"
@@ -269,6 +289,10 @@ class AurionDownloader:
         print(f"\n[Core -> Tarea Iniciada] {title}")
         print(f"      Formato: .{fmt_choice} | Hilos: {threads_count}")
 
+        # Control ponderado de flujos en YouTube (Vídeo representa el 85%, Audio el 15%)
+        setattr(self, f"_p_{task_id}", 0)
+        current_stream_type = {"val": "video" if not is_audio else "audio"}
+
         def progress_hook(d):
             with self.lock:
                 if task_id in self.cancelled_tasks:
@@ -276,25 +300,23 @@ class AurionDownloader:
 
             if d.get("status") == "downloading":
                 downloaded = d.get("downloaded_bytes", 0)
-                mode = config.get("active_mode", "anime")
+                total = d.get("total_bytes") or d.get("total_bytes_estimate") or 0
 
-                total = d.get("total_bytes") or 0
-                if total <= 0:
-                    est = d.get("total_bytes_estimate", 0)
-                    # En modo cine se admiten tamaños mayores a 1.5 GB
-                    max_limit = (15000 * 1024 * 1024) if mode == "movie" else (1500 * 1024 * 1024)
-                    if 0 < est < max_limit:
-                        total = est
+                raw_percent = (downloaded / total * 100) if total > 0 else 0
 
-                # En streams HLS, calcular el porcentaje mediante fragmentos para evitar que permanezca en 0%
-                frag_index = d.get("fragment_index")
-                frag_count = d.get("fragment_count")
-                if frag_index and frag_count and frag_count > 0:
-                    percent = round((frag_index / frag_count) * 100, 1)
+                if is_yt and not is_audio:
+                    if current_stream_type["val"] == "video":
+                        percent = round((raw_percent * 0.85), 1)
+                    else:
+                        percent = round(85.0 + (raw_percent * 0.14), 1)
                 else:
-                    percent = round((downloaded / total) * 100, 1) if total > 0 else 0
+                    frag_index = d.get("fragment_index")
+                    frag_count = d.get("fragment_count")
+                    if frag_index and frag_count and frag_count > 0:
+                        percent = round((frag_index / frag_count) * 100, 1)
+                    else:
+                        percent = round(raw_percent, 1)
 
-                # Asegurar avance continuo sin oscilaciones hacia atrás
                 last_p = getattr(self, f"_p_{task_id}", 0)
                 if percent >= last_p:
                     setattr(self, f"_p_{task_id}", percent)
@@ -313,11 +335,19 @@ class AurionDownloader:
                     self.bridge._window.evaluate_js(
                         f"window.updateDownloadProgress && window.updateDownloadProgress('{task_id}', {percent}, '{speed_str}', 'Descargando ({percent}%)');"
                     )
+
             elif d.get("status") == "finished":
-                if self.bridge and self.bridge._window:
-                    self.bridge._window.evaluate_js(
-                        f"window.updateDownloadProgress && window.updateDownloadProgress('{task_id}', 100, '0 KB/s', 'Procesando formato...');"
-                    )
+                if is_yt and not is_audio and current_stream_type["val"] == "video":
+                    current_stream_type["val"] = "audio"
+                    if self.bridge and self.bridge._window:
+                        self.bridge._window.evaluate_js(
+                            f"window.updateDownloadProgress && window.updateDownloadProgress('{task_id}', 85, 'Procesando', 'Descargando pista de audio...');"
+                        )
+                else:
+                    if self.bridge and self.bridge._window:
+                        self.bridge._window.evaluate_js(
+                            f"window.updateDownloadProgress && window.updateDownloadProgress('{task_id}', 99, 'Procesando', 'Ensamblando archivo final...');"
+                        )
 
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
@@ -327,28 +357,44 @@ class AurionDownloader:
             'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8'
         }
 
+        # 4. Postprocesadores según sea audio MP3 o vídeo
+        postprocessors_list = []
+        if is_yt and is_audio:
+            postprocessors_list.append({
+                'key': 'FFmpegExtractAudio',
+                'preferredcodec': 'mp3',
+                'preferredquality': '320',
+            })
+        else:
+            postprocessors_list.append({
+                'key': 'FFmpegVideoRemuxer',
+                'preferedformat': fmt_choice
+            })
+
+        # 5. Configuración final optimizada sin throttling
         ydl_opts = {
             'outtmpl': out_template,
             'format': format_selector,
-            'merge_output_format': fmt_choice,
+            'merge_output_format': fmt_choice if not (is_yt and is_audio) else None,
             'progress_hooks': [progress_hook],
             'nocheckcertificate': True,
             'quiet': True,
             'no_warnings': True,
             'http_headers': headers,
-            'concurrent_fragment_downloads': threads_count,
-            'retries': 20,
-            'fragment_retries': 20,
+            'retries': 10,
+            'fragment_retries': 10,
             'hls_use_mpegts': True,
             'fixup': 'warn',
-            'postprocessors': [{
-                'key': 'FFmpegVideoRemuxer',
-                'preferedformat': fmt_choice
-            }]
+            'postprocessors': postprocessors_list
         }
 
-        is_m3u8 = '.m3u8' in url.lower()
-        if self.has_aria2 and not is_m3u8:
+        if is_yt:
+            # En YouTube dejamos los clientes predeterminados sin restricciones para que acceda a todos los streams
+            ydl_opts.update({
+                'concurrent_fragment_downloads': 8,
+                'buffersize': 1024 * 1024 * 4
+            })
+        elif self.has_aria2 and not is_m3u8:
             ydl_opts['external_downloader'] = 'aria2c'
             ydl_opts['external_downloader_args'] = {
                 'aria2c': [
@@ -358,6 +404,7 @@ class AurionDownloader:
                     '-k1M',
                     '--file-allocation=none',
                     '--summary-interval=0',
+                    '--optimize-concurrent-downloads=true',
                     f'--header=Referer: {referer}',
                     f'--header=Origin: {origin_domain}'
                 ]
@@ -383,7 +430,8 @@ class AurionDownloader:
 
             # Localizar el archivo de vídeo resultante en la carpeta temporal
             generated_files = [f for f in os.listdir(task_temp_dir) if not f.endswith('.part') and not f.startswith('.')]
-            final_file_path = os.path.join(dest_folder, f"{title}.{fmt_choice}")
+            clean_file_name = "".join(c for c in title if c not in r'\/:*?"<>|').strip() or "video"
+            final_file_path = os.path.join(dest_folder, f"{clean_file_name}.{fmt_choice}")
 
             if generated_files:
                 generated_files.sort(key=lambda x: os.path.getsize(os.path.join(task_temp_dir, x)), reverse=True)
