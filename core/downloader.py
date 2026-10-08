@@ -278,10 +278,10 @@ class AurionDownloader:
             if q_str == "max":
                 format_selector = "bestvideo+bestaudio/best"
             elif q_str == "min":
-                # Fallback seguro para calidad mínima funcional con audio garantizado
-                format_selector = "worst[ext=mp4]/worstvideo[height<=360]+worstaudio/worst"
+                format_selector = "worstvideo+worstaudio/worst"
             else:
                 q_num = int(quality) if str(quality).isdigit() else 1080
+                # Selecciona el mejor vídeo disponible hasta la altura indicada y lo fusiona con el mejor audio
                 format_selector = f"bestvideo[height<={q_num}]+bestaudio/best[height<={q_num}]/best"
         else:
             fmt_choice = str(config.get("fmt", "mp4")).replace(".", "").lower().strip()
@@ -362,15 +362,22 @@ class AurionDownloader:
                             f"window.updateDownloadProgress && window.updateDownloadProgress('{task_id}', 99, 'Procesando', 'Ensamblando archivo final...');"
                         )
 
+        # Cabeceras completas simulando navegador Chrome real para evitar estrangulamiento en CDNs de anime
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-            'Referer': referer,
-            'Origin': origin_domain,
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+            'Referer': referer if referer and referer != "://" else 'https://animeflv.net/',
+            'Origin': origin_domain if origin_domain and origin_domain != "://" else 'https://animeflv.net',
             'Accept': '*/*',
-            'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8'
+            'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
+            'Sec-Ch-Ua': '"Chromium";v="128", "Not;A=Brand";v="24", "Google Chrome";v="128"',
+            'Sec-Ch-Ua-Mobile': '?0',
+            'Sec-Ch-Ua-Platform': '"Windows"',
+            'Sec-Fetch-Dest': 'empty',
+            'Sec-Fetch-Mode': 'cors',
+            'Sec-Fetch-Site': 'cross-site'
         }
 
-        # 4. Postprocesadores según sea audio MP3 o vídeo
+        # 4. Postprocesadores limpios (sin forzar remuxer restrictivo en YouTube)
         postprocessors_list = []
         if is_yt and is_audio:
             postprocessors_list.append({
@@ -378,17 +385,17 @@ class AurionDownloader:
                 'preferredcodec': 'mp3',
                 'preferredquality': '320',
             })
-        else:
+        elif not is_yt:
             postprocessors_list.append({
                 'key': 'FFmpegVideoRemuxer',
                 'preferedformat': fmt_choice
             })
 
-        # 5. Configuración ultra-optimizada anti-bloqueo al 99%
+        # 5. Configuración con unión real de flujos vídeo HD/FHD + audio
         ydl_opts = {
             'outtmpl': out_template,
             'format': format_selector,
-            'merge_output_format': fmt_choice if not (is_yt and is_audio) else None,
+            'merge_output_format': 'mp4' if (is_yt and not is_audio) else (fmt_choice if not is_yt else None),
             'progress_hooks': [progress_hook],
             'nocheckcertificate': True,
             'quiet': True,
@@ -396,8 +403,8 @@ class AurionDownloader:
             'http_headers': headers,
             'retries': 15,
             'fragment_retries': 15,
-            'skip_unavailable_fragments': True, # Si el último fragmento fantasma falla, termina el vídeo limpio
-            'socket_timeout': 8,                # Evita que se quede colgado esperando infinitamente
+            'skip_unavailable_fragments': True,
+            'socket_timeout': 10,
             'retry_sleep_functions': {'http': lambda n: 0.2, 'fragment': lambda n: 0.2},
             'hls_use_mpegts': True,
             'fixup': 'warn',
@@ -407,10 +414,9 @@ class AurionDownloader:
         }
 
         if is_yt:
-            # Eliminadas restricciones que forzaban 360p en YouTube
             ydl_opts.update({
-                'concurrent_fragment_downloads': 16,
-                'buffersize': 1024 * 1024 * 16
+                'concurrent_fragment_downloads': 8,
+                'buffersize': 1024 * 1024 * 8,
             })
         elif self.has_aria2 and not is_m3u8:
             # Aceleración máxima multiconexión con aria2c para servidores de anime/cine

@@ -88,7 +88,12 @@ class AurionBridge:
                 "res": "max",
                 "fmt": "mkv",
                 "threads": "32",
-                "simul": "20"
+                "simul": "20",
+                "active_title": "",
+                "active_tags": "",
+                "active_bg": "",
+                "accent1": "#00ffaa",
+                "accent2": "#00b4d8"
             },
             "movie": {
                 "dir": "",
@@ -98,7 +103,12 @@ class AurionBridge:
                 "res": "max",
                 "fmt": "mkv",
                 "threads": "32",
-                "simul": "5"
+                "simul": "5",
+                "active_title": "",
+                "active_tags": "",
+                "active_bg": "",
+                "accent1": "#bf5af2",
+                "accent2": "#5e5ce6"
             },
             "youtube": {
                 "dir": "",

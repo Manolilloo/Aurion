@@ -306,9 +306,12 @@
     </div>
 
     <!-- COLUMNA DERECHA: Panel 'X' (Opciones, Previa y Descarga) -->
-    <div class="glass-box yt-sidebar-box">
+    <div class="glass-box yt-sidebar-box" id="yt-sidebar-box">
       <div class="glass-inner">
-        <div class="box-header">PANEL YOUTUBE</div>
+        <div class="box-header" style="display: flex; justify-content: space-between; align-items: center;">
+          <span>PANEL YOUTUBE</span>
+          <button class="yt-panel-toggle-btn" id="yt-btn-close-panel" title="Ocultar panel lateral">✕</button>
+        </div>
 
         <!-- Previsualización -->
         <div class="yt-preview-card">
@@ -374,10 +377,11 @@
             </label>
           </div>
 
-          <!-- Botón de extracción con bifurcación elástica -->
-          <div class="mag-wrapper" style="margin-top: 20px;">
+          
+              <!-- Botón de extracción con bifurcación elástica -->
+          <div class="mag-wrapper" style="margin-top: 18px;">
             <div class="split-cluster" id="yt-split-cluster">
-              <button class="btn-god btn-split-main" id="yt-btn-download" disabled>
+              <button class="btn-god btn-split-main" id="yt-btn-download">
                 <span class="btn-god-txt" id="yt-btn-txt">DESCARGAR VÍDEO</span>
               </button>
               <button class="btn-split-cancel" id="yt-btn-cancel" title="Cancelar descarga activa">
@@ -385,7 +389,7 @@
               </button>
             </div>
           </div>
-
+              
           <!-- Barra de progreso de descarga YouTube -->
           <div class="yt-download-progress-box" id="yt-dl-progress-box" style="display: none;">
             <div class="yt-progress-meta">

@@ -957,38 +957,59 @@ body:not(.mode-youtube) .yt-sidebar-box .chip-glider {
   visibility: hidden !important;
 }
 
-/* Cuando se está arrastrando directamente con el ratón se anula la transición para respuesta 1:1 */
-.chip-glider.is-dragging {
-  transition: none !important;
-}
-
-/* Deformación elástica orgánica contenida sin desbordar los bordes */
-.chip-glider.jelly-stretch-right {
-  transform: translate(var(--glider-x, 0px), 0) scaleX(1.08) scaleY(0.92) !important;
-}
-
-.chip-glider.jelly-stretch-left {
-  transform: translate(var(--glider-x, 0px), 0) scaleX(1.08) scaleY(0.92) !important;
-}
-
+/* FÍSICA GELATINA Y ARRASTRE FLUIDO DE CHIPS */
 .yt-chips-resolutions {
-  touch-action: none;
-  user-select: none;
-  cursor: grab;
+  touch-action: none !important;
+  user-select: none !important;
+  cursor: grab !important;
 }
 
 .yt-chips-resolutions.is-grabbing {
   cursor: grabbing !important;
 }
 
-.yt-chips-resolutions {
-  touch-action: none;
-  user-select: none;
-  cursor: grab;
+.chip-glider.is-dragging {
+  transition: none !important;
 }
 
-.yt-chips-resolutions:active {
-  cursor: grabbing;
+.chip-glider.jelly-stretch-right {
+  transform: translate(var(--glider-x, 0px), 0) scaleX(1.16) scaleY(0.88) !important;
+  filter: brightness(1.15);
+}
+
+.chip-glider.jelly-stretch-left {
+  transform: translate(var(--glider-x, 0px), 0) scaleX(1.16) scaleY(0.88) !important;
+  filter: brightness(1.15);
+}
+
+.yt-chips-resolutions {
+  touch-action: none !important;
+  user-select: none !important;
+  cursor: grab !important;
+  position: relative !important;
+}
+
+.yt-chips-resolutions.is-grabbing {
+  cursor: grabbing !important;
+}
+
+.yt-chips-resolutions .chip-btn {
+  touch-action: none !important;
+  user-select: none !important;
+  pointer-events: auto !important;
+}
+
+.chip-glider.is-dragging {
+  transition: none !important;
+  filter: brightness(1.2) !important;
+}
+
+.chip-glider.jelly-stretch-right {
+  transform: translate(var(--glider-x, 0px), 0) scaleX(1.18) scaleY(0.85) !important;
+}
+
+.chip-glider.jelly-stretch-left {
+  transform: translate(var(--glider-x, 0px), 0) scaleX(1.18) scaleY(0.85) !important;
 }
 
 .chip-btn {
@@ -3220,34 +3241,59 @@ body.is-maximized .btn-god-txt {
   transform: translateY(1px) scale(0.97) !important;
 }
 
-/* ESTADO ACTIVO DURANTE LA DESCARGA: BIFURCACIÓN COMPLETA */
+/* ESTADO ACTIVO DURANTE LA DESCARGA: BIFURCACIÓN PERFECTA */
 .split-cluster.is-split {
-  width: 360px !important;
-  gap: 12px !important;
+  width: 100% !important;
+  max-width: 320px !important;
+  gap: 8px !important;
+  box-sizing: border-box !important;
+}
+
+/* En el panel lateral de YouTube ocupa el 100% del contenedor sin salirse */
+.yt-sidebar-box .split-cluster {
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
 }
 
 .yt-sidebar-box .split-cluster.is-split {
   width: 100% !important;
+  max-width: 100% !important;
+  gap: 8px !important;
 }
 
-/* El botón principal encoge y queda deshabilitado */
+/* Botón principal a la izquierda durante descarga */
 .split-cluster.is-split .btn-split-main {
-  flex: 1 1 auto !important;
-  width: auto !important;
+  flex: 1.4 1 0% !important;
+  width: 0 !important;
+  min-width: 0 !important;
+  padding: 0 8px !important;
   pointer-events: none !important;
-  opacity: 0.88;
+  opacity: 0.9;
   filter: saturate(0.85);
   cursor: default;
-  border-color: rgba(255, 255, 255, 0.18) !important;
 }
 
-/* El botón de cancelar se despliega elásticamente */
+.split-cluster.is-split .btn-split-main .btn-god-txt {
+  font-size: 11px !important;
+  letter-spacing: 0.8px !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+/* Botón cancelar proporcional que jamás se corta */
 .split-cluster.is-split .btn-split-cancel {
-  width: 135px !important;
-  max-width: 135px !important;
+  flex: 1 1 0% !important;
+  width: auto !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  padding: 0 6px !important;
   opacity: 1 !important;
   pointer-events: auto !important;
   transform: scale(1) !important;
+  font-size: 10.5px !important;
+  letter-spacing: 0.8px !important;
 }
 
 /* Brillo especular superior de vidrio */
@@ -3908,10 +3954,30 @@ body.mode-youtube #sites-dock {
 
 /* Panel derecho ultracompacto y simétrico */
 .yt-sidebar-box .glass-inner {
-  overflow-y: hidden !important;
+  overflow-y: auto !important;
   justify-content: flex-start !important;
   padding: 14px 18px !important;
   gap: 8px !important;
+  scrollbar-width: none !important;
+}
+
+.yt-sidebar-box .glass-inner::-webkit-scrollbar {
+  display: none !important;
+}
+
+.yt-sidebar-box .settings-area {
+  gap: 8px !important;
+  overflow: visible !important;
+  margin-top: 6px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 auto !important;
+  padding-bottom: 6px !important;
+}
+
+.yt-sidebar-box .yt-telemetry-box {
+  margin-top: auto !important;
+  margin-bottom: 2px !important;
 }
 
 .modal-manual-section {
@@ -4087,4 +4153,64 @@ body.mode-youtube #sites-dock {
   border-radius: 8px;
   box-shadow: 0 0 10px var(--color-glow-subtle);
   user-select: none;
+}
+
+/* BOTÓN PARA OCULTAR EL PANEL DERECHO DE YOUTUBE */
+.yt-panel-toggle-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 800;
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  padding: 0;
+  line-height: 1;
+}
+
+.yt-panel-toggle-btn:hover {
+  background: rgba(255, 51, 102, 0.2);
+  border-color: #ff3366;
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(255, 51, 102, 0.4);
+  transform: scale(1.05);
+}
+
+.yt-panel-toggle-btn:active {
+  transform: scale(0.95);
+}
+
+/* BLINDAJE DE CLUSTER Y BOTÓN CANCELAR EN YOUTUBE */
+.yt-sidebar-box .split-cluster {
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow: visible !important;
+}
+
+.yt-sidebar-box .mag-wrapper {
+  width: 100% !important;
+  box-sizing: border-box !important;
+  padding: 0 2px !important;
+}
+
+/* El botón cancelar no debe mostrar ningún texto ni ocupar espacio si no está en split */
+#yt-split-cluster:not(.is-split) .btn-split-cancel {
+  display: none !important;
+  width: 0 !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+#yt-split-cluster.is-split .btn-split-cancel {
+  display: flex !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
 }

@@ -275,6 +275,7 @@ function updateSingleSeasonState(seasonNum) {
 
 // 6. PERSISTENCIA
 function saveCurrentState() {
+  // YouTube: CERO MEMORIA (solo persistimos la carpeta elegida)
   if (currentMode === 'youtube') {
     const ytDirInput = document.getElementById('yt-cfg-dir');
     const ytCfgOpen = document.getElementById('yt-cfg-open-folder');
@@ -285,14 +286,15 @@ function saveCurrentState() {
       active_mode: 'youtube',
       youtube: {
         dir: modeStates.youtube.dir,
-        format: modeStates.youtube.format,
-        res: modeStates.youtube.res,
+        format: modeStates.youtube.format || 'video',
+        res: modeStates.youtube.res || '1080',
         open_folder: modeStates.youtube.openFolder
       }
     });
     return;
   }
 
+  // Anime y Cine: MEMORIA TOTAL (carátula, títulos, paleta cromática completa)
   const state = modeStates[currentMode];
   const sInput = document.getElementById('search-input');
   const pInput = document.getElementById('cfg-prefix');
@@ -314,7 +316,12 @@ function saveCurrentState() {
       open_folder: state.openFolder,
       fmt: state.fmt,
       threads: state.threads,
-      simul: state.simul
+      simul: state.simul,
+      active_title: (state.title && state.title !== 'Esperando consulta...') ? state.title : '',
+      active_tags: state.tags || '',
+      active_bg: state.bg || '',
+      accent1: state.accent1 || (currentMode === 'movie' ? '#bf5af2' : '#00ffaa'),
+      accent2: state.accent2 || (currentMode === 'movie' ? '#5e5ce6' : '#00b4d8')
     }
   });
 }
@@ -536,12 +543,22 @@ function setAppMode(mode, save = true) {
     const ytCard = document.getElementById('yt-welcome-card');
     if (ytCard) ytCard.style.display = 'none';
 
-    // Coordinar visibilidad del panel derecho según si ya hay vídeo seleccionado
-    if (modeStates.youtube.selectedVideo) {
-      document.body.classList.add('yt-has-selection');
-    } else {
-      document.body.classList.remove('yt-has-selection');
-    }
+    // YouTube siempre arranca limpio sin elementos seleccionados
+    document.body.classList.remove('yt-has-selection');
+    document.querySelectorAll('.yt-video-card').forEach(c => c.classList.remove('selected', 'kb-focused'));
+    modeStates.youtube.selectedVideo = null;
+
+    const pImg = document.getElementById('yt-preview-img');
+    const pEmpty = document.getElementById('yt-preview-empty');
+    const pTitle = document.getElementById('yt-prev-title');
+    const pChannel = document.getElementById('yt-prev-channel');
+    const btnDownload = document.getElementById('yt-btn-download');
+
+    if (pImg) { pImg.src = ''; pImg.style.display = 'none'; }
+    if (pEmpty) pEmpty.style.display = 'flex';
+    if (pTitle) pTitle.innerText = 'Ningún vídeo activo';
+    if (pChannel) pChannel.innerText = 'Canal --';
+    if (btnDownload) btnDownload.disabled = true;
 
     // Restaurar el destino guardado en el input de YouTube
     const ytDirInput = document.getElementById('yt-cfg-dir');
@@ -646,6 +663,10 @@ function applyDynamicPalette(c1, c2) {
     modeStates[currentMode].accent1 = c1;
     modeStates[currentMode].accent2 = c2;
   }
+  // Si estamos en anime o cine, persistir la paleta cromática al instante
+  if (currentMode !== 'youtube') {
+    saveCurrentState();
+  }
 }
 
 function updatePoster(imgUrl, title, meta) {
@@ -667,6 +688,7 @@ function updatePoster(imgUrl, title, meta) {
   modeStates[currentMode].bg = bgVal;
 
   if (typeof playSynth === 'function') playSynth('click');
+  saveCurrentState(); // Persistencia inmediata de portada y título
 }
 
 function calculateWordMatchScore(query, candidateTitle) {
@@ -890,6 +912,11 @@ function extractEpisodeNumber(rawText) {
 window.onLinkReceived = async function(data) {
   const streamUrl = data.stream_url || (data.streams && data.streams[0]) || data.page_url;
   if (!streamUrl) return;
+
+  // Si estás en YouTube, conmutar inmediatamente a Anime para recibir el enlace capturado
+  if (currentMode === 'youtube') {
+    setAppMode('anime', true);
+  }
 
   const currentQueue = modeStates[currentMode].queue;
   if (currentQueue.some(item => item.url === streamUrl || item.pageUrl === data.page_url)) {
@@ -1380,14 +1407,41 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function applyLoadedConfig(config) {
     if (!config) return;
-    if (config.anime) Object.assign(modeStates.anime, config.anime);
-    if (config.movie) Object.assign(modeStates.movie, config.movie);
-    if (config.youtube) Object.assign(modeStates.youtube, config.youtube);
+
+    // Restaurar memoria en Anime con paleta
+    if (config.anime) {
+      Object.assign(modeStates.anime, config.anime);
+      if (config.anime.active_title) modeStates.anime.title = config.anime.active_title;
+      if (config.anime.active_tags) modeStates.anime.tags = config.anime.active_tags;
+      if (config.anime.active_bg) modeStates.anime.bg = config.anime.active_bg;
+      if (config.anime.accent1 && config.anime.accent2) {
+        modeStates.anime.accent1 = config.anime.accent1;
+        modeStates.anime.accent2 = config.anime.accent2;
+      }
+    }
+
+    // Restaurar memoria en Cine con paleta
+    if (config.movie) {
+      Object.assign(modeStates.movie, config.movie);
+      if (config.movie.active_title) modeStates.movie.title = config.movie.active_title;
+      if (config.movie.active_tags) modeStates.movie.tags = config.movie.active_tags;
+      if (config.movie.active_bg) modeStates.movie.bg = config.movie.active_bg;
+      if (config.movie.accent1 && config.movie.accent2) {
+        modeStates.movie.accent1 = config.movie.accent1;
+        modeStates.movie.accent2 = config.movie.accent2;
+      }
+    }
+
+    // YouTube: CERO MEMORIA (siempre reseteado a limpio)
+    if (config.youtube && config.youtube.dir) {
+      modeStates.youtube.dir = config.youtube.dir;
+    }
+    modeStates.youtube.selectedVideo = null;
+    modeStates.youtube.results = [];
 
     const initMode = config.active_mode || 'anime';
     setAppMode(initMode, false);
 
-    // Poblar inputs de destino según la configuración cargada
     const dInput = document.getElementById('cfg-dir');
     if (dInput) dInput.value = modeStates[initMode].dir || '';
 
@@ -1736,8 +1790,24 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('.yt-video-card').forEach(c => c.classList.remove('selected', 'kb-focused'));
         card.classList.add('selected');
 
+        // Resetear la barra de progreso de la descarga anterior al seleccionar un nuevo vídeo
+        const pBox = document.getElementById('yt-dl-progress-box');
+        const pBar = document.getElementById('yt-dl-bar');
+        const pStatus = document.getElementById('yt-dl-status');
+        const pSpeed = document.getElementById('yt-dl-speed');
+        if (pBox) pBox.style.display = 'none';
+        if (pBar) pBar.style.width = '0%';
+        if (pStatus) pStatus.innerText = 'Iniciando...';
+        if (pSpeed) pSpeed.innerText = '0% • 0 KB/s';
+
+        // Restaurar estado del botón maestro en YouTube si estaba bifurcado
+        if (typeof window.setYtDownloadState === 'function') {
+          window.setYtDownloadState(false);
+        }
+
         modeStates.youtube.selectedVideo = video;
         document.body.classList.add('yt-has-selection');
+        saveCurrentState(); // Guardar el vídeo activo en memoria
 
         // Al seleccionar, dar 150ms para que el panel derecho termine su animación y luego posicionar sus chips
         setTimeout(() => {
@@ -1757,7 +1827,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (pEmpty) pEmpty.style.display = 'none';
         if (pTitle) pTitle.innerText = video.title;
         if (pChannel) pChannel.innerText = video.uploader;
-        if (btnDownload) btnDownload.disabled = false;
+
+        // Desbloquear al 100% el botón de descarga permitiendo clics
+        if (btnDownload) {
+          btnDownload.disabled = false;
+          btnDownload.removeAttribute('disabled');
+          btnDownload.style.pointerEvents = 'auto';
+          btnDownload.style.opacity = '1';
+        }
 
         // Actualizar capas ambientales de fondo con desenfoque
         const bgVal = video.thumbnail ? `url('${video.thumbnail}')` : 'none';
@@ -1880,7 +1957,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Opciones del panel de la derecha (Chips formato MP4/MP3)
+  // BOTÓN PARA OCULTAR EL PANEL DERECHO DE YOUTUBE
+  const ytBtnClosePanel = document.getElementById('yt-btn-close-panel');
+  ytBtnClosePanel?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (typeof playSynth === 'function') playSynth('click');
+    document.body.classList.remove('yt-has-selection');
+    document.querySelectorAll('.yt-video-card').forEach(c => c.classList.remove('selected', 'kb-focused'));
+  });
+
+  // OPCIONES DEL PANEL DERECHO (RESTAURADA VARIABLE FALTANTE)
   const ytFormatChips = document.getElementById('yt-format-chips');
   const ytResGroup = document.getElementById('yt-res-group');
   const ytBtnTxt = document.getElementById('yt-btn-txt');
@@ -1929,13 +2015,13 @@ document.addEventListener('DOMContentLoaded', () => {
       glider.style.width = `${width}px`;
       glider.style.transform = `translateX(${leftOffset}px)`;
 
-      // Deformación elástica suave en la dirección del movimiento
+      // Rebote elástico gelatina en la dirección de arrastre/toque
       if (direction !== 0) {
         glider.classList.add(direction > 0 ? 'jelly-stretch-right' : 'jelly-stretch-left');
         setTimeout(() => {
           glider.classList.remove('jelly-stretch-right', 'jelly-stretch-left');
           glider.style.transform = `translateX(${leftOffset}px)`;
-        }, 180);
+        }, 220);
       }
     }
 
@@ -1945,12 +2031,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (ytResChips) {
     let isDragging = false;
+    let dragThreshold = false;
+    let startX = 0;
     let lastActiveBtn = ytResChips.querySelector('.chip-btn.active');
 
-    // Clic directo en un chip
+    // Clic directo
     ytResChips.querySelectorAll('.chip-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
-        if (isDragging) return;
+        if (dragThreshold) return;
         const currentActive = ytResChips.querySelector('.chip-btn.active');
         const dir = currentActive ? (btn.offsetLeft - currentActive.offsetLeft) : 0;
         if (typeof playSynth === 'function') playSynth('origami');
@@ -1958,19 +2046,25 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     });
 
-    // Iniciar arrastre con el ratón
+    // Iniciar arrastre con puntero/ratón
     ytResChips.addEventListener('pointerdown', (e) => {
       isDragging = true;
+      dragThreshold = false;
+      startX = e.clientX;
       ytResChips.classList.add('is-grabbing');
-      ytResChips.setPointerCapture(e.pointerId);
+      try { ytResChips.setPointerCapture(e.pointerId); } catch(err) {}
 
       const glider = ytResChips.querySelector('.chip-glider');
       if (glider) glider.classList.add('is-dragging');
     });
 
-    // Movimiento fluido del glider pegado al cursor
+    // Seguimiento del cursor en tiempo real pegado al dedo o ratón
     ytResChips.addEventListener('pointermove', (e) => {
       if (!isDragging) return;
+      if (Math.abs(e.clientX - startX) > 4) {
+        dragThreshold = true;
+      }
+
       const glider = ytResChips.querySelector('.chip-glider');
       const rect = ytResChips.getBoundingClientRect();
       const relativeX = e.clientX - rect.left;
@@ -1984,7 +2078,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }, { btn: buttons[0], dist: Infinity }).btn;
 
       if (glider && closestBtn) {
-        // La pastilla acompaña al cursor de forma suave
         const targetX = Math.max(2, Math.min(rect.width - closestBtn.offsetWidth - 2, relativeX - closestBtn.offsetWidth / 2));
         glider.style.transform = `translateX(${targetX}px)`;
         glider.style.width = `${closestBtn.offsetWidth}px`;
@@ -1998,7 +2091,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
-    // Soltar: rebote elástico a la opción más cercana
+    // Soltar: snap elástico al botón más cercano
     const endGliderDrag = (e) => {
       if (!isDragging) return;
       isDragging = false;
@@ -2011,8 +2104,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const target = lastActiveBtn || ytResChips.querySelector('.chip-btn.active') || ytResChips.querySelector('.chip-btn');
       if (target) {
-        triggerJellyGlider(ytResChips, target, 1);
+        const currentActive = ytResChips.querySelector('.chip-btn.active');
+        const dir = currentActive ? (target.offsetLeft - currentActive.offsetLeft) : 1;
+        triggerJellyGlider(ytResChips, target, dir || 1);
       }
+      setTimeout(() => { dragThreshold = false; }, 50);
     };
 
     ytResChips.addEventListener('pointerup', endGliderDrag);
@@ -2055,7 +2151,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Botón de descarga de YouTube
   const ytBtnDownload = document.getElementById('yt-btn-download');
-  ytBtnDownload?.addEventListener('click', () => {
+  ytBtnDownload?.addEventListener('click', (e) => {
+    e.preventDefault();
     const video = modeStates.youtube.selectedVideo;
     if (!video) return;
 
@@ -2140,12 +2237,22 @@ window.updateDownloadProgress = function(taskId, progress, speed, status) {
     if (pSpeed) pSpeed.innerText = `${numProg.toFixed(1)}% ${speed ? '• ' + speed : ''}`;
 
     if (numProg >= 100) {
-      setYtDownloadState(false);
+      if (typeof window.setYtDownloadState === 'function') {
+        window.setYtDownloadState(false);
+      }
       const btnTxt = document.getElementById('yt-btn-txt');
       if (btnTxt) {
         btnTxt.innerText = 'DESCARGA COMPLETADA ✔';
-        setTimeout(() => { btnTxt.innerText = 'DESCARGAR VÍDEO'; }, 2000);
+        setTimeout(() => { btnTxt.innerText = 'DESCARGAR VÍDEO'; }, 2500);
       }
+
+      // Ocultar barra tras 2.5s para despejar la vista y dejar visible el disco en ventana pequeña
+      setTimeout(() => {
+        if (pBox) {
+          pBox.style.display = 'none';
+          if (pBar) pBar.style.width = '0%';
+        }
+      }, 2500);
     }
   }
   ['anime', 'movie'].forEach(m => {
@@ -2169,8 +2276,8 @@ window.updateDownloadProgress = function(taskId, progress, speed, status) {
     
     const currentQueue = modeStates[currentMode].queue || [];
     const hasActiveTasks = currentQueue.some(t => t.status !== 'Completado' && t.status !== 'Cancelado');
-    if (!hasActiveTasks) {
-      setMasterDownloadState(false);
+    if (!hasActiveTasks && typeof window.setMasterDownloadState === 'function') {
+      window.setMasterDownloadState(false);
     }
   }
 };
