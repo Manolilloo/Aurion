@@ -411,25 +411,36 @@ function loadState(mode) {
     document.body.classList.toggle('is-single-season', !!state.singleSeason);
   }
 
+  expandCenterWorkspace();
+
   const hasCover = typeof state.bg === 'string' && state.bg.trim() !== '' && state.bg !== 'none' && state.title && state.title !== 'Esperando consulta...';
   if (hasCover) {
-    expandCenterWorkspace();
     if (pTitle) pTitle.innerText = state.title;
     if (pTags) pTags.innerHTML = state.tags || 'SISTEMA LISTO';
     if (mPoster) mPoster.style.backgroundImage = state.bg;
     if (aL1) aL1.style.backgroundImage = state.bg;
     if (aL2) aL2.style.backgroundImage = state.bg;
   } else {
-    // Si este modo no tiene obra activa, limpiar los fondos y volver a la bienvenida limpia
-    if (pTitle) pTitle.innerText = 'Esperando consulta...';
-    if (pTags) pTags.innerHTML = 'SISTEMA LISTO';
+    if (pTitle) {
+      pTitle.innerHTML = `
+        ¿NUEVO POR AQUÍ?
+        <div class="poster-help-hint" id="poster-help-trigger">
+          <span>PULSA</span>
+          <div class="liquid-help-btn mini-hint-btn">
+            <span class="liquid-help-glow"></span>
+            <span class="liquid-help-txt">?</span>
+          </div>
+          <span>PARA ABRIR LA GUÍA</span>
+        </div>
+      `;
+    }
+    if (pTags) pTags.innerHTML = 'AURION READY';
     if (mPoster) {
       mPoster.style.backgroundImage = '';
       mPoster.style.removeProperty('background-image');
     }
     if (aL1) aL1.style.backgroundImage = '';
     if (aL2) aL2.style.backgroundImage = '';
-    showWelcomeScreen();
   }
 
   applyChipsState(state);
@@ -1357,13 +1368,28 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   const btnHelp = document.getElementById('win-help');
+  
+  // Activar animación en el botón hasta su primera interacción
+  btnHelp?.classList.add('pulse-attention');
+
   btnHelp?.addEventListener('click', () => {
     if (typeof playSynth === 'function') playSynth('click');
-    const isWorkspaceVisible = document.body.classList.contains('workspace-open');
-    if (isWorkspaceVisible) {
-      showWelcomeScreen();
-    } else {
+    btnHelp.classList.remove('pulse-attention');
+
+    const isWelcomeOpen = !document.getElementById('welcome-card')?.classList.contains('is-hidden') && 
+                          document.getElementById('welcome-card')?.style.display !== 'none';
+
+    if (isWelcomeOpen) {
       expandCenterWorkspace();
+    } else {
+      showWelcomeScreen();
+    }
+  });
+
+  // Delegar el clic sobre el botón interactivo incrustado en el póster central
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('#poster-help-trigger')) {
+      btnHelp?.click();
     }
   });
 

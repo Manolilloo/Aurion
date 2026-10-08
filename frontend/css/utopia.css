@@ -874,23 +874,40 @@ input:checked + .switch-slider:before {
 
 .welcome-card {
   width: 100%;
-  max-width: 440px;
-  background: linear-gradient(165deg, rgba(17, 23, 34, 0.88) 0%, rgba(10, 14, 21, 0.86) 100%) !important;
+  max-width: 500px;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-accent-1) transparent;
+  background: linear-gradient(165deg, rgba(17, 23, 34, 0.92) 0%, rgba(10, 14, 21, 0.9) 100%) !important;
   backdrop-filter: blur(34px) saturate(190%);
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
   border-radius: 28px !important;
-  padding: 34px 28px !important;
+  padding: 28px 24px !important;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  gap: 16px;
+  gap: 13px;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.75), 
               0 0 35px var(--color-glow),
               0 0 75px var(--color-glow-subtle),
               inset 0 1px 2px rgba(255, 255, 255, 0.22),
               inset 0 -1px 2px rgba(0, 0, 0, 0.5) !important;
   box-sizing: border-box;
+}
+
+.welcome-footer-tag {
+  margin-top: 4px;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  color: var(--color-accent-1);
+  background: rgba(0, 255, 170, 0.08);
+  border: 1px solid var(--color-border-bright);
+  padding: 6px 16px;
+  border-radius: 18px;
+  box-shadow: 0 0 12px var(--color-glow-subtle);
 }
 
 .welcome-card.is-hidden {
@@ -1908,6 +1925,59 @@ body.is-maximized .cockpit {
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   overflow: hidden;
   user-select: none;
+}
+
+/* Indicador pulsante en el botón de ayuda para llamar la atención en el primer arranque */
+.liquid-help-btn.pulse-attention {
+  animation: helpBtnPulse 1.6s ease-in-out infinite;
+}
+
+@keyframes helpBtnPulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 12px var(--color-glow), inset 0 1px 1px rgba(255, 255, 255, 0.65);
+    border-color: var(--color-accent-1);
+  }
+  50% {
+    transform: scale(1.15);
+    box-shadow: 0 0 28px var(--color-accent-1), inset 0 1px 2px #fff;
+    border-color: #fff;
+  }
+}
+
+/* Estilos de la llamada a la acción en la tarjeta central */
+.poster-help-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: var(--color-accent-1);
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid var(--color-glow-subtle);
+  padding: 6px 14px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.poster-help-hint:hover {
+  background: rgba(0, 0, 0, 0.85);
+  border-color: var(--color-accent-1);
+  transform: translateY(-1px);
+  box-shadow: 0 0 14px var(--color-glow);
+}
+
+.mini-hint-btn {
+  width: 22px !important;
+  height: 22px !important;
+  pointer-events: none;
+}
+
+.mini-hint-btn .liquid-help-txt {
+  font-size: 11px !important;
 }
 
 .liquid-help-glow {
