@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Aurion Link Sniffer",
-  "version": "2.3",
-  "description": "Detector multimedia flotante Liquid Glass para Aurion Downloader",
+  "version": "2.4",
+  "description": "Detector multimedia avanzado Liquid Glass para Aurion Downloader",
   "permissions": [
     "activeTab",
     "webRequest",
@@ -23,7 +23,8 @@
       "js": ["content.js"],
       "css": ["content.css"],
       "all_frames": true,
-      "run_at": "document_idle"
+      "match_about_blank": true,
+      "run_at": "document_start"
     }
   ],
   "action": {

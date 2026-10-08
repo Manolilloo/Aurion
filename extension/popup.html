@@ -5,25 +5,43 @@
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
-  <div class="header">
-    <div class="logo-box">
-      <span class="logo">AURION</span>
+  <div class="popup-container">
+    <!-- CABECERA COMPACTA -->
+    <div class="header">
+      <div class="brand">
+        <span class="status-orb"></span>
+        <span class="brand-title">AURION</span>
+        <span class="brand-tag">SNIFFER</span>
+      </div>
+      <div class="status-pill" id="host-badge">ACTIVO</div>
     </div>
-    <span class="badge" id="host-badge">ACTIVO</span>
-  </div>
 
-  <div class="current-site-box">
-    <div class="site-label">DOMINIO ACTUAL</div>
-    <div class="site-domain" id="site-domain">...</div>
-    <button class="btn-toggle-site" id="btn-toggle-site">Silenciar en este sitio</button>
-  </div>
+    <!-- TARJETA DEL SITIO ACTUAL -->
+    <div class="hud-box">
+      <div class="hud-box-header">
+        <span class="hud-label">DOMINIO ACTUAL</span>
+        <span class="hud-mini-chip">MONITOR</span>
+      </div>
+      <div class="hud-domain" id="site-domain">...</div>
+      <button class="hud-btn-action" id="btn-toggle-site">Silenciar en este sitio</button>
+    </div>
 
-  <div class="settings-box">
-    <div class="settings-title">SITIOS SILENCIADOS</div>
-    <div class="blocked-list" id="blocked-list"></div>
-  </div>
+    <!-- TRANSMISIONES DETECTADAS EN LA PESTAÑA -->
+    <div class="hud-box">
+      <div class="hud-box-header">
+        <span class="hud-label">TRANSMISIONES ENCONTRADAS</span>
+        <span class="hud-mini-chip" id="streams-count">0</span>
+      </div>
+      <div class="blocked-list" id="detected-streams-list">
+        <div style="font-size: 9.5px; color: #64748b; padding: 4px 0;">Buscando transmisiones...</div>
+      </div>
+    </div>
 
-  <button class="btn-send-manual" id="btn-send-manual">FORZAR TRANSMISIÓN ⚡</button>
+    <!-- BOTÓN DE FORZAR TRANSMISIÓN -->
+    <button class="btn-god-popup" id="btn-send-manual">
+      <span>ENVIAR STREAM PRINCIPAL ⚡</span>
+    </button>
+  </div>
 
   <script src="popup.js"></script>
 </body>
