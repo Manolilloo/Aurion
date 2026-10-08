@@ -47,22 +47,7 @@
   <!-- TELÓN DE DESENFOQUE TOTAL -->
   <div class="welcome-cinematic-backdrop" id="welcome-backdrop"></div>
 
-  <!-- FLECHAS DIRECCIONALES SVG FLUIDAS -->
-  <div class="welcome-guide-layer" id="welcome-guides">
-    <div class="hero-arrow-box arrow-box-sites">
-      <svg class="hero-arrow-svg" viewBox="0 0 100 100" fill="none">
-        <path d="M75 75 L30 30 M30 30 L60 30 M30 30 L30 60" stroke="currentColor" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-      <span class="hero-arrow-label">PORTALES</span>
-    </div>
-
-    <div class="hero-arrow-box arrow-box-switch">
-      <svg class="hero-arrow-svg" viewBox="0 0 100 100" fill="none">
-        <path d="M50 80 L50 25 M50 25 L30 45 M50 25 L70 45" stroke="currentColor" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-      <span class="hero-arrow-label">MODO</span>
-    </div>
-  </div>
+  
 
   <!-- CABINA PRINCIPAL -->
   <div class="cockpit" id="cockpit-grid">
@@ -80,7 +65,8 @@
           </div>
         </div>
         <div class="neu-controls">
-          <button class="btn-neu" id="btn-clear" style="flex: 1;">🧹 VACIAR</button>
+          <button class="btn-neu" id="btn-clear" style="flex: 1;" title="Limpiar tareas terminadas o vaciar cola">🧹 VACIAR</button>
+          <button class="btn-neu btn-cancel-pulse" id="btn-cancel-all" style="flex: 1.1;" title="Detener y cancelar todas las descargas activas">⏹ CANCELAR</button>
           <div class="total-size-badge" id="total-queue-size" title="Peso total acumulado">
             TOTAL: <span id="val-total-size">0 MB</span>
           </div>
@@ -161,7 +147,7 @@
           <div>
             <label class="section-label">DESTINO LOCAL</label>
             <div style="display: flex; gap: 8px;">
-              <input type="text" class="search-input" id="cfg-dir" style="flex: 1; border-radius: 12px; padding: 8px 12px; font-size: 11px; text-align: left;" value="J:\ANIME\animes">
+              <input type="text" class="search-input" id="cfg-dir" style="flex: 1; border-radius: 12px; padding: 8px 12px; font-size: 11px; text-align: left;" value="" placeholder="Seleccionar carpeta de destino...">
               <button class="btn-neu" id="btn-browse-dir" style="padding: 0 14px; border-radius: 12px;" title="Buscar en explorador">📂</button>
             </div>
           </div>
@@ -339,7 +325,7 @@
           <div>
             <label class="section-label">DESTINO LOCAL</label>
             <div style="display: flex; gap: 8px;">
-              <input type="text" class="search-input" id="yt-cfg-dir" style="flex: 1; border-radius: 12px; padding: 8px 12px; font-size: 11px; text-align: left;" value="Descargas">
+              <input type="text" class="search-input" id="yt-cfg-dir" style="flex: 1; border-radius: 12px; padding: 8px 12px; font-size: 11px; text-align: left;" value="" placeholder="Seleccionar carpeta de destino...">
               <button class="btn-neu" id="yt-btn-browse" style="padding: 0 14px; border-radius: 12px;" title="Buscar carpeta">📂</button>
             </div>
           </div>
@@ -361,7 +347,9 @@
               <div class="chip-glider"></div>
               <button class="chip-btn" data-res="min">MIN</button>
               <button class="chip-btn" data-res="144">144p</button>
+              <button class="chip-btn" data-res="240">240p</button>
               <button class="chip-btn" data-res="360">360p</button>
+              <button class="chip-btn" data-res="480">480p</button>
               <button class="chip-btn" data-res="720">720p</button>
               <button class="chip-btn active" data-res="1080">1080p</button>
               <button class="chip-btn" data-res="1440">2K</button>
@@ -386,7 +374,7 @@
             </button>
           </div>
 
-          <!-- Barra de progreso de descarga YouTube -->
+          <!-- Barra de progreso de descarga YouTube con botón cancelar suave -->
           <div class="yt-download-progress-box" id="yt-dl-progress-box" style="display: none;">
             <div class="yt-progress-meta">
               <span class="yt-progress-status" id="yt-dl-status">Iniciando...</span>
@@ -395,6 +383,7 @@
             <div class="yt-progress-track">
               <div class="yt-progress-bar" id="yt-dl-bar"></div>
             </div>
+            <button class="btn-neu btn-cancel-pulse yt-btn-cancel-task" id="yt-btn-cancel" style="width: 100%; margin-top: 4px; padding: 7px 0; font-size: 10.5px;">⏹ CANCELAR DESCARGA</button>
           </div>
 
           <!-- Telemetría de disco compacta en YouTube -->

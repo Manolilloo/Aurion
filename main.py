@@ -23,7 +23,7 @@ def main():
     )
     bridge.set_window(window)
 
-    webview.start(on_loaded, (window, bridge), gui='edgechromium', debug=True)
+    webview.start(on_loaded, (window, bridge), gui='edgechromium', debug=False)
 
 if __name__ == '__main__':
     main()

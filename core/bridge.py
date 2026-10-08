@@ -81,7 +81,7 @@ class AurionBridge:
         default_config = {
             "active_mode": "anime",
             "anime": {
-                "dir": "J:\\ANIME\\animes",
+                "dir": "",
                 "season": 1,
                 "start_ep": 1,
                 "save_cover": True,
@@ -91,7 +91,7 @@ class AurionBridge:
                 "simul": "20"
             },
             "movie": {
-                "dir": "J:\\ANIME\\animes\\pelisypeliu",
+                "dir": "",
                 "season": 1,
                 "start_ep": 1,
                 "save_cover": True,
@@ -101,7 +101,7 @@ class AurionBridge:
                 "simul": "5"
             },
             "youtube": {
-                "dir": "Descargas",
+                "dir": "",
                 "format": "video",
                 "res": "1080",
                 "open_folder": True
@@ -118,12 +118,17 @@ class AurionBridge:
         return default_config
 
     def save_config(self, new_data):
-        self.config.update(new_data)
+        for k, v in new_data.items():
+            if isinstance(v, dict) and k in self.config and isinstance(self.config[k], dict):
+                self.config[k].update(v)
+            else:
+                self.config[k] = v
         try:
             with open(CONFIG_FILE, "w", encoding="utf-8") as f:
                 json.dump(self.config, f, indent=2)
             return True
-        except Exception:
+        except Exception as e:
+            print(f"[Core] Error guardando config.json: {e}")
             return False
 
     def get_initial_state(self):
@@ -404,13 +409,20 @@ class AurionBridge:
             return []
         
         query = query.strip()
-        search_target = f"ytsearch8:{query}" if not (query.startswith("http://") or query.startswith("https://")) else query
+        search_target = f"ytsearch25:{query}" if not (query.startswith("http://") or query.startswith("https://")) else query
         
         ydl_opts = {
             'quiet': True,
             'skip_download': True,
-            'extract_flat': 'in_playlist',
+            'extract_flat': True,
             'no_warnings': True,
+            'skip_playlist_after_errors': 0,
+            'extractor_args': {
+                'youtube': {
+                    'skip': ['dash', 'hls'],
+                    'player_client': ['android']
+                }
+            }
         }
         
         results = []

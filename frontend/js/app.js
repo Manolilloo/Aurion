@@ -22,7 +22,7 @@ const modeStates = {
   anime: {
     query: '',
     prefix: '',
-    dir: 'J:\\ANIME\\animes',
+    dir: '',
     season: 1,
     startEp: 1,
     singleSeason: false,
@@ -41,7 +41,7 @@ const modeStates = {
   movie: {
     query: '',
     prefix: '',
-    dir: 'J:\\ANIME\\animes\\pelisypeliu',
+    dir: '',
     season: 1,
     startEp: 1,
     singleSeason: false,
@@ -59,7 +59,7 @@ const modeStates = {
   },
   youtube: {
     query: '',
-    dir: 'Descargas',
+    dir: '',
     format: 'video',
     res: '1080',
     openFolder: true,
@@ -146,9 +146,13 @@ async function updateDiskTelemetry(path) {
   if (ytFillEl) ytFillEl.style.width = `${data.percent_used}%`;
 }
 
-// 3. GLIDERS DESLIZANTES
+// 3. GLIDERS DESLIZANTES PROTEGIDOS
 function updateChipGlider(group, targetBtn) {
   if (!group || !targetBtn) return;
+  
+  // Si el grupo o el botón no están renderizados con tamaño real, NO calcular
+  if (group.offsetParent === null || targetBtn.offsetWidth <= 0) return;
+
   const glider = group.querySelector('.chip-glider');
   if (!glider) return;
 
@@ -161,8 +165,12 @@ function updateChipGlider(group, targetBtn) {
 
 function refreshAllGliders() {
   document.querySelectorAll('.chip-group').forEach(group => {
+    // Blindaje estricto: ignorar grupos ocultos o con ancho cero
+    if (!group.offsetParent || group.offsetWidth <= 0) return;
     const activeBtn = group.querySelector('.chip-btn.active');
-    if (activeBtn) updateChipGlider(group, activeBtn);
+    if (activeBtn && activeBtn.offsetWidth > 0) {
+      updateChipGlider(group, activeBtn);
+    }
   });
 }
 
@@ -434,7 +442,7 @@ function loadState(mode) {
 
   if (sInput) sInput.value = state.query || '';
   if (pInput) pInput.value = state.prefix || '';
-  if (dInput && state.dir) dInput.value = state.dir;
+  if (dInput) dInput.value = state.dir || '';
 
   setStepperValue('cfg-season', state.season || 1, 0);
   setStepperValue('cfg-start-ep', state.startEp || 1, 0);
@@ -510,11 +518,31 @@ function setAppMode(mode, save = true) {
     if (cockpitGrid) cockpitGrid.style.display = 'none';
     if (ytStage) ytStage.style.display = 'flex';
 
-    // Restaurar el destino guardado en el input y calcular su espacio libre
+    // Cerrar cualquier tutorial previo y restaurar el espacio de trabajo limpio
+    document.body.classList.add('workspace-open');
+    const welcomeCard = document.getElementById('welcome-card');
+    if (welcomeCard) welcomeCard.style.display = 'none';
+    const welcomeGuides = document.getElementById('welcome-guides');
+    if (welcomeGuides) welcomeGuides.style.display = 'none';
+    const ytBackdrop = document.getElementById('yt-tutorial-backdrop');
+    if (ytBackdrop) ytBackdrop.classList.remove('active');
+    const ytCard = document.getElementById('yt-welcome-card');
+    if (ytCard) ytCard.style.display = 'none';
+
+    // Coordinar visibilidad del panel derecho según si ya hay vídeo seleccionado
+    if (modeStates.youtube.selectedVideo) {
+      document.body.classList.add('yt-has-selection');
+    } else {
+      document.body.classList.remove('yt-has-selection');
+    }
+
+    // Restaurar el destino guardado en el input de YouTube
     const ytDirInput = document.getElementById('yt-cfg-dir');
-    if (ytDirInput && modeStates.youtube.dir) {
-      ytDirInput.value = modeStates.youtube.dir;
-      updateDiskTelemetry(modeStates.youtube.dir);
+    if (ytDirInput) {
+      ytDirInput.value = modeStates.youtube.dir || '';
+      if (modeStates.youtube.dir) {
+        updateDiskTelemetry(modeStates.youtube.dir);
+      }
     }
 
     // Restaurar fondo ambiental si ya había un vídeo seleccionado
@@ -556,6 +584,8 @@ function setAppMode(mode, save = true) {
     if (cockpitGrid) cockpitGrid.style.display = 'flex';
     if (sInput) sInput.placeholder = mode === 'movie' ? 'Buscar película...' : 'Invoca un anime...';
     loadState(mode);
+    const dInput = document.getElementById('cfg-dir');
+    if (dInput) dInput.value = modeStates[mode].dir || '';
   }
 
   renderSitesDock(mode === 'youtube' ? 'anime' : mode);
@@ -973,7 +1003,7 @@ document.addEventListener('DOMContentLoaded', () => {
     btnBrowse.addEventListener('click', async () => {
       if (typeof playSynth === 'function') playSynth('click');
       const selected = await pyCall('select_folder', cfgDirInput.value);
-      if (selected && selected !== cfgDirInput.value) {
+      if (selected) {
         cfgDirInput.value = selected;
         modeStates[currentMode].dir = selected;
         updateDiskTelemetry(selected);
@@ -984,6 +1014,10 @@ document.addEventListener('DOMContentLoaded', () => {
     cfgDirInput.addEventListener('change', () => {
       modeStates[currentMode].dir = cfgDirInput.value;
       updateDiskTelemetry(cfgDirInput.value);
+      saveCurrentState();
+    });
+    cfgDirInput.addEventListener('input', () => {
+      modeStates[currentMode].dir = cfgDirInput.value;
       saveCurrentState();
     });
   }
@@ -1206,6 +1240,36 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // BOTÓN CANCELAR EN ANIME Y CINE (DETIENE Y RESETEA EL ESTADO)
+  const btnCancelAll = document.getElementById('btn-cancel-all');
+  if (btnCancelAll) {
+    btnCancelAll.addEventListener('click', () => {
+      if (typeof playSynth === 'function') playSynth('click');
+      const currentQueue = modeStates[currentMode].queue || [];
+
+      // Notificar cancelación a Python para cada tarea activa
+      currentQueue.forEach(t => {
+        if (t.status !== 'Completado') {
+          pyCall('cancel_download_task', t.id);
+          t.status = 'Cancelado';
+          const statusEl = document.getElementById(`task-status-${t.id}`);
+          if (statusEl) statusEl.innerText = 'Cancelado';
+        }
+      });
+
+      // Restaurar Botón Maestro al instante con feedback háptico
+      const masterBtn = document.getElementById('btn-master');
+      const magTxt = document.getElementById('mag-txt');
+      if (masterBtn && magTxt) {
+        masterBtn.classList.remove('loading', 'is-empty');
+        magTxt.innerText = 'DESCARGAS DETENIDAS';
+        setTimeout(() => {
+          magTxt.innerText = 'INICIAR EXTRACCIÓN';
+        }, 1500);
+      }
+    });
+  }
+
   const btnMaster = document.getElementById('btn-master');
   const magTxt = document.getElementById('mag-txt');
   let isMasterRunning = false;
@@ -1290,27 +1354,27 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  pyCall('get_initial_state')?.then(config => {
-    if (config) {
-      if (config.anime) Object.assign(modeStates.anime, config.anime);
-      if (config.movie) Object.assign(modeStates.movie, config.movie);
-      if (config.youtube) {
-        Object.assign(modeStates.youtube, config.youtube);
-        const ytInput = document.getElementById('yt-cfg-dir');
-        if (ytInput && config.youtube.dir) ytInput.value = config.youtube.dir;
-      }
-      setAppMode(config.active_mode || 'anime', false);
-    }
-  });
+  function applyLoadedConfig(config) {
+    if (!config) return;
+    if (config.anime) Object.assign(modeStates.anime, config.anime);
+    if (config.movie) Object.assign(modeStates.movie, config.movie);
+    if (config.youtube) Object.assign(modeStates.youtube, config.youtube);
+
+    const initMode = config.active_mode || 'anime';
+    setAppMode(initMode, false);
+
+    // Poblar inputs de destino según la configuración cargada
+    const dInput = document.getElementById('cfg-dir');
+    if (dInput) dInput.value = modeStates[initMode].dir || '';
+
+    const ytInput = document.getElementById('yt-cfg-dir');
+    if (ytInput) ytInput.value = modeStates.youtube.dir || '';
+  }
+
+  pyCall('get_initial_state')?.then(applyLoadedConfig);
 
   window.addEventListener('pywebviewready', function() {
-    pyCall('get_initial_state')?.then(config => {
-      if (config) {
-        if (config.anime) Object.assign(modeStates.anime, config.anime);
-        if (config.movie) Object.assign(modeStates.movie, config.movie);
-        setAppMode('anime', false);
-      }
-    });
+    pyCall('get_initial_state')?.then(applyLoadedConfig);
   });
 
   updateDiskTelemetry(modeStates.anime.dir);
@@ -1512,20 +1576,35 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('yt-tutorial-close-btn')?.addEventListener('click', closeYtTutorial);
   document.getElementById('yt-tutorial-backdrop')?.addEventListener('click', closeYtTutorial);
 
-  // Delegar el clic sobre el botón interactivo incrustado en el póster central
+  // Cerrar el tutorial de Anime/Cine al pulsar en la zona desenfocada o en el telón
+  const welcomeBackdrop = document.getElementById('welcome-backdrop');
+  welcomeBackdrop?.addEventListener('click', () => {
+    if (typeof playSynth === 'function') playSynth('click');
+    expandCenterWorkspace();
+  });
+
+  // Delegar el clic de cierre si pulsa sobre los paneles desenfocados en Anime/Cine
   document.addEventListener('click', (e) => {
+    const isWelcomeOpen = !document.body.classList.contains('workspace-open') && currentMode !== 'youtube';
+    if (isWelcomeOpen) {
+      const clickedBlurredPanel = e.target.closest('#cockpit-grid .glass-box');
+      if (clickedBlurredPanel) {
+        if (typeof playSynth === 'function') playSynth('click');
+        expandCenterWorkspace();
+        return;
+      }
+    }
+
     if (e.target.closest('#poster-help-trigger')) {
       btnHelp?.click();
     }
   });
 
   window.addEventListener('keydown', (e) => {
-    const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
-    const isEditing = activeTag === 'input' || activeTag === 'textarea' || document.activeElement?.isContentEditable;
     const isModalOpen = document.getElementById('match-modal-backdrop')?.classList.contains('active');
+    if (isModalOpen) return;
 
-    if (isEditing || isModalOpen) return;
-
+    // TAB SIEMPRE alterna de modo, sin importar si estás escribiendo en el buscador
     if (e.key === 'Tab') {
       e.preventDefault();
       if (document.activeElement && typeof document.activeElement.blur === 'function') {
@@ -1536,6 +1615,12 @@ document.addEventListener('DOMContentLoaded', () => {
       setAppMode(order[nextIdx], true);
       return;
     }
+
+    const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
+    const isAnyInputFocused = activeTag === 'input' || activeTag === 'textarea' || document.activeElement?.isContentEditable;
+
+    // Si estás escribiendo en CUALQUIER input (incluido el de YouTube), NO capturar el espacio
+    if (isAnyInputFocused) return;
 
     if (e.code === 'Space' || e.key === ' ') {
       e.preventDefault();
@@ -1585,10 +1670,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
       card.addEventListener('click', async () => {
         if (typeof playSynth === 'function') playSynth('click');
-        document.querySelectorAll('.yt-video-card').forEach(c => c.classList.remove('selected'));
+        document.querySelectorAll('.yt-video-card').forEach(c => c.classList.remove('selected', 'kb-focused'));
         card.classList.add('selected');
 
         modeStates.youtube.selectedVideo = video;
+        document.body.classList.add('yt-has-selection');
+
+        // Al seleccionar, dar 150ms para que el panel derecho termine su animación y luego posicionar sus chips
+        setTimeout(() => {
+          refreshAllGliders();
+        }, 150);
 
         const pImg = document.getElementById('yt-preview-img');
         const pEmpty = document.getElementById('yt-preview-empty');
@@ -1640,6 +1731,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ytResultsDock.classList.remove('active');
         ytResultsDock.style.display = 'none';
       }
+      document.body.classList.remove('yt-has-selection');
       return;
     }
 
@@ -1649,23 +1741,63 @@ document.addEventListener('DOMContentLoaded', () => {
       setTimeout(() => ytResultsDock.classList.add('active'), 50);
     }
 
-    ytResultsList.innerHTML = '<div style="text-align:center; padding:40px; color:#ff3366; font-size:12px; font-weight:800; letter-spacing:1.5px;">BUSCANDO VÍDEOS EN DIRECTO...</div>';
+    ytResultsList.innerHTML = `
+      <div class="yt-loading-box">
+        <div class="yt-orbital-spinner"></div>
+        <span class="yt-loading-txt">LOCALIZANDO TRANSMISIONES...</span>
+      </div>
+    `;
 
     const results = await pyCall('search_youtube', val);
     modeStates.youtube.results = results || [];
     renderYtResults(results);
   }
 
+  let activeYtNavIndex = -1;
+
+  function updateYtKeyboardSelection(cards) {
+    cards.forEach((c, idx) => {
+      if (idx === activeYtNavIndex) {
+        c.classList.add('kb-focused');
+        c.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      } else {
+        c.classList.remove('kb-focused');
+      }
+    });
+  }
+
   if (ytSearchInput) {
     ytSearchInput.addEventListener('input', () => {
+      activeYtNavIndex = -1;
       clearTimeout(ytDebounce);
       ytDebounce = setTimeout(triggerYoutubeSearch, 400);
     });
 
     ytSearchInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        clearTimeout(ytDebounce);
-        triggerYoutubeSearch();
+      const cards = document.querySelectorAll('.yt-video-card');
+
+      if (e.key === 'ArrowDown') {
+        if (cards.length > 0) {
+          e.preventDefault();
+          activeYtNavIndex = (activeYtNavIndex + 1) % cards.length;
+          updateYtKeyboardSelection(cards);
+        }
+      } else if (e.key === 'ArrowUp') {
+        if (cards.length > 0) {
+          e.preventDefault();
+          activeYtNavIndex = (activeYtNavIndex - 1 + cards.length) % cards.length;
+          updateYtKeyboardSelection(cards);
+        }
+      } else if (e.key === 'Enter') {
+        if (activeYtNavIndex >= 0 && cards[activeYtNavIndex]) {
+          e.preventDefault();
+          cards[activeYtNavIndex].click();
+        } else {
+          clearTimeout(ytDebounce);
+          triggerYoutubeSearch();
+        }
+      } else if (e.key === 'Escape') {
+        ytClearBtn?.click();
       }
     });
   }
@@ -1673,11 +1805,13 @@ document.addEventListener('DOMContentLoaded', () => {
   ytClearBtn?.addEventListener('click', () => {
     if (ytSearchInput) {
       ytSearchInput.value = '';
+      activeYtNavIndex = -1;
       if (ytHeroWrapper) ytHeroWrapper.classList.remove('is-searched');
       if (ytResultsDock) {
         ytResultsDock.classList.remove('active');
         ytResultsDock.style.display = 'none';
       }
+      document.body.classList.remove('yt-has-selection');
       ytClearBtn.style.display = 'none';
       ytSearchInput.focus();
     }
@@ -1716,21 +1850,118 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   const ytResChips = document.getElementById('yt-res-chips');
-  ytResChips?.querySelectorAll('.chip-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      ytResChips.querySelectorAll('.chip-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      updateChipGlider(ytResChips, btn);
-      modeStates.youtube.res = btn.getAttribute('data-res');
+
+  function triggerJellyGlider(group, targetBtn, direction = 0) {
+    if (!group || !targetBtn) return;
+    const glider = group.querySelector('.chip-glider');
+    group.querySelectorAll('.chip-btn').forEach(b => b.classList.remove('active'));
+    targetBtn.classList.add('active');
+
+    const leftOffset = targetBtn.offsetLeft;
+    const width = targetBtn.offsetWidth;
+
+    if (glider) {
+      glider.classList.remove('is-dragging', 'jelly-stretch-right', 'jelly-stretch-left');
+      glider.style.setProperty('--glider-x', `${leftOffset}px`);
+      glider.style.width = `${width}px`;
+      glider.style.transform = `translateX(${leftOffset}px)`;
+
+      // Deformación elástica suave en la dirección del movimiento
+      if (direction !== 0) {
+        glider.classList.add(direction > 0 ? 'jelly-stretch-right' : 'jelly-stretch-left');
+        setTimeout(() => {
+          glider.classList.remove('jelly-stretch-right', 'jelly-stretch-left');
+          glider.style.transform = `translateX(${leftOffset}px)`;
+        }, 180);
+      }
+    }
+
+    modeStates.youtube.res = targetBtn.getAttribute('data-res');
+    saveCurrentState();
+  }
+
+  if (ytResChips) {
+    let isDragging = false;
+    let lastActiveBtn = ytResChips.querySelector('.chip-btn.active');
+
+    // Clic directo en un chip
+    ytResChips.querySelectorAll('.chip-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        if (isDragging) return;
+        const currentActive = ytResChips.querySelector('.chip-btn.active');
+        const dir = currentActive ? (btn.offsetLeft - currentActive.offsetLeft) : 0;
+        if (typeof playSynth === 'function') playSynth('origami');
+        triggerJellyGlider(ytResChips, btn, dir);
+      });
     });
-  });
+
+    // Iniciar arrastre con el ratón
+    ytResChips.addEventListener('pointerdown', (e) => {
+      isDragging = true;
+      ytResChips.classList.add('is-grabbing');
+      ytResChips.setPointerCapture(e.pointerId);
+
+      const glider = ytResChips.querySelector('.chip-glider');
+      if (glider) glider.classList.add('is-dragging');
+    });
+
+    // Movimiento fluido del glider pegado al cursor
+    ytResChips.addEventListener('pointermove', (e) => {
+      if (!isDragging) return;
+      const glider = ytResChips.querySelector('.chip-glider');
+      const rect = ytResChips.getBoundingClientRect();
+      const relativeX = e.clientX - rect.left;
+
+      const buttons = Array.from(ytResChips.querySelectorAll('.chip-btn'));
+      const closestBtn = buttons.reduce((closest, btn) => {
+        const bRect = btn.getBoundingClientRect();
+        const center = (bRect.left - rect.left) + bRect.width / 2;
+        const dist = Math.abs(relativeX - center);
+        return dist < closest.dist ? { btn, dist } : closest;
+      }, { btn: buttons[0], dist: Infinity }).btn;
+
+      if (glider && closestBtn) {
+        // La pastilla acompaña al cursor de forma suave
+        const targetX = Math.max(2, Math.min(rect.width - closestBtn.offsetWidth - 2, relativeX - closestBtn.offsetWidth / 2));
+        glider.style.transform = `translateX(${targetX}px)`;
+        glider.style.width = `${closestBtn.offsetWidth}px`;
+      }
+
+      if (closestBtn && closestBtn !== lastActiveBtn) {
+        buttons.forEach(b => b.classList.remove('active'));
+        closestBtn.classList.add('active');
+        if (typeof playSynth === 'function') playSynth('click');
+        lastActiveBtn = closestBtn;
+      }
+    });
+
+    // Soltar: rebote elástico a la opción más cercana
+    const endGliderDrag = (e) => {
+      if (!isDragging) return;
+      isDragging = false;
+      ytResChips.classList.remove('is-grabbing');
+
+      try { ytResChips.releasePointerCapture(e.pointerId); } catch(err) {}
+
+      const glider = ytResChips.querySelector('.chip-glider');
+      if (glider) glider.classList.remove('is-dragging');
+
+      const target = lastActiveBtn || ytResChips.querySelector('.chip-btn.active') || ytResChips.querySelector('.chip-btn');
+      if (target) {
+        triggerJellyGlider(ytResChips, target, 1);
+      }
+    };
+
+    ytResChips.addEventListener('pointerup', endGliderDrag);
+    ytResChips.addEventListener('pointercancel', endGliderDrag);
+  }
 
   // Selección y persistencia garantizada de ruta de descarga en YouTube
   const ytBtnBrowse = document.getElementById('yt-btn-browse');
   const ytCfgDir = document.getElementById('yt-cfg-dir');
   ytBtnBrowse?.addEventListener('click', async () => {
     const selected = await pyCall('select_folder', ytCfgDir.value);
-    if (selected && selected !== ytCfgDir.value) {
+    if (selected) {
       ytCfgDir.value = selected;
       modeStates.youtube.dir = selected;
       updateDiskTelemetry(selected);
@@ -1740,10 +1971,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   ytCfgDir?.addEventListener('change', () => {
     modeStates.youtube.dir = ytCfgDir.value;
+    updateDiskTelemetry(ytCfgDir.value);
     saveCurrentState();
   });
   ytCfgDir?.addEventListener('input', () => {
     modeStates.youtube.dir = ytCfgDir.value;
+    saveCurrentState();
   });
 
   // Toggle abrir carpeta YouTube
@@ -1810,6 +2043,28 @@ document.addEventListener('DOMContentLoaded', () => {
       bTxt.innerText = 'DESCARGA ENVIADA ✔';
       setTimeout(() => { bTxt.innerText = orig; }, 1800);
     }
+  });
+
+  // BOTÓN CANCELAR EN YOUTUBE
+  const ytBtnCancel = document.getElementById('yt-btn-cancel');
+  ytBtnCancel?.addEventListener('click', () => {
+    if (typeof playSynth === 'function') playSynth('click');
+    const pBox = document.getElementById('yt-dl-progress-box');
+    const pStatus = document.getElementById('yt-dl-status');
+    const pBar = document.getElementById('yt-dl-bar');
+
+    pyCall('cancel_download_task', 'youtube_active');
+
+    if (pStatus) pStatus.innerText = 'Descarga cancelada';
+    if (pBar) pBar.style.background = '#ff3366';
+
+    setTimeout(() => {
+      if (pBox) pBox.style.display = 'none';
+      if (pBar) {
+        pBar.style.width = '0%';
+        pBar.style.background = 'linear-gradient(90deg, #ff0055 0%, #ff7700 100%)';
+      }
+    }, 1200);
   });
 });
 

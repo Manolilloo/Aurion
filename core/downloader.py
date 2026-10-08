@@ -228,13 +228,21 @@ class AurionDownloader:
         self.is_downloading = False
         print("\n[Core] Todas las tareas del lote han concluido.")
 
-        # Abrir la carpeta garantizada en Windows Explorer
+        # Abrir la carpeta únicamente si contiene archivos válidos descargados
         if config.get("open_folder", True):
             try:
                 abs_dest = os.path.abspath(dest_folder)
-                os.makedirs(abs_dest, exist_ok=True)
-                print(f"[Core] Abriendo carpeta en explorador: {abs_dest}")
-                os.startfile(abs_dest)
+                has_files = os.path.exists(abs_dest) and any(not f.startswith('.') for f in os.listdir(abs_dest))
+                if has_files:
+                    print(f"[Core] Abriendo carpeta en explorador: {abs_dest}")
+                    os.startfile(abs_dest)
+                else:
+                    # Limpiar carpeta si quedó completamente vacía por un error de descarga
+                    if os.path.exists(abs_dest) and not os.listdir(abs_dest):
+                        try:
+                            os.rmdir(abs_dest)
+                        except Exception:
+                            pass
             except Exception as e:
                 print(f"[Core] Error abriendo carpeta: {e}")
 
@@ -265,14 +273,14 @@ class AurionDownloader:
             format_selector = "ba/b"
         elif is_yt:
             fmt_choice = "mp4"
-            q_str = str(quality).lower()
+            q_str = str(quality).lower().strip()
             if q_str == "max":
-                format_selector = "bestvideo+bestaudio/best"
+                format_selector = "bv*+ba/b"
             elif q_str == "min":
-                format_selector = "worstvideo+worstaudio/worst"
+                format_selector = "wv*+wa/w"
             else:
                 q_num = int(quality) if str(quality).isdigit() else 1080
-                format_selector = f"bestvideo[height<={q_num}]+bestaudio/best[height<={q_num}]/bestvideo+bestaudio/best"
+                format_selector = f"bv*[height<={q_num}]+ba/b[height<={q_num}]/bv*+ba/b"
         else:
             fmt_choice = str(config.get("fmt", "mp4")).replace(".", "").lower().strip()
             if fmt_choice not in ["mp4", "mkv"]:
@@ -384,12 +392,19 @@ class AurionDownloader:
             'quiet': True,
             'no_warnings': True,
             'http_headers': headers,
-            'retries': 10,
-            'fragment_retries': 10,
+            'retries': 20,
+            'fragment_retries': 20,
+            'retry_sleep_functions': {'http': lambda n: 1},
             'hls_use_mpegts': True,
             'fixup': 'warn',
             'postprocessors': postprocessors_list
         }
+
+        if is_yt:
+            ydl_opts.update({
+                'concurrent_fragment_downloads': 8,
+                'buffersize': 1024 * 1024 * 4
+            })
 
         if is_yt:
             # En YouTube dejamos los clientes predeterminados sin restricciones para que acceda a todos los streams
