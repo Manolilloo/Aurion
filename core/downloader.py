@@ -265,8 +265,11 @@ class AurionDownloader:
             format_selector = "ba/b"
         elif is_yt:
             fmt_choice = "mp4"
-            if str(quality).lower() == "max":
+            q_str = str(quality).lower()
+            if q_str == "max":
                 format_selector = "bestvideo+bestaudio/best"
+            elif q_str == "min":
+                format_selector = "worstvideo+worstaudio/worst"
             else:
                 q_num = int(quality) if str(quality).isdigit() else 1080
                 format_selector = f"bestvideo[height<={q_num}]+bestaudio/best[height<={q_num}]/bestvideo+bestaudio/best"
@@ -437,12 +440,22 @@ class AurionDownloader:
                 generated_files.sort(key=lambda x: os.path.getsize(os.path.join(task_temp_dir, x)), reverse=True)
                 source_temp = os.path.join(task_temp_dir, generated_files[0])
 
+                # Si ya existía una descarga previa con ese nombre, eliminarla antes para sustituirla limpiamente
                 if os.path.exists(final_file_path):
                     try:
                         os.remove(final_file_path)
+                    except Exception as err:
+                        print(f"[Core] Sobrescribiendo archivo existente: {err}")
+
+                try:
+                    shutil.move(source_temp, final_file_path)
+                except Exception:
+                    # En caso de que shutil.move bloquee entre particiones, forzar copia y reemplazo
+                    shutil.copy2(source_temp, final_file_path)
+                    try:
+                        os.remove(source_temp)
                     except Exception:
                         pass
-                shutil.move(source_temp, final_file_path)
 
             real_file_bytes = 0
             if os.path.exists(final_file_path):

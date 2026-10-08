@@ -99,6 +99,12 @@ class AurionBridge:
                 "fmt": "mkv",
                 "threads": "32",
                 "simul": "5"
+            },
+            "youtube": {
+                "dir": "Descargas",
+                "format": "video",
+                "res": "1080",
+                "open_folder": True
             }
         }
         if os.path.exists(CONFIG_FILE):

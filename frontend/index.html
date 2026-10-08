@@ -281,6 +281,34 @@
         </div>
       </div>
 
+      <!-- TELÓN DE FONDO BLUR Y TUTORIAL YOUTUBE -->
+      <div class="yt-tutorial-backdrop" id="yt-tutorial-backdrop"></div>
+
+      <!-- TUTORIAL RÁPIDO DEDICADO YOUTUBE -->
+      <div class="welcome-card yt-welcome-card" id="yt-welcome-card" style="display: none;">
+        <h2 class="shimmer-text">TUTORIAL YOUTUBE</h2>
+        
+        <p class="welcome-desc">
+          Aquí vas a poder bajarte cualquier vídeo o audio de YouTube sin rollos de anuncios raros ni páginas que te meten 20 virus.
+        </p>
+
+        <p class="welcome-desc">
+          Puedes escribir <b>el nombre del vídeo</b> directamente en el buscador o si tienes el link a mano, <b>pegas la URL completa</b> y le das al Enter. Sale al instante con su miniatura y su duración en horas y minutos para que no te líes.
+        </p>
+
+        <p class="welcome-subdesc">
+          En el panel de la derecha eliges si quieres el <b>VÍDEO (MP4)</b> con calidades desde <b>MIN</b> hasta <b>4K</b> o si prefieres solo el audio en <b>MP3</b> para meterlo al móvil o donde te dé la gana. Cada vídeo se guarda limpio en su propia carpetita.
+        </p>
+
+        <p class="welcome-desc">
+          Recuerda pulsar en <b>DESCARGAR</b> y verás la barra rellenándose en vivo sin saltos raros.
+        </p>
+
+        <div class="welcome-footer-tag" id="yt-tutorial-close-btn" style="cursor: pointer;">
+          ¡Entendido, a descargar! 😼
+        </div>
+      </div>
+
       <!-- LISTA DESPLEGABLE GRANDE CON ESTILO FLUIDO -->
       <div class="yt-results-dock" id="yt-results-dock" style="display: none;">
         <div class="yt-results-scroll" id="yt-results-list"></div>
@@ -331,6 +359,9 @@
             <label class="section-label">CALIDAD MÁXIMA</label>
             <div class="chip-group yt-chips-resolutions" id="yt-res-chips">
               <div class="chip-glider"></div>
+              <button class="chip-btn" data-res="min">MIN</button>
+              <button class="chip-btn" data-res="144">144p</button>
+              <button class="chip-btn" data-res="360">360p</button>
               <button class="chip-btn" data-res="720">720p</button>
               <button class="chip-btn active" data-res="1080">1080p</button>
               <button class="chip-btn" data-res="1440">2K</button>

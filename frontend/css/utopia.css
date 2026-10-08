@@ -3027,15 +3027,21 @@ body:not(.mode-youtube) #yt-stage {
   color: #ff3366;
 }
 
-/* LISTA DESPLEGABLE GRANDE CON SCROLL */
+/* LISTA DESPLEGABLE GRANDE CON SCROLL Y DIFUMINADO SUAVE */
 .yt-results-dock {
   flex: 1 1 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
   opacity: 0;
-  transform: translateY(20px);
-  transition: opacity 0.4s ease, transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  transform: translateY(15px);
+  margin-top: 10px;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  transition: opacity 0.35s ease, transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0px, black 16px, black 95%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0px, black 16px, black 95%, transparent 100%);
 }
 
 .yt-results-dock.active {
@@ -3049,8 +3055,8 @@ body:not(.mode-youtube) #yt-stage {
   overflow-x: hidden;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding-right: 14px; /* Margen de seguridad para que el hover nunca toque la scrollbar */
+  gap: 12px;
+  padding: 8px 14px 16px 4px; /* Padding para difuminar sombras perimetrales sin cortes */
   scrollbar-width: thin;
   scrollbar-color: var(--color-accent-1, #ff0055) transparent;
 }
@@ -3065,26 +3071,38 @@ body:not(.mode-youtube) #yt-stage {
   box-shadow: 0 0 10px var(--color-glow, rgba(255, 0, 85, 0.4));
 }
 
+/* TUTORIAL FLOTANTE CENTRADO DE YOUTUBE CON MÁXIMA PROFUNDIDAD */
+.yt-welcome-card {
+  position: fixed !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  z-index: 95 !important;
+  width: 90% !important;
+  max-width: 490px !important;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.85), 0 0 35px var(--color-glow) !important;
+}
+
 /* TARJETAS HORIZONTALES FLUIDAS */
 .yt-video-card {
   display: flex;
   align-items: center;
   gap: 14px;
-  background: rgba(17, 23, 34, 0.75);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 18px;
-  padding: 10px;
+  background: linear-gradient(135deg, rgba(20, 28, 42, 0.82) 0%, rgba(10, 14, 22, 0.9) 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 18px !important;
+  padding: 10px !important;
   cursor: pointer;
-  backdrop-filter: blur(20px);
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.18s ease, box-shadow 0.2s ease, background 0.2s ease !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.06) !important;
 }
 
 .yt-video-card:hover {
-  transform: translateX(4px);
-  border-color: rgba(255, 51, 102, 0.4);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 16px rgba(255, 51, 102, 0.2);
-  background: rgba(25, 34, 49, 0.85);
+  transform: translateY(-2px) !important; /* Eleva suave sin empujar hacia los laterales */
+  border-color: var(--color-accent-1, #ff0055) !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55), 0 0 20px var(--color-glow-subtle, rgba(255, 0, 85, 0.2)) !important;
+  background: linear-gradient(135deg, rgba(26, 36, 52, 0.9) 0%, rgba(14, 20, 32, 0.95) 100%) !important;
 }
 
 .yt-video-card.selected {
@@ -3148,10 +3166,22 @@ body:not(.mode-youtube) #yt-stage {
   color: #94a3b8;
 }
 
-/* COLUMNA DERECHA: PANEL LATERAL 'X' */
+/* COLUMNA DERECHA: PANEL LATERAL 'X' ENSANCHADO Y EQUILIBRADO */
 .yt-sidebar-box {
-  flex: 0 0 380px !important;
-  width: 380px !important;
+  flex: 0 0 435px !important;
+  width: 435px !important;
+}
+
+.yt-chips-resolutions {
+  height: 34px !important;
+  padding: 2px !important;
+  gap: 2px !important;
+}
+
+.yt-chips-resolutions .chip-btn {
+  font-size: 9.5px !important;
+  font-weight: 800 !important;
+  padding: 6px 1px !important;
 }
 
 .yt-preview-card {
@@ -3206,7 +3236,33 @@ body:not(.mode-youtube) #yt-stage {
   text-shadow: 0 0 10px var(--color-glow-subtle);
 }
 
-/* Transición fluida instantánea de desaparición del Dock de Sitios */
+/* Ocultar las flechas directas de Anime/Cine cuando se esté en YouTube */
+body.mode-youtube #welcome-guides,
+body.mode-youtube .welcome-guide-layer {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/* Telón de desenfoque total exclusivo para el tutorial de YouTube */
+.yt-tutorial-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 85;
+  background: rgba(4, 7, 12, 0.65);
+  backdrop-filter: blur(25px) saturate(180%);
+  -webkit-backdrop-filter: blur(25px) saturate(180%);
+  display: none;
+  opacity: 0;
+  transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.yt-tutorial-backdrop.active {
+  display: block !important;
+  opacity: 1 !important;
+}
+
 #sites-dock {
   transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
   opacity: 1;

@@ -267,6 +267,24 @@ function updateSingleSeasonState(seasonNum) {
 
 // 6. PERSISTENCIA
 function saveCurrentState() {
+  if (currentMode === 'youtube') {
+    const ytDirInput = document.getElementById('yt-cfg-dir');
+    const ytCfgOpen = document.getElementById('yt-cfg-open-folder');
+    if (ytDirInput) modeStates.youtube.dir = ytDirInput.value;
+    if (ytCfgOpen) modeStates.youtube.openFolder = ytCfgOpen.checked;
+
+    pyCall('save_config', {
+      active_mode: 'youtube',
+      youtube: {
+        dir: modeStates.youtube.dir,
+        format: modeStates.youtube.format,
+        res: modeStates.youtube.res,
+        open_folder: modeStates.youtube.openFolder
+      }
+    });
+    return;
+  }
+
   const state = modeStates[currentMode];
   const sInput = document.getElementById('search-input');
   const pInput = document.getElementById('cfg-prefix');
@@ -1276,7 +1294,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (config) {
       if (config.anime) Object.assign(modeStates.anime, config.anime);
       if (config.movie) Object.assign(modeStates.movie, config.movie);
-      setAppMode('anime', false);
+      if (config.youtube) {
+        Object.assign(modeStates.youtube, config.youtube);
+        const ytInput = document.getElementById('yt-cfg-dir');
+        if (ytInput && config.youtube.dir) ytInput.value = config.youtube.dir;
+      }
+      setAppMode(config.active_mode || 'anime', false);
     }
   });
 
@@ -1450,6 +1473,24 @@ document.addEventListener('DOMContentLoaded', () => {
     if (typeof playSynth === 'function') playSynth('click');
     btnHelp.classList.remove('pulse-attention');
 
+    // Comportamiento contextual exclusivo en modo YouTube con desenfoque total
+    if (currentMode === 'youtube') {
+      const ytCard = document.getElementById('yt-welcome-card');
+      const ytBackdrop = document.getElementById('yt-tutorial-backdrop');
+      if (ytCard) {
+        const isShown = ytCard.style.display === 'flex';
+        ytCard.style.display = isShown ? 'none' : 'flex';
+        if (ytBackdrop) {
+          if (isShown) {
+            ytBackdrop.classList.remove('active');
+          } else {
+            ytBackdrop.classList.add('active');
+          }
+        }
+      }
+      return;
+    }
+
     const isWelcomeOpen = !document.getElementById('welcome-card')?.classList.contains('is-hidden') && 
                           document.getElementById('welcome-card')?.style.display !== 'none';
 
@@ -1459,6 +1500,17 @@ document.addEventListener('DOMContentLoaded', () => {
       showWelcomeScreen();
     }
   });
+
+  // Cerrar el tutorial de YouTube y retirar el desenfoque
+  const closeYtTutorial = () => {
+    const ytCard = document.getElementById('yt-welcome-card');
+    const ytBackdrop = document.getElementById('yt-tutorial-backdrop');
+    if (ytCard) ytCard.style.display = 'none';
+    if (ytBackdrop) ytBackdrop.classList.remove('active');
+  };
+
+  document.getElementById('yt-tutorial-close-btn')?.addEventListener('click', closeYtTutorial);
+  document.getElementById('yt-tutorial-backdrop')?.addEventListener('click', closeYtTutorial);
 
   // Delegar el clic sobre el botón interactivo incrustado en el póster central
   document.addEventListener('click', (e) => {
@@ -1644,8 +1696,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const isAudio = btn.getAttribute('data-format') === 'audio';
       modeStates.youtube.format = isAudio ? 'audio' : 'video';
-      if (ytResGroup) ytResGroup.style.display = isAudio ? 'none' : 'block';
+      if (ytResGroup) {
+        ytResGroup.style.display = isAudio ? 'none' : 'block';
+        if (!isAudio) {
+          // Si volvemos a MP4, recalcular el glider en el frame siguiente para que no desaparezca
+          requestAnimationFrame(() => {
+            const rChips = document.getElementById('yt-res-chips');
+            const activeRes = rChips?.querySelector('.chip-btn.active') || rChips?.querySelector(`[data-res="${modeStates.youtube.res}"]`);
+            if (activeRes && rChips) {
+              activeRes.classList.add('active');
+              updateChipGlider(rChips, activeRes);
+            }
+          });
+        }
+      }
       if (ytBtnTxt) ytBtnTxt.innerText = isAudio ? 'DESCARGAR AUDIO (MP3)' : 'DESCARGAR VÍDEO';
+      saveCurrentState();
     });
   });
 
@@ -1659,7 +1725,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Selección y persistencia de ruta de descarga en YouTube
+  // Selección y persistencia garantizada de ruta de descarga en YouTube
   const ytBtnBrowse = document.getElementById('yt-btn-browse');
   const ytCfgDir = document.getElementById('yt-cfg-dir');
   ytBtnBrowse?.addEventListener('click', async () => {
@@ -1668,11 +1734,13 @@ document.addEventListener('DOMContentLoaded', () => {
       ytCfgDir.value = selected;
       modeStates.youtube.dir = selected;
       updateDiskTelemetry(selected);
+      saveCurrentState();
     }
   });
 
   ytCfgDir?.addEventListener('change', () => {
     modeStates.youtube.dir = ytCfgDir.value;
+    saveCurrentState();
   });
   ytCfgDir?.addEventListener('input', () => {
     modeStates.youtube.dir = ytCfgDir.value;
