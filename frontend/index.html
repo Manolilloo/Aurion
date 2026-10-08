@@ -66,7 +66,6 @@
         </div>
         <div class="neu-controls">
           <button class="btn-neu" id="btn-clear" style="flex: 1;" title="Limpiar tareas terminadas o vaciar cola">🧹 VACIAR</button>
-          <button class="btn-neu btn-cancel-pulse" id="btn-cancel-all" style="flex: 1.1;" title="Detener y cancelar todas las descargas activas">⏹ CANCELAR</button>
           <div class="total-size-badge" id="total-queue-size" title="Peso total acumulado">
             TOTAL: <span id="val-total-size">0 MB</span>
           </div>
@@ -129,9 +128,14 @@
         </div>
 
         <div class="mag-wrapper" id="mag-wrap">
-          <button class="btn-god" id="btn-master">
-            <span class="btn-god-txt" id="mag-txt" data-target="INICIAR EXTRACCIÓN">INICIAR EXTRACCIÓN</span>
-          </button>
+          <div class="split-cluster" id="split-cluster-master">
+            <button class="btn-god btn-split-main" id="btn-master">
+              <span class="btn-god-txt" id="mag-txt" data-target="INICIAR EXTRACCIÓN">INICIAR EXTRACCIÓN</span>
+            </button>
+            <button class="btn-split-cancel" id="btn-cancel-master" title="Cancelar descargas activas">
+              <span>⏹ CANCELAR</span>
+            </button>
+          </div>
           <span class="btn-god-hotkey-below" title="Atajo: Espacio">ESPACIO</span>
         </div>
       </div>
@@ -342,7 +346,10 @@
 
           <!-- Selector de resolución (solo si es vídeo) -->
           <div id="yt-res-group">
-            <label class="section-label">CALIDAD MÁXIMA</label>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+              <label class="section-label" style="margin-bottom: 0;">CALIDAD MÁXIMA</label>
+              <span class="yt-drag-hint">↔ ARRASTRA</span>
+            </div>
             <div class="chip-group yt-chips-resolutions" id="yt-res-chips">
               <div class="chip-glider"></div>
               <button class="chip-btn" data-res="min">MIN</button>
@@ -367,14 +374,19 @@
             </label>
           </div>
 
-          <!-- Botón de extracción -->
+          <!-- Botón de extracción con bifurcación elástica -->
           <div class="mag-wrapper" style="margin-top: 20px;">
-            <button class="btn-god" id="yt-btn-download" disabled>
-              <span class="btn-god-txt" id="yt-btn-txt">DESCARGAR VÍDEO</span>
-            </button>
+            <div class="split-cluster" id="yt-split-cluster">
+              <button class="btn-god btn-split-main" id="yt-btn-download" disabled>
+                <span class="btn-god-txt" id="yt-btn-txt">DESCARGAR VÍDEO</span>
+              </button>
+              <button class="btn-split-cancel" id="yt-btn-cancel" title="Cancelar descarga activa">
+                <span>⏹ CANCELAR</span>
+              </button>
+            </div>
           </div>
 
-          <!-- Barra de progreso de descarga YouTube con botón cancelar suave -->
+          <!-- Barra de progreso de descarga YouTube -->
           <div class="yt-download-progress-box" id="yt-dl-progress-box" style="display: none;">
             <div class="yt-progress-meta">
               <span class="yt-progress-status" id="yt-dl-status">Iniciando...</span>
@@ -383,7 +395,6 @@
             <div class="yt-progress-track">
               <div class="yt-progress-bar" id="yt-dl-bar"></div>
             </div>
-            <button class="btn-neu btn-cancel-pulse yt-btn-cancel-task" id="yt-btn-cancel" style="width: 100%; margin-top: 4px; padding: 7px 0; font-size: 10.5px;">⏹ CANCELAR DESCARGA</button>
           </div>
 
           <!-- Telemetría de disco compacta en YouTube -->

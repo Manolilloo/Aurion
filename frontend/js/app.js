@@ -492,6 +492,13 @@ function loadState(mode) {
   applyDynamicPalette(state.accent1, state.accent2);
   renderFullQueue(mode);
   updateDiskTelemetry(state.dir);
+
+  // Asegurar que el estado del botón refleje únicamente las tareas del modo actual
+  const currentModeTasks = state.queue || [];
+  const hasRunningTasks = currentModeTasks.some(t => t.status !== 'Completado' && t.status !== 'Cancelado' && t.status !== 'Error');
+  if (typeof window.setMasterDownloadState === 'function') {
+    window.setMasterDownloadState(hasRunningTasks);
+  }
 }
 
 function setAppMode(mode, save = true) {
@@ -1240,117 +1247,134 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // BOTÓN CANCELAR EN ANIME Y CINE (DETIENE Y RESETEA EL ESTADO)
-  const btnCancelAll = document.getElementById('btn-cancel-all');
-  if (btnCancelAll) {
-    btnCancelAll.addEventListener('click', () => {
-      if (typeof playSynth === 'function') playSynth('click');
-      const currentQueue = modeStates[currentMode].queue || [];
-
-      // Notificar cancelación a Python para cada tarea activa
-      currentQueue.forEach(t => {
-        if (t.status !== 'Completado') {
-          pyCall('cancel_download_task', t.id);
-          t.status = 'Cancelado';
-          const statusEl = document.getElementById(`task-status-${t.id}`);
-          if (statusEl) statusEl.innerText = 'Cancelado';
-        }
-      });
-
-      // Restaurar Botón Maestro al instante con feedback háptico
-      const masterBtn = document.getElementById('btn-master');
-      const magTxt = document.getElementById('mag-txt');
-      if (masterBtn && magTxt) {
-        masterBtn.classList.remove('loading', 'is-empty');
-        magTxt.innerText = 'DESCARGAS DETENIDAS';
-        setTimeout(() => {
-          magTxt.innerText = 'INICIAR EXTRACCIÓN';
-        }, 1500);
-      }
-    });
-  }
-
   const btnMaster = document.getElementById('btn-master');
   const magTxt = document.getElementById('mag-txt');
+  const splitMaster = document.getElementById('split-cluster-master');
+  const btnCancelMaster = document.getElementById('btn-cancel-master');
   let isMasterRunning = false;
+
+  // FUNCIONES DE CONTROL GLOBALES (Accesibles para window y Python)
+  window.setMasterDownloadState = function(isDownloading) {
+    const sMaster = document.getElementById('split-cluster-master');
+    const bMaster = document.getElementById('btn-master');
+    const mTxt = document.getElementById('mag-txt');
+
+    if (isDownloading) {
+      sMaster?.classList.add('is-split');
+      if (mTxt) mTxt.innerText = 'DESCARGANDO...';
+      if (bMaster) bMaster.style.pointerEvents = 'none';
+    } else {
+      sMaster?.classList.remove('is-split');
+      if (mTxt) mTxt.innerText = 'INICIAR EXTRACCIÓN';
+      if (bMaster) {
+        bMaster.style.pointerEvents = 'auto';
+        bMaster.classList.remove('loading', 'is-empty');
+      }
+    }
+  };
+
+  window.setYtDownloadState = function(isDownloading) {
+    const ytCluster = document.getElementById('yt-split-cluster');
+    const ytBtn = document.getElementById('yt-btn-download');
+    const ytTxt = document.getElementById('yt-btn-txt');
+
+    if (isDownloading) {
+      ytCluster?.classList.add('is-split');
+      if (ytTxt) ytTxt.innerText = 'DESCARGANDO...';
+      if (ytBtn) ytBtn.style.pointerEvents = 'none';
+    } else {
+      ytCluster?.classList.remove('is-split');
+      if (ytTxt) ytTxt.innerText = 'DESCARGAR VÍDEO';
+      if (ytBtn) ytBtn.style.pointerEvents = 'auto';
+    }
+  };
+
+  // BOTÓN CANCELAR EN ANIME Y CINE: FUSIONA DE VUELTA
+  btnCancelMaster?.addEventListener('click', () => {
+    if (typeof playSynth === 'function') playSynth('origami');
+    const currentQueue = modeStates[currentMode].queue || [];
+
+    currentQueue.forEach(t => {
+      if (t.status !== 'Completado') {
+        pyCall('cancel_download_task', t.id);
+        t.status = 'Cancelado';
+        const statusEl = document.getElementById(`task-status-${t.id}`);
+        if (statusEl) statusEl.innerText = 'Cancelado';
+      }
+    });
+
+    setMasterDownloadState(false);
+  });
 
   if (btnMaster && magTxt) {
     btnMaster.addEventListener('click', () => {
       if (isMasterRunning) return;
-      isMasterRunning = true;
 
       const currentQueue = modeStates[currentMode].queue;
       const originalText = 'INICIAR EXTRACCIÓN';
 
-      if (typeof playSynth === 'function') playSynth('click');
-      btnMaster.classList.add('loading');
+      // 1. Si la cola está vacía
+      if (currentQueue.length === 0) {
+        if (typeof playSynth === 'function') playSynth('click');
+        btnMaster.classList.add('is-empty');
+        magTxt.innerText = 'COLA VACÍA';
+        setTimeout(() => {
+          btnMaster.classList.remove('is-empty');
+          magTxt.innerText = originalText;
+        }, 1200);
+        return;
+      }
 
-      setTimeout(() => {
-        btnMaster.classList.remove('loading');
+      // 2. Si todo ya está descargado
+      const pendingTasks = currentQueue.filter(t => t.status !== 'Completado');
+      if (pendingTasks.length === 0) {
+        magTxt.innerText = 'COLA PROCESADA';
+        setTimeout(() => {
+          magTxt.innerText = originalText;
+        }, 1500);
+        return;
+      }
 
-        if (currentQueue.length === 0) {
-          btnMaster.classList.add('is-empty');
-          magTxt.innerText = 'COLA VACÍA';
-          if (typeof playSynth === 'function') playSynth('click');
+      // 3. Bifurcación instantánea y elástica directa (sin estado circular residual)
+      isMasterRunning = true;
+      if (typeof playSynth === 'function') playSynth('chord');
+      setMasterDownloadState(true);
 
-          setTimeout(() => {
-            btnMaster.classList.remove('is-empty');
-            magTxt.innerText = originalText;
-            isMasterRunning = false;
-          }, 1200);
-          return;
+      const currentManualDir = document.getElementById('cfg-dir')?.value || modeStates[currentMode].dir;
+
+      let cleanCoverUrl = '';
+      const bgRaw = modeStates[currentMode].bg || '';
+      const bgMatch = bgRaw.match(/url\(['"]?(.*?)['"]?\)/);
+      if (bgMatch && bgMatch[1]) {
+        cleanCoverUrl = bgMatch[1];
+      }
+
+      const rawFmt = document.querySelector('.chip-group[data-cfg="fmt"] .chip-btn.active')?.getAttribute('data-val') || modeStates[currentMode].fmt;
+      const rawThreads = document.querySelector('.chip-group[data-cfg="threads"] .chip-btn.active')?.getAttribute('data-val') || modeStates[currentMode].threads;
+      const rawSimul = document.querySelector('.chip-group[data-cfg="simul"] .chip-btn.active')?.getAttribute('data-val') || modeStates[currentMode].simul;
+
+      const cleanFmt = String(rawFmt).replace('.', '').toLowerCase().trim();
+      const activeSeasonNum = parseInt(document.getElementById('cfg-season')?.value, 10) || modeStates[currentMode].season || 1;
+
+      pyCall('start_downloads', {
+        tasks: pendingTasks,
+        config: {
+          ...modeStates[currentMode],
+          active_mode: currentMode,
+          title: modeStates[currentMode].title,
+          cover_url: cleanCoverUrl,
+          save_cover: !!modeStates[currentMode].saveCover,
+          dir: currentManualDir,
+          is_single_season: !!modeStates[currentMode].singleSeason,
+          season_num: activeSeasonNum,
+          open_folder: !!modeStates[currentMode].openFolder,
+          fmt: cleanFmt,
+          threads: parseInt(rawThreads, 10) || 32,
+          simul: parseInt(rawSimul, 10) || 5
         }
+      });
 
-        const pendingTasks = currentQueue.filter(t => t.status !== 'Completado');
-        if (pendingTasks.length === 0) {
-          magTxt.innerText = 'COLA PROCESADA';
-          setTimeout(() => {
-            magTxt.innerText = originalText;
-            isMasterRunning = false;
-          }, 1500);
-          return;
-        }
-
-        if (typeof playSynth === 'function') playSynth('chord');
-        magTxt.innerText = 'DESCARGANDO...';
-
-        const currentManualDir = document.getElementById('cfg-dir')?.value || modeStates[currentMode].dir;
-
-        let cleanCoverUrl = '';
-        const bgRaw = modeStates[currentMode].bg || '';
-        const bgMatch = bgRaw.match(/url\(['"]?(.*?)['"]?\)/);
-        if (bgMatch && bgMatch[1]) {
-          cleanCoverUrl = bgMatch[1];
-        }
-
-        const rawFmt = document.querySelector('.chip-group[data-cfg="fmt"] .chip-btn.active')?.getAttribute('data-val') || modeStates[currentMode].fmt;
-        const rawThreads = document.querySelector('.chip-group[data-cfg="threads"] .chip-btn.active')?.getAttribute('data-val') || modeStates[currentMode].threads;
-        const rawSimul = document.querySelector('.chip-group[data-cfg="simul"] .chip-btn.active')?.getAttribute('data-val') || modeStates[currentMode].simul;
-
-        const cleanFmt = String(rawFmt).replace('.', '').toLowerCase().trim();
-
-        const activeSeasonNum = parseInt(document.getElementById('cfg-season')?.value, 10) || modeStates[currentMode].season || 1;
-
-        pyCall('start_downloads', {
-          tasks: pendingTasks,
-          config: {
-            ...modeStates[currentMode],
-            active_mode: currentMode,
-            title: modeStates[currentMode].title,
-            cover_url: cleanCoverUrl,
-            save_cover: !!modeStates[currentMode].saveCover,
-            dir: currentManualDir,
-            is_single_season: !!modeStates[currentMode].singleSeason,
-            season_num: activeSeasonNum,
-            open_folder: !!modeStates[currentMode].openFolder,
-            fmt: cleanFmt,
-            threads: parseInt(rawThreads, 10) || 32,
-            simul: parseInt(rawSimul, 10) || 5
-          }
-        });
-
-        isMasterRunning = false;
-      }, 450);
+      isMasterRunning = false;
     });
   }
 
@@ -1438,18 +1462,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const mAnime = document.getElementById('modal-mode-anime');
   const mMovie = document.getElementById('modal-mode-movie');
-  const mThumb = document.getElementById('modal-matrix-thumb');
+  const mContainer = document.getElementById('modal-switch-container');
 
   function setModalMode(mode) {
     modalTargetMode = mode;
+    if (mContainer) {
+      mContainer.classList.remove('mode-anime', 'mode-movie');
+      mContainer.classList.add(`mode-${mode}`);
+    }
     if (mode === 'movie') {
       mAnime?.classList.remove('active');
       mMovie?.classList.add('active');
-      if (mThumb) mThumb.style.transform = 'translateX(100%)';
     } else {
       mMovie?.classList.remove('active');
       mAnime?.classList.add('active');
-      if (mThumb) mThumb.style.transform = 'translateX(0%)';
     }
     if (mSearch && mSearch.value.trim().length >= 2) {
       mSearch.dispatchEvent(new Event('input'));
@@ -1468,10 +1494,23 @@ document.addEventListener('DOMContentLoaded', () => {
   const mSearch = document.getElementById('modal-search-input');
   const mSugg = document.getElementById('modal-suggestions');
   let mTimer;
+  let activeModalSuggIndex = -1;
+
+  function updateModalSelectedSuggestion(items) {
+    items.forEach((item, idx) => {
+      if (idx === activeModalSuggIndex) {
+        item.classList.add('selected');
+        item.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      } else {
+        item.classList.remove('selected');
+      }
+    });
+  }
 
   if (mSearch && mSugg) {
     mSearch.addEventListener('input', () => {
       clearTimeout(mTimer);
+      activeModalSuggIndex = -1;
       const q = mSearch.value.trim();
       if (q.length < 2) {
         mSugg.classList.remove('active');
@@ -1502,6 +1541,30 @@ document.addEventListener('DOMContentLoaded', () => {
           mSugg.classList.remove('active');
         }
       }, 150);
+    });
+
+    // Control por teclado con flechas Arriba, Abajo y Enter
+    mSearch.addEventListener('keydown', (e) => {
+      const items = mSugg.querySelectorAll('.sugg-item');
+      if (!mSugg.classList.contains('active') || items.length === 0) return;
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        activeModalSuggIndex = (activeModalSuggIndex + 1) % items.length;
+        updateModalSelectedSuggestion(items);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        activeModalSuggIndex = (activeModalSuggIndex - 1 + items.length) % items.length;
+        updateModalSelectedSuggestion(items);
+      } else if (e.key === 'Enter') {
+        if (activeModalSuggIndex >= 0 && items[activeModalSuggIndex]) {
+          e.preventDefault();
+          items[activeModalSuggIndex].click();
+        }
+      } else if (e.key === 'Escape') {
+        mSugg.classList.remove('active');
+        activeModalSuggIndex = -1;
+      }
     });
   }
 
@@ -2025,6 +2088,8 @@ document.addEventListener('DOMContentLoaded', () => {
       speed: '0 KB/s'
     };
 
+    setYtDownloadState(true);
+
     pyCall('start_downloads', {
       tasks: [task],
       config: {
@@ -2036,35 +2101,21 @@ document.addEventListener('DOMContentLoaded', () => {
         open_folder: shouldOpen
       }
     });
-
-    const bTxt = document.getElementById('yt-btn-txt');
-    if (bTxt) {
-      const orig = bTxt.innerText;
-      bTxt.innerText = 'DESCARGA ENVIADA ✔';
-      setTimeout(() => { bTxt.innerText = orig; }, 1800);
-    }
   });
 
-  // BOTÓN CANCELAR EN YOUTUBE
+  // BOTÓN CANCELAR EN YOUTUBE: FUSIONA DE VUELTA
   const ytBtnCancel = document.getElementById('yt-btn-cancel');
   ytBtnCancel?.addEventListener('click', () => {
-    if (typeof playSynth === 'function') playSynth('click');
+    if (typeof playSynth === 'function') playSynth('origami');
     const pBox = document.getElementById('yt-dl-progress-box');
     const pStatus = document.getElementById('yt-dl-status');
-    const pBar = document.getElementById('yt-dl-bar');
 
     pyCall('cancel_download_task', 'youtube_active');
 
-    if (pStatus) pStatus.innerText = 'Descarga cancelada';
-    if (pBar) pBar.style.background = '#ff3366';
+    if (pStatus) pStatus.innerText = 'Cancelado';
+    if (pBox) pBox.style.display = 'none';
 
-    setTimeout(() => {
-      if (pBox) pBox.style.display = 'none';
-      if (pBar) {
-        pBar.style.width = '0%';
-        pBar.style.background = 'linear-gradient(90deg, #ff0055 0%, #ff7700 100%)';
-      }
-    }, 1200);
+    setYtDownloadState(false);
   });
 });
 
@@ -2089,8 +2140,12 @@ window.updateDownloadProgress = function(taskId, progress, speed, status) {
     if (pSpeed) pSpeed.innerText = `${numProg.toFixed(1)}% ${speed ? '• ' + speed : ''}`;
 
     if (numProg >= 100) {
+      setYtDownloadState(false);
       const btnTxt = document.getElementById('yt-btn-txt');
-      if (btnTxt) btnTxt.innerText = 'DESCARGA COMPLETADA ✔';
+      if (btnTxt) {
+        btnTxt.innerText = 'DESCARGA COMPLETADA ✔';
+        setTimeout(() => { btnTxt.innerText = 'DESCARGAR VÍDEO'; }, 2000);
+      }
     }
   }
   ['anime', 'movie'].forEach(m => {
@@ -2111,8 +2166,12 @@ window.updateDownloadProgress = function(taskId, progress, speed, status) {
 
   if (card && (status === 'Completado' || progress >= 100)) {
     card.classList.add('completed');
-    const magTxt = document.getElementById('mag-txt');
-    if (magTxt) magTxt.innerText = 'EXTRACCIÓN COMPLETADA';
+    
+    const currentQueue = modeStates[currentMode].queue || [];
+    const hasActiveTasks = currentQueue.some(t => t.status !== 'Completado' && t.status !== 'Cancelado');
+    if (!hasActiveTasks) {
+      setMasterDownloadState(false);
+    }
   }
 };
 

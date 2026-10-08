@@ -1409,35 +1409,9 @@ body:not(.mode-youtube) .yt-sidebar-box .chip-glider {
   display: block;
 }
 
-/* ESTADO 1: LOADING (Solo aquí se oculta el texto para mostrar la ruleta) */
+/* ELIMINADO EL ESTADO CIRCULAR OBSOLETO PARA EVITAR CONFLICTOS CON LA BIFURCACIÓN */
 .btn-god.loading {
-  width: 46px !important;
-  border-radius: 50% !important;
-  background: rgba(14, 19, 28, 0.9) !important;
-  border-color: var(--color-accent-1) !important;
-  box-shadow: 0 0 16px var(--color-glow) !important;
   pointer-events: none;
-}
-
-.btn-god.loading .btn-god-txt {
-  opacity: 0 !important;
-  transform: scale(0.5) !important;
-}
-
-.btn-god.loading::after {
-  content: "";
-  position: absolute;
-  width: 22px;
-  height: 22px;
-  border: 2.5px solid transparent;
-  border-top-color: var(--color-accent-1);
-  border-right-color: var(--color-accent-1);
-  border-radius: 50%;
-  animation: dynamicSpin 0.7s linear infinite;
-}
-
-@keyframes dynamicSpin {
-  100% { transform: rotate(360deg); }
 }
 
 /* ESTADO COLA VACÍA INTEGRADO CON LA ESTÉTICA DE AURION */
@@ -3111,7 +3085,7 @@ body.is-maximized .btn-god-txt {
 }
 
 /* ==========================================================================
-   BOTÓN MAESTRO GRUESO HIPERREALISTA & ENCLAVE TÁCTIL
+   BOTÓN MAESTRO BIFURCABLE // FUSIÓN & FISIÓN ELÁSTICA
    ========================================================================== */
 
 .mag-wrapper {
@@ -3125,7 +3099,25 @@ body.is-maximized .btn-god-txt {
   overflow: visible !important;
 }
 
-/* HALO CROMÁTICO CON SPREAD AMPLIO Y SIN BORDES CORTADOS EN EL BOTÓN MAESTRO */
+/* CONTENEDOR FLEXIBLE QUE CRECE CUANDO SE PARTE EN DOS */
+.split-cluster {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0px;
+  width: 320px;
+  height: 52px;
+  transition: width 0.45s var(--ease-spring), gap 0.45s var(--ease-spring);
+  overflow: visible !important;
+}
+
+.yt-sidebar-box .split-cluster {
+  width: 100% !important;
+  max-width: 390px;
+}
+
+/* HALO CROMÁTICO CON SPREAD AMPLIO Y SIN BORDES CORTADOS */
 .mag-wrapper::after {
   content: "";
   position: absolute;
@@ -3138,13 +3130,13 @@ body.is-maximized .btn-god-txt {
   opacity: 0.7;
   z-index: 0;
   pointer-events: none;
-  transition: opacity 0.35s ease, filter 0.35s ease, transform 0.35s ease;
+  transition: all 0.45s var(--ease-spring);
 }
 
 .mag-wrapper:hover::after {
   opacity: 1;
   filter: blur(32px);
-  transform: scale(1.08);
+  transform: scale(1.06);
 }
 
 .btn-god {
@@ -3169,9 +3161,93 @@ body.is-maximized .btn-god-txt {
     0 -3px 0 rgba(0, 0, 0, 0.4) inset,
     0 10px 24px var(--color-glow),
     0 4px 12px rgba(0, 0, 0, 0.5) !important;
-  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease, filter 0.25s ease !important;
+  transition: width 0.45s var(--ease-spring),
+              transform 0.25s var(--ease-elastic),
+              box-shadow 0.25s ease,
+              background 0.3s ease,
+              border-color 0.3s ease,
+              opacity 0.25s ease !important;
   overflow: hidden;
   user-select: none;
+  flex: 1 1 100%;
+}
+
+/* BOTÓN CANCELAR OCULTO EN REPOSO (ANCHO 0) */
+.btn-split-cancel {
+  position: relative;
+  z-index: 2;
+  width: 0px !important;
+  max-width: 0px;
+  height: 52px !important;
+  opacity: 0;
+  pointer-events: none;
+  overflow: hidden;
+  padding: 0 !important;
+  border-radius: 20px !important;
+  border: 1px solid rgba(255, 51, 102, 0.4) !important;
+  background: linear-gradient(180deg, rgba(255, 51, 102, 0.25) 0%, rgba(180, 20, 60, 0.35) 100%) !important;
+  backdrop-filter: blur(20px) saturate(180%);
+  color: #ffffff !important;
+  font-size: 11.5px !important;
+  font-weight: 900 !important;
+  letter-spacing: 1.5px !important;
+  cursor: pointer;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  white-space: nowrap !important;
+  box-shadow: 
+    0 1px 0 rgba(255, 255, 255, 0.4) inset,
+    0 -3px 0 rgba(0, 0, 0, 0.5) inset,
+    0 8px 24px rgba(255, 51, 102, 0.35) !important;
+  transform: scale(0.85);
+  transition: width 0.45s var(--ease-spring),
+              max-width 0.45s var(--ease-spring),
+              opacity 0.3s var(--ease-elastic),
+              transform 0.45s var(--ease-spring),
+              box-shadow 0.2s ease,
+              background 0.2s ease !important;
+}
+
+.btn-split-cancel:hover {
+  background: linear-gradient(180deg, rgba(255, 51, 102, 0.4) 0%, rgba(200, 25, 75, 0.55) 100%) !important;
+  border-color: #ff3366 !important;
+  transform: translateY(-2px) scale(1.02) !important;
+  box-shadow: 0 12px 30px rgba(255, 51, 102, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.6) !important;
+}
+
+.btn-split-cancel:active {
+  transform: translateY(1px) scale(0.97) !important;
+}
+
+/* ESTADO ACTIVO DURANTE LA DESCARGA: BIFURCACIÓN COMPLETA */
+.split-cluster.is-split {
+  width: 360px !important;
+  gap: 12px !important;
+}
+
+.yt-sidebar-box .split-cluster.is-split {
+  width: 100% !important;
+}
+
+/* El botón principal encoge y queda deshabilitado */
+.split-cluster.is-split .btn-split-main {
+  flex: 1 1 auto !important;
+  width: auto !important;
+  pointer-events: none !important;
+  opacity: 0.88;
+  filter: saturate(0.85);
+  cursor: default;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+}
+
+/* El botón de cancelar se despliega elásticamente */
+.split-cluster.is-split .btn-split-cancel {
+  width: 135px !important;
+  max-width: 135px !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  transform: scale(1) !important;
 }
 
 /* Brillo especular superior de vidrio */
@@ -3838,10 +3914,73 @@ body.mode-youtube #sites-dock {
   gap: 8px !important;
 }
 
-.yt-sidebar-box .settings-area {
-  gap: 7px !important;
+.modal-manual-section {
+  display: none;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.modal-manual-section.open {
+  display: flex !important;
+}
+
+.modal-manual-inner {
+  position: relative;
   overflow: visible !important;
-  margin-top: 6px !important;
+}
+
+/* SWITCH DUAL DEL MODAL DE CORRECCIÓN */
+#modal-switch-container {
+  width: 100% !important;
+  height: 38px !important;
+  display: flex !important;
+  position: relative !important;
+  padding: 3px !important;
+  background: rgba(10, 14, 22, 0.95) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 28px !important;
+  box-sizing: border-box !important;
+}
+
+#modal-matrix-thumb {
+  position: absolute !important;
+  top: 3px !important;
+  left: 3px !important;
+  width: calc((100% - 6px) / 2) !important; /* Mitad exacta */
+  height: calc(100% - 6px) !important;
+  border-radius: 22px !important;
+  background: linear-gradient(135deg, var(--color-accent-1) 0%, var(--color-accent-2) 100%) !important;
+  box-shadow: 0 4px 16px var(--color-glow) !important;
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.3s ease !important;
+  z-index: 1 !important;
+}
+
+#modal-switch-container.mode-movie #modal-matrix-thumb {
+  transform: translateX(100%) !important;
+}
+
+#modal-switch-container.mode-anime #modal-matrix-thumb {
+  transform: translateX(0%) !important;
+}
+
+#modal-switch-container .matrix-opt {
+  position: relative !important;
+  z-index: 2 !important;
+  flex: 1 !important;
+  text-align: center !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  letter-spacing: 1.5px !important;
+  color: #94a3b8 !important;
+  transition: color 0.25s ease !important;
+}
+
+#modal-switch-container .matrix-opt.active {
+  color: var(--color-btn-text, #000) !important;
 }
 
 .yt-preview-media {
@@ -3934,4 +4073,18 @@ body.mode-youtube #sites-dock {
   opacity: 0 !important;
   visibility: hidden !important;
   pointer-events: none !important;
+}
+
+/* BADGE INDICADOR DE ARRASTRE EN RESOLUCIONES */
+.yt-drag-hint {
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  color: var(--color-accent-1);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--color-glow-subtle);
+  padding: 2px 7px;
+  border-radius: 8px;
+  box-shadow: 0 0 10px var(--color-glow-subtle);
+  user-select: none;
 }

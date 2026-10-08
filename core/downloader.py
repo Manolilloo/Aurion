@@ -258,10 +258,11 @@ class AurionDownloader:
             if task_id in self.cancelled_tasks:
                 return
 
-        # 1. Configuración de hilos
-        raw_threads = int(config.get("threads", 16))
+        # 1. Configuración de hilos (Aceleración completa sin cuellos de botella)
+        raw_threads = int(config.get("threads", 32))
         is_m3u8 = '.m3u8' in url.lower()
-        threads_count = min(raw_threads, 8) if is_m3u8 else raw_threads
+        # Se aprovecha la concurrencia seleccionada tanto en HLS como en streams directos
+        threads_count = max(8, raw_threads)
 
         # 2. Formato, calidad y selectores
         is_yt = config.get("is_youtube", False)
@@ -270,17 +271,18 @@ class AurionDownloader:
 
         if is_yt and is_audio:
             fmt_choice = "mp3"
-            format_selector = "ba/b"
+            format_selector = "bestaudio/best"
         elif is_yt:
             fmt_choice = "mp4"
             q_str = str(quality).lower().strip()
             if q_str == "max":
-                format_selector = "bv*+ba/b"
+                format_selector = "bestvideo+bestaudio/best"
             elif q_str == "min":
-                format_selector = "wv*+wa/w"
+                # Fallback seguro para calidad mínima funcional con audio garantizado
+                format_selector = "worst[ext=mp4]/worstvideo[height<=360]+worstaudio/worst"
             else:
                 q_num = int(quality) if str(quality).isdigit() else 1080
-                format_selector = f"bv*[height<={q_num}]+ba/b[height<={q_num}]/bv*+ba/b"
+                format_selector = f"bestvideo[height<={q_num}]+bestaudio/best[height<={q_num}]/best"
         else:
             fmt_choice = str(config.get("fmt", "mp4")).replace(".", "").lower().strip()
             if fmt_choice not in ["mp4", "mkv"]:
@@ -382,7 +384,7 @@ class AurionDownloader:
                 'preferedformat': fmt_choice
             })
 
-        # 5. Configuración final optimizada sin throttling
+        # 5. Configuración ultra-optimizada anti-bloqueo al 99%
         ydl_opts = {
             'outtmpl': out_template,
             'format': format_selector,
@@ -392,37 +394,38 @@ class AurionDownloader:
             'quiet': True,
             'no_warnings': True,
             'http_headers': headers,
-            'retries': 20,
-            'fragment_retries': 20,
-            'retry_sleep_functions': {'http': lambda n: 1},
+            'retries': 15,
+            'fragment_retries': 15,
+            'skip_unavailable_fragments': True, # Si el último fragmento fantasma falla, termina el vídeo limpio
+            'socket_timeout': 8,                # Evita que se quede colgado esperando infinitamente
+            'retry_sleep_functions': {'http': lambda n: 0.2, 'fragment': lambda n: 0.2},
             'hls_use_mpegts': True,
             'fixup': 'warn',
+            'buffersize': 1024 * 1024 * 16,
+            'concurrent_fragment_downloads': min(16, threads_count),
             'postprocessors': postprocessors_list
         }
 
         if is_yt:
+            # Eliminadas restricciones que forzaban 360p en YouTube
             ydl_opts.update({
-                'concurrent_fragment_downloads': 8,
-                'buffersize': 1024 * 1024 * 4
-            })
-
-        if is_yt:
-            # En YouTube dejamos los clientes predeterminados sin restricciones para que acceda a todos los streams
-            ydl_opts.update({
-                'concurrent_fragment_downloads': 8,
-                'buffersize': 1024 * 1024 * 4
+                'concurrent_fragment_downloads': 16,
+                'buffersize': 1024 * 1024 * 16
             })
         elif self.has_aria2 and not is_m3u8:
+            # Aceleración máxima multiconexión con aria2c para servidores de anime/cine
             ydl_opts['external_downloader'] = 'aria2c'
             ydl_opts['external_downloader_args'] = {
                 'aria2c': [
                     f'-s{threads_count}',
-                    f'-x{threads_count}',
+                    f'-x16',
                     f'-j{threads_count}',
                     '-k1M',
                     '--file-allocation=none',
                     '--summary-interval=0',
                     '--optimize-concurrent-downloads=true',
+                    '--max-connection-per-server=16',
+                    '--min-split-size=1M',
                     f'--header=Referer: {referer}',
                     f'--header=Origin: {origin_domain}'
                 ]
