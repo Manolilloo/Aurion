@@ -19,19 +19,19 @@ Combina una interfaz reactiva acelerada por GPU con una extensión para navegado
   <tr>
     <td align="center" width="50%">
       <b>🎬 Modo Anime & Cine</b><br/><br/>
-      <img src="assets/preview-anime.png" alt="Modo Anime y Cine" style="border-radius: 6px;" />
+      <img src="frontend/assets/preview-anime.png" alt="Modo Anime y Cine" style="border-radius: 6px;" />
       <p><i>Gestión dual con correlación inteligente de temporadas y episodios.</i></p>
     </td>
     <td align="center" width="50%">
       <b>📺 Módulo YouTube Integrado</b><br/><br/>
-      <img src="assets/preview-youtube.png" alt="Módulo YouTube" style="border-radius: 6px;" />
+      <img src="frontend/assets/preview-youtube.png" alt="Módulo YouTube" style="border-radius: 6px;" />
       <p><i>Búsqueda en directo y extracción selectiva (Vídeo HD/4K o Audio MP3 a 320 kbps).</i></p>
     </td>
   </tr>
   <tr>
     <td colspan="2" align="center">
       <b>🌐 Extensión Chromium (HLS Link Sniffer)</b><br/><br/>
-      <img src="assets/preview-extension.png" alt="Extensión de Navegador" width="65%" style="border-radius: 6px;" />
+      <img src="frontend/assets/preview-extension.png" alt="Extensión de Navegador" width="65%" style="border-radius: 6px;" />
       <p><i>Sonda predictiva: intercepción de streams <code>.m3u8</code> y cálculo en tiempo real de bitrate y peso.</i></p>
     </td>
   </tr>
