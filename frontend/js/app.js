@@ -209,7 +209,10 @@ function setStepperValue(id, val, delta) {
     dispEl.classList.add(delta >= 0 ? 'anim-up' : 'anim-down');
   }
 
-  if (id === 'cfg-season') modeStates[currentMode].season = newVal;
+  if (id === 'cfg-season') {
+    modeStates[currentMode].season = newVal;
+    updateSingleSeasonState(newVal);
+  }
   if (id === 'cfg-start-ep') modeStates[currentMode].startEp = newVal;
 
   const state = modeStates[currentMode];
@@ -254,11 +257,13 @@ function updateSingleSeasonState(seasonNum) {
     if (cardSingle) {
       cardSingle.style.opacity = '0.4';
       cardSingle.style.pointerEvents = 'none';
-      cardSingle.title = 'No aplicable para temporadas posteriores a la 1';
+      cardSingle.title = 'Bloqueado: solo disponible en Temporada 1';
     }
     document.body.classList.remove('is-single-season');
   } else {
-    if (cfgSingle) cfgSingle.disabled = false;
+    if (cfgSingle) {
+      cfgSingle.disabled = false;
+    }
     if (cardSingle) {
       cardSingle.style.opacity = '1';
       cardSingle.style.pointerEvents = 'auto';
@@ -1079,6 +1084,14 @@ document.addEventListener('DOMContentLoaded', () => {
       setStepperValue(targetId, 0, e.deltaY < 0 ? 1 : -1);
     });
   });
+
+  const seasonInput = document.getElementById('cfg-season');
+  if (seasonInput) {
+    seasonInput.addEventListener('input', () => {
+      const val = parseInt(seasonInput.value, 10) || 1;
+      updateSingleSeasonState(val);
+    });
+  }
 
   const cardSingleSeason = document.getElementById('card-single-season') || document.getElementById('cfg-single-season')?.closest('.toggle-card');
   const cfgSingleSeason = document.getElementById('cfg-single-season');

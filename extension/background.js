@@ -38,7 +38,7 @@ async function inspectManifest(url) {
     if (!resp.ok) return { res: 'Auto', bytes: 0 };
     const text = await resp.text();
 
-    // 1. Extraer todas las resoluciones y quedarse con la MÁXIMA disponible
+    // 1. Extraer resoluciones estándar (RESOLUTION=1920x1080)
     const resMatches = [...text.matchAll(/RESOLUTION=\d+x(\d+)/gi)];
     let bestHeight = 0;
     if (resMatches.length > 0) {
@@ -48,15 +48,16 @@ async function inspectManifest(url) {
       }
     }
 
+    // 2. Extraer variantes nombradas propias de Streamwish (NAME="720p", "1080p", etc.)
     if (bestHeight === 0) {
-      const nameMatches = [...text.matchAll(/NAME="?(\d{3,4})p?"?/gi)];
+      const nameMatches = [...text.matchAll(/(?:NAME|LABEL)="?(\d{3,4})p?"?/gi)];
       for (const m of nameMatches) {
         const h = parseInt(m[1], 10);
         if (h > bestHeight) bestHeight = h;
       }
     }
 
-    // 2. Extraer el mayor BANDWIDTH
+    // 3. Extraer Bandwidth
     const bwMatches = [...text.matchAll(/BANDWIDTH=(\d+)/gi)];
     let bestBw = 0;
     if (bwMatches.length > 0) {
@@ -66,14 +67,15 @@ async function inspectManifest(url) {
       }
     }
 
+    // Heurística de altura por bitrate si Streamwish omite la resolución explícita
     if (bestHeight === 0 && bestBw > 0) {
-      if (bestBw >= 3200000) bestHeight = 1080;
-      else if (bestBw >= 1600000) bestHeight = 720;
-      else if (bestBw >= 750000) bestHeight = 480;
-      else if (bestBw >= 300000) bestHeight = 360;
+      if (bestBw >= 2800000) bestHeight = 1080;
+      else if (bestBw >= 1400000) bestHeight = 720;
+      else if (bestBw >= 700000) bestHeight = 480;
+      else if (bestBw >= 250000) bestHeight = 360;
     }
 
-    // 3. Cálculo de duración y bytes (con fallback de 24 min estándar para animes)
+    // 4. Calcular duración y peso (24 min = 1440 s si el manifiesto no lista fragmentos)
     const durMatches = [...text.matchAll(/#EXTINF:([\d\.]+)/gi)];
     let totalSec = 0;
     durMatches.forEach(d => { totalSec += parseFloat(d[1]); });
@@ -85,7 +87,7 @@ async function inspectManifest(url) {
       bytes = Math.round((bestBw * 1440) / 8);
     } else if (bestHeight > 0) {
       const bitrates = { 1080: 2800000, 720: 1600000, 480: 800000, 360: 450000 };
-      const estBw = bitrates[bestHeight] || 1500000;
+      const estBw = bitrates[bestHeight] || 1600000;
       bytes = Math.round((estBw * 1440) / 8);
     }
 
@@ -121,7 +123,10 @@ chrome.webRequest.onBeforeRequest.addListener(
     const { url, tabId, frameId } = details;
     if (tabId < 0) return;
 
-    if (url.includes('.ts') || url.includes('.m4s') || url.includes('.key') || url.includes('doubleclick') || url.includes('google') || url.includes('/ad/')) {
+    // Descartar fragmentos, anuncios y archivos de código/scripts que confunden a Streamwish
+    if (url.includes('.ts') || url.includes('.m4s') || url.includes('.key') || 
+        url.includes('.js') || url.includes('.css') || url.includes('/player/') ||
+        url.includes('doubleclick') || url.includes('google') || url.includes('/ad/')) {
       return;
     }
 
