@@ -1,9 +1,27 @@
 import os
+import sys
 import shutil
 import threading
 from urllib.parse import urlparse
 from concurrent.futures import ThreadPoolExecutor
 import yt_dlp
+
+def get_binary_path(binary_name):
+    """Devuelve la ruta absoluta al ejecutable en bin/ tanto en desarrollo como congelado con PyInstaller."""
+    if getattr(sys, 'frozen', False):
+        base_dir = getattr(sys, '_MEIPASS', os.path.dirname(sys.executable))
+    else:
+        # Raíz del proyecto (subiendo un nivel desde 'core')
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+    local_exe = os.path.join(base_dir, 'bin', f"{binary_name}.exe")
+    if os.path.exists(local_exe):
+        return local_exe
+
+    # Fallback al PATH de Windows si existe
+    system_path = shutil.which(binary_name)
+    return system_path if system_path else None
+
 
 class AurionDownloader:
     def __init__(self, bridge):
@@ -13,10 +31,15 @@ class AurionDownloader:
         self.cancelled_tasks = set()
         self.lock = threading.Lock()
 
-        self.has_aria2 = shutil.which("aria2c") is not None
-        self.has_ffmpeg = shutil.which("ffmpeg") is not None
+        self.aria2_path = get_binary_path("aria2c")
+        self.ffmpeg_path = get_binary_path("ffmpeg")
+
+        self.has_aria2 = self.aria2_path is not None
+        self.has_ffmpeg = self.ffmpeg_path is not None
         
-        print(f"[Core] Estado del sistema -> aria2c: {'DISPONIBLE' if self.has_aria2 else 'NO DETECTADO'} | FFmpeg: {'DISPONIBLE' if self.has_ffmpeg else 'NO DETECTADO'}")
+        status_aria = f"DISPONIBLE ({self.aria2_path})" if self.has_aria2 else "NO DETECTADO"
+        status_ffmpeg = f"DISPONIBLE ({self.ffmpeg_path})" if self.has_ffmpeg else "NO DETECTADO"
+        print(f"[Core] Estado del sistema -> aria2c: {status_aria} | FFmpeg: {status_ffmpeg}")
 
     def cancel_task(self, task_id):
         with self.lock:
@@ -70,9 +93,13 @@ class AurionDownloader:
             import subprocess
             import json
 
+            ffprobe_exe = self.ffmpeg_path.replace('ffmpeg.exe', 'ffprobe.exe') if self.ffmpeg_path else 'ffprobe'
+            if not os.path.exists(ffprobe_exe):
+                ffprobe_exe = shutil.which('ffprobe') or 'ffprobe'
+
             header_str = "".join([f"{k}: {v}\r\n" for k, v in headers.items()])
             cmd = [
-                'ffprobe',
+                ffprobe_exe,
                 '-v', 'quiet',
                 '-print_format', 'json',
                 '-show_streams',
@@ -93,11 +120,6 @@ class AurionDownloader:
         return None
 
     def probe_media_info(self, url, page_url=""):
-        """
-        Inspecciona el flujo real mediante yt-dlp y ffprobe.
-        Si no se puede determinar fehacientemente, devuelve (0, 'N/D').
-        Jamás devuelve un valor simulado o inventado.
-        """
         if not url:
             return 0, "N/D"
 
@@ -116,7 +138,8 @@ class AurionDownloader:
             'no_warnings': True,
             'nocheckcertificate': True,
             'http_headers': headers,
-            'skip_download': True
+            'skip_download': True,
+            'ffmpeg_location': os.path.dirname(self.ffmpeg_path) if self.ffmpeg_path else None
         }
 
         try:
@@ -125,7 +148,6 @@ class AurionDownloader:
                 if not info:
                     return 0, "N/D"
 
-                # 1. Resolución real
                 real_height = info.get('height')
                 if not real_height and 'formats' in info:
                     for f in reversed(info['formats']):
@@ -135,18 +157,16 @@ class AurionDownloader:
 
                 res_str = f"{real_height}p" if real_height else None
 
-                # Si yt-dlp no extrajo la resolución del texto del m3u8, consultar a ffprobe
                 if not res_str:
                     res_str = self._probe_resolution_ffprobe(url, headers)
 
                 if not res_str:
                     res_str = "N/D"
 
-                # 2. Tamaño real
                 size_bytes = info.get('filesize') or info.get('filesize_approx') or 0
                 if size_bytes == 0:
                     duration = info.get('duration') or 0
-                    tbr = info.get('tbr') or 0  # Total bitrate en kbps
+                    tbr = info.get('tbr') or 0
                     if duration > 0 and tbr > 0:
                         size_bytes = int((tbr * 1000 * duration) / 8)
 
@@ -170,7 +190,6 @@ class AurionDownloader:
         return True
 
     def _save_cover_image(self, config):
-        """Descarga la portada en la carpeta raíz del anime (nunca en subcarpetas)."""
         if not config.get("save_cover", True):
             return
 
@@ -179,11 +198,9 @@ class AurionDownloader:
             return
 
         base_dir = config.get("dir", "J:\\ANIME\\animes")
-        mode = config.get("active_mode", "anime")
         anime_title = config.get("title", "").strip()
         clean_title = "".join(c for c in anime_title if c not in r'\/:*?"<>|').strip()
 
-        # Tanto en anime como en cine se guarda en la carpeta con el título de la obra
         if clean_title and clean_title != "Esperando consulta...":
             root_anime_dir = os.path.join(base_dir, clean_title)
         else:
@@ -193,7 +210,6 @@ class AurionDownloader:
             os.makedirs(root_anime_dir, exist_ok=True)
             cover_path = os.path.join(root_anime_dir, "cover.jpg")
 
-            # Descargar solo si aún no existe
             if not os.path.exists(cover_path):
                 import urllib.request
                 req = urllib.request.Request(cover_url, headers={
@@ -209,7 +225,6 @@ class AurionDownloader:
         simul_workers = int(config.get("simul", 5))
         dest_folder = self.resolve_destination_folder(config)
 
-        # Guardar portada en la carpeta principal del anime antes de iniciar descargas
         self._save_cover_image(config)
 
         print(f"\n[Core] Iniciando pool de descargas: {simul_workers} simultáneas en '{dest_folder}'")
@@ -228,7 +243,6 @@ class AurionDownloader:
         self.is_downloading = False
         print("\n[Core] Todas las tareas del lote han concluido.")
 
-        # Abrir la carpeta únicamente si contiene archivos válidos descargados
         if config.get("open_folder", True):
             try:
                 abs_dest = os.path.abspath(dest_folder)
@@ -237,7 +251,6 @@ class AurionDownloader:
                     print(f"[Core] Abriendo carpeta en explorador: {abs_dest}")
                     os.startfile(abs_dest)
                 else:
-                    # Limpiar carpeta si quedó completamente vacía por un error de descarga
                     if os.path.exists(abs_dest) and not os.listdir(abs_dest):
                         try:
                             os.rmdir(abs_dest)
@@ -258,13 +271,10 @@ class AurionDownloader:
             if task_id in self.cancelled_tasks:
                 return
 
-        # 1. Configuración de hilos (Aceleración completa sin cuellos de botella)
         raw_threads = int(config.get("threads", 32))
         is_m3u8 = '.m3u8' in url.lower()
-        # Se aprovecha la concurrencia seleccionada tanto en HLS como en streams directos
         threads_count = max(8, raw_threads)
 
-        # 2. Formato, calidad y selectores
         is_yt = config.get("is_youtube", False)
         is_audio = config.get("is_audio_only", False)
         quality = str(config.get("quality", "1080"))
@@ -281,7 +291,6 @@ class AurionDownloader:
                 format_selector = "worstvideo+worstaudio/worst"
             else:
                 q_num = int(quality) if str(quality).isdigit() else 1080
-                # Selecciona el mejor vídeo disponible hasta la altura indicada y lo fusiona con el mejor audio
                 format_selector = f"bestvideo[height<={q_num}]+bestaudio/best[height<={q_num}]/best"
         else:
             fmt_choice = str(config.get("fmt", "mp4")).replace(".", "").lower().strip()
@@ -289,7 +298,6 @@ class AurionDownloader:
                 fmt_choice = "mp4"
             format_selector = "bestvideo[height<=1080]+bestaudio/best[height<=1080]/bestvideo+bestaudio/best"
 
-        # 3. Directorio temporal y plantilla de nombre limpio
         clean_file_title = "".join(c for c in title if c not in r'\/:*?"<>|').strip() or "video"
         task_temp_dir = os.path.join(dest_folder, f".tmp_{task_id}")
         os.makedirs(task_temp_dir, exist_ok=True)
@@ -302,7 +310,6 @@ class AurionDownloader:
         print(f"\n[Core -> Tarea Iniciada] {title}")
         print(f"      Formato: .{fmt_choice} | Hilos: {threads_count}")
 
-        # Control ponderado de flujos en YouTube (Vídeo representa el 85%, Audio el 15%)
         setattr(self, f"_p_{task_id}", 0)
         current_stream_type = {"val": "video" if not is_audio else "audio"}
 
@@ -362,7 +369,6 @@ class AurionDownloader:
                             f"window.updateDownloadProgress && window.updateDownloadProgress('{task_id}', 99, 'Procesando', 'Ensamblando archivo final...');"
                         )
 
-        # Cabeceras completas simulando navegador Chrome real para evitar estrangulamiento en CDNs de anime
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
             'Referer': referer if referer and referer != "://" else 'https://animeflv.net/',
@@ -377,7 +383,6 @@ class AurionDownloader:
             'Sec-Fetch-Site': 'cross-site'
         }
 
-        # 4. Postprocesadores limpios (sin forzar remuxer restrictivo en YouTube)
         postprocessors_list = []
         if is_yt and is_audio:
             postprocessors_list.append({
@@ -391,7 +396,6 @@ class AurionDownloader:
                 'preferedformat': fmt_choice
             })
 
-        # 5. Configuración con unión real de flujos vídeo HD/FHD + audio
         ydl_opts = {
             'outtmpl': out_template,
             'format': format_selector,
@@ -410,7 +414,8 @@ class AurionDownloader:
             'fixup': 'warn',
             'buffersize': 1024 * 1024 * 16,
             'concurrent_fragment_downloads': min(16, threads_count),
-            'postprocessors': postprocessors_list
+            'postprocessors': postprocessors_list,
+            'ffmpeg_location': os.path.dirname(self.ffmpeg_path) if self.ffmpeg_path else None
         }
 
         if is_yt:
@@ -419,8 +424,7 @@ class AurionDownloader:
                 'buffersize': 1024 * 1024 * 8,
             })
         elif self.has_aria2 and not is_m3u8:
-            # Aceleración máxima multiconexión con aria2c para servidores de anime/cine
-            ydl_opts['external_downloader'] = 'aria2c'
+            ydl_opts['external_downloader'] = self.aria2_path
             ydl_opts['external_downloader_args'] = {
                 'aria2c': [
                     f'-s{threads_count}',
@@ -455,7 +459,6 @@ class AurionDownloader:
                 print(f"   -> Hilos de fragmentos usados: {threads_count}")
                 print(f"=======================================================\n")
 
-            # Localizar el archivo de vídeo resultante en la carpeta temporal
             generated_files = [f for f in os.listdir(task_temp_dir) if not f.endswith('.part') and not f.startswith('.')]
             clean_file_name = "".join(c for c in title if c not in r'\/:*?"<>|').strip() or "video"
             final_file_path = os.path.join(dest_folder, f"{clean_file_name}.{fmt_choice}")
@@ -464,7 +467,6 @@ class AurionDownloader:
                 generated_files.sort(key=lambda x: os.path.getsize(os.path.join(task_temp_dir, x)), reverse=True)
                 source_temp = os.path.join(task_temp_dir, generated_files[0])
 
-                # Si ya existía una descarga previa con ese nombre, eliminarla antes para sustituirla limpiamente
                 if os.path.exists(final_file_path):
                     try:
                         os.remove(final_file_path)
@@ -474,7 +476,6 @@ class AurionDownloader:
                 try:
                     shutil.move(source_temp, final_file_path)
                 except Exception:
-                    # En caso de que shutil.move bloquee entre particiones, forzar copia y reemplazo
                     shutil.copy2(source_temp, final_file_path)
                     try:
                         os.remove(source_temp)
@@ -509,7 +510,6 @@ class AurionDownloader:
                         f"window.updateDownloadProgress && window.updateDownloadProgress('{task_id}', 0, 'Error', 'Fallo al descargar');"
                     )
         finally:
-            # Garantiza que la carpeta temporal siempre se borre, incluso si la descarga falla
             try:
                 shutil.rmtree(task_temp_dir, ignore_errors=True)
             except Exception:

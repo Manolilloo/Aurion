@@ -1,4 +1,15 @@
+# Salidas de compilación y empaquetado (pesadas)
+build/
+dist/
+Output/
+
+# Binarios de gran tamaño (ffmpeg pesa 220MB, no debe ir en git)
+bin/
+*.exe
+
+# Temporales de Python y editores
 __pycache__/
-*.pyc
+*.py[cod]
+*.spec
 .vscode/
-config.json
+.idea/

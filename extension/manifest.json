@@ -3,6 +3,11 @@
   "name": "Aurion Link Sniffer",
   "version": "2.4",
   "description": "Detector multimedia avanzado Liquid Glass para Aurion Downloader",
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
   "permissions": [
     "activeTab",
     "webRequest",
@@ -29,6 +34,11 @@
   ],
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Aurion Sniffer"
+    "default_title": "Aurion Sniffer",
+    "default_icon": {
+      "16": "icon16.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
   }
 }

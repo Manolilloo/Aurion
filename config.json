@@ -1,0 +1,39 @@
+{
+  "active_mode": "youtube",
+  "anime": {
+    "dir": "C:\\Users\\mdema\\Downloads\\animes",
+    "season": 2,
+    "start_ep": 1,
+    "save_cover": true,
+    "open_folder": true,
+    "fmt": "mkv",
+    "threads": "32",
+    "simul": "20",
+    "active_title": "Kage no Jitsuryokusha ni Naritakute! 2nd season",
+    "active_tags": "TERMINADO \u2022 \u2605 8.2",
+    "active_bg": "url('https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx161964-JpkEbHI8ivaP.jpg')",
+    "accent1": "rgb(201, 72, 52)",
+    "accent2": "rgb(113, 37, 42)"
+  },
+  "movie": {
+    "dir": "J:\\ANIME\\animes\\pelisypeliu",
+    "season": 1,
+    "start_ep": 1,
+    "save_cover": true,
+    "open_folder": true,
+    "fmt": "mp4",
+    "threads": "32",
+    "simul": "5",
+    "active_title": "",
+    "active_tags": "SISTEMA LISTO",
+    "active_bg": "",
+    "accent1": "#ff3366",
+    "accent2": "#ffaa00"
+  },
+  "youtube": {
+    "dir": "C:\\Users\\mdema\\Downloads\\yt-vids",
+    "format": "video",
+    "res": "1080",
+    "open_folder": true
+  }
+}
