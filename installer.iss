@@ -1,5 +1,5 @@
 #define MyAppName "Aurion"
-#define MyAppVersion "1.0"
+#define MyAppVersion "1.0.0"
 #define MyAppPublisher "Aurion Project"
 #define MyAppExeName "Aurion.exe"
 
@@ -22,14 +22,19 @@ Name: "spanish"; MessagesFile: "compiler:Languages\Spanish.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
+Name: "extdesktopicon"; Description: "Crear acceso directo a la carpeta de la Extensión en el Escritorio"; GroupDescription: "{cm:AdditionalIcons}"
 
 [Files]
 ; Empaqueta toda la carpeta generada por PyInstaller con sus librerías, frontend y binarios
 Source: "dist\Aurion\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+; Empaqueta la carpeta de la extensión de navegador
+Source: "extension\*"; DestDir: "{app}\extension"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\{#MyAppExeName}"
+Name: "{autoprograms}\{#MyAppName}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\{#MyAppExeName}"
+Name: "{autoprograms}\{#MyAppName}\Carpeta de la Extensión"; Filename: "{app}\extension"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon; IconFilename: "{app}\{#MyAppExeName}"
+Name: "{autodesktop}\Carpeta Extensión Aurion"; Filename: "{app}\extension"; Tasks: extdesktopicon
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
