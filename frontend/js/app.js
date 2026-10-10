@@ -2300,64 +2300,81 @@ window.updateRealSizeOnly = function(taskId, totalBytes) {
 let pendingUpdateUrl = null;
 
 window.onUpdateAvailable = function(info) {
-  pendingUpdateUrl = info.url;
-  
-  // Si no existe el contenedor del modal en el HTML, lo inyectamos dinámicamente
-  let updateModal = document.getElementById('aurion-update-modal');
-  if (!updateModal) {
-    updateModal = document.createElement('div');
-    updateModal.id = 'aurion-update-modal';
-    updateModal.style.cssText = `
-      position: fixed; inset: 0; z-index: 99999;
-      background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(12px);
-      display: flex; align-items: center; justify-content: center;
-    `;
-    updateModal.innerHTML = `
-      <div style="background: rgba(18, 24, 38, 0.85); border: 1px solid rgba(255,255,255,0.12); border-radius: 16px; padding: 28px; width: 420px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); text-align: center; font-family: inherit; color: #fff;">
-        <div style="font-size: 13px; font-weight: 800; letter-spacing: 2px; color: var(--color-accent-1, #00ffaa); margin-bottom: 8px;">ACTUALIZACIÓN DISPONIBLE</div>
-        <div style="font-size: 20px; font-weight: 800; margin-bottom: 8px;">Versión v${info.latest}</div>
-        <div style="font-size: 13px; color: #94a3b8; margin-bottom: 22px;">Aurion se reiniciará automáticamente tras la instalación.</div>
-        
-        <div id="upd-progress-wrap" style="display: none; margin-bottom: 18px;">
-          <div style="height: 6px; width: 100%; background: rgba(255,255,255,0.08); border-radius: 10px; overflow: hidden;">
-            <div id="upd-progress-bar" style="height: 100%; width: 0%; background: var(--color-accent-1, #00ffaa); transition: width 0.15s ease;"></div>
+  let modalOverlay = document.getElementById('aurionUpdateOverlay');
+  if (!modalOverlay) {
+    modalOverlay = document.createElement('div');
+    modalOverlay = document.createElement('div');
+    modalOverlay.id = 'aurionUpdateOverlay';
+    modalOverlay.className = 'update-modal-overlay';
+    modalOverlay.innerHTML = `
+      <div class="update-modal-card">
+        <div class="update-icon-wrapper">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+        </div>
+        <div class="update-title">Nueva versión disponible</div>
+        <span class="update-badge" id="updateVersionBadge">v${info.version}</span>
+        <p class="update-desc" id="updateDescText">
+          Hay una nueva actualización lista para instalar. Las mejoras y correcciones se aplicarán en un instante.
+        </p>
+
+        <div class="update-progress-container" id="updateProgressContainer">
+          <div class="update-progress-track">
+            <div class="update-progress-fill" id="updateProgressFill"></div>
           </div>
-          <div id="upd-progress-txt" style="font-size: 12px; color: #94a3b8; margin-top: 8px;">Descargando... 0%</div>
+          <div class="update-progress-text">
+            <span>Descargando parche...</span>
+            <span id="updateProgressNum">0%</span>
+          </div>
         </div>
 
-        <div id="upd-buttons-row" style="display: flex; gap: 12px; justify-content: center;">
-          <button id="upd-btn-cancel" style="background: transparent; border: 1px solid rgba(255,255,255,0.15); color: #cbd5e1; border-radius: 8px; padding: 10px 18px; font-size: 12px; font-weight: 700; cursor: pointer;">MÁS TARDE</button>
-          <button id="upd-btn-confirm" style="background: var(--color-accent-1, #00ffaa); border: none; color: #000; border-radius: 8px; padding: 10px 22px; font-size: 12px; font-weight: 800; cursor: pointer;">ACTUALIZAR AHORA</button>
+        <div class="update-actions" id="updateActions">
+          <button class="btn-update-secondary" id="btnUpdateLater">Más tarde</button>
+          <button class="btn-update-primary" id="btnUpdateNow">
+            <span>Actualizar ahora</span>
+          </button>
         </div>
       </div>
     `;
-    document.body.appendChild(updateModal);
+    document.body.appendChild(modalOverlay);
 
-    document.getElementById('upd-btn-cancel').onclick = () => {
-      updateModal.style.display = 'none';
-    };
+    // Acción de actualizar
+    const btnNow = document.getElementById('btnUpdateNow');
+    btnNow.addEventListener('click', () => {
+      document.getElementById('updateActions').style.display = 'none';
+      document.getElementById('updateDescText').textContent = 'Descargando e instalando en segundo plano...';
+      document.getElementById('updateProgressContainer').style.display = 'block';
+      pyCall('start_auto_update', info.download_url);
+    });
 
-    document.getElementById('upd-btn-confirm').onclick = () => {
-      document.getElementById('upd-buttons-row').style.display = 'none';
-      document.getElementById('upd-progress-wrap').style.display = 'block';
-      pyCall('start_auto_update', pendingUpdateUrl);
-    };
-  } else {
-    updateModal.style.display = 'flex';
+    // Acción de posponer ("Más tarde")
+    const btnLater = document.getElementById('btnUpdateLater');
+    btnLater.addEventListener('click', () => {
+      modalOverlay.classList.remove('active');
+    });
   }
+
+  // Activar con animación fluida
+  setTimeout(() => {
+    modalOverlay.classList.add('active');
+  }, 100);
 };
 
 window.onUpdateProgress = function(pct) {
-  const bar = document.getElementById('upd-progress-bar');
-  const txt = document.getElementById('upd-progress-txt');
-  if (bar) bar.style.width = pct + '%';
-  if (txt) txt.innerText = pct >= 100 ? 'Instalando y reiniciando...' : `Descargando actualización... ${pct}%`;
+  const fill = document.getElementById('updateProgressFill');
+  const num = document.getElementById('updateProgressNum');
+  if (fill) fill.style.width = pct + '%';
+  if (num) num.textContent = Math.round(pct) + '%';
 };
 
 window.onUpdateError = function() {
-  const txt = document.getElementById('upd-progress-txt');
-  if (txt) {
-    txt.innerText = 'Error al actualizar. Inténtalo más tarde.';
-    txt.style.color = '#ff3366';
-  }
+  const desc = document.getElementById('updateDescText');
+  const fill = document.getElementById('updateProgressFill');
+  if (desc) desc.textContent = 'Hubo un error al descargar. Puedes intentarlo de nuevo más tarde.';
+  if (fill) fill.style.background = '#ef4444';
+  const actions = document.getElementById('updateActions');
+  if (actions) actions.style.display = 'flex';
 };
