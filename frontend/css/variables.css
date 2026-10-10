@@ -2,13 +2,13 @@
    AURION CORE // VARIABLES & RESET
    ========================================================= */
 :root {
-  /* TEMA ANIME (Cyber-Cristal) */
+  /* TEMA ANIME (Cyber-Cristal - Amarillo Eléctrico & Dorado) */
   --color-bg: #030508;
   --color-panel: rgba(10, 14, 22, 0.55);
-  --color-border: rgba(0, 255, 170, 0.2);
-  --color-accent-1: #00ffaa;
-  --color-accent-2: #8a2be2;
-  --color-glow: rgba(0, 255, 170, 0.4);
+  --color-border: rgba(255, 214, 10, 0.2);
+  --color-accent-1: #ffd60a;
+  --color-accent-2: #ffb703;
+  --color-glow: rgba(255, 214, 10, 0.4);
   --color-text: #f0f4f8;
   --color-text-dim: #64748b;
   

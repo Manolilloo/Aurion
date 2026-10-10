@@ -13,7 +13,7 @@ import io
 import webview
 from .downloader import AurionDownloader
 
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.0.3"
 GITHUB_REPO = "Manolilloo/Aurion"
 CONFIG_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config.json")
 
@@ -96,8 +96,8 @@ class AurionBridge:
                 "active_title": "",
                 "active_tags": "",
                 "active_bg": "",
-                "accent1": "#00ffaa",
-                "accent2": "#00b4d8"
+                "accent1": "#ffd60a",
+                "accent2": "#ffb703"
             },
             "movie": {
                 "dir": "",
@@ -510,8 +510,8 @@ class AurionBridge:
 
     def check_for_updates(self):
         """Comprueba en GitHub Releases si hay una versión superior a la instalada."""
-        CURRENT_VERSION = "1.0.0"
-        REPO_NAME = "Manolilloo/Aurion"
+        CURRENT_VERSION = APP_VERSION
+        REPO_NAME = GITHUB_REPO
 
         def _worker():
             try:

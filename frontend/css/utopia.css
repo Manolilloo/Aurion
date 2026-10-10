@@ -4,10 +4,10 @@
 
 :root {
   --color-bg-base: #05080e;
-  --color-accent-1: #00ffaa;
-  --color-accent-2: #00b4d8;
-  --color-glow: rgba(0, 255, 170, 0.4);
-  --color-glow-subtle: rgba(0, 255, 170, 0.16);
+  --color-accent-1: #ffd60a;
+  --color-accent-2: #ffb703;
+  --color-glow: rgba(255, 214, 10, 0.4);
+  --color-glow-subtle: rgba(255, 214, 10, 0.16);
   --color-border: rgba(255, 255, 255, 0.1);
   --color-border-bright: rgba(255, 255, 255, 0.22);
   --color-btn-text: #020907;
@@ -17,10 +17,10 @@
 }
 
 body.mode-anime {
-  --color-accent-1: #00ffaa;
-  --color-accent-2: #00b4d8;
-  --color-glow: rgba(0, 255, 170, 0.42);
-  --color-glow-subtle: rgba(0, 255, 170, 0.16);
+  --color-accent-1: #ffd60a;
+  --color-accent-2: #ffb703;
+  --color-glow: rgba(255, 214, 10, 0.42);
+  --color-glow-subtle: rgba(255, 214, 10, 0.16);
   --color-btn-text: #020907;
 }
 
@@ -1131,7 +1131,7 @@ body:not(.mode-youtube) .yt-sidebar-box .chip-glider {
   font-weight: 800;
   letter-spacing: 0.8px;
   color: var(--color-accent-1);
-  background: rgba(0, 255, 170, 0.08);
+  background: rgba(255, 214, 10, 0.08);
   border: 1px solid var(--color-border-bright);
   padding: 6px 16px;
   border-radius: 18px;
