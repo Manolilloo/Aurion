@@ -2438,4 +2438,177 @@ document.addEventListener('DOMContentLoaded', () => {
       minimizeUpdateModalToBadge();
     });
   }
+
+  // --- ASISTENTE DE EXTENSIÓN FLUIDO PASO A PASO ---
+  const btnExtHelper = document.getElementById('btn-extension-helper');
+  const extModalOverlay = document.getElementById('ext-modal-overlay');
+  const btnExtClose = document.getElementById('ext-modal-close');
+  const btnExtDone = document.getElementById('btn-ext-done');
+  const browserChips = document.querySelectorAll('.ext-browser-chip');
+  const mockUrlText = document.getElementById('mock-url-text');
+
+  const cardStep1 = document.getElementById('card-step-1');
+  const cardStep2 = document.getElementById('card-step-2');
+  const cardStep3 = document.getElementById('card-step-3');
+
+  const btnActionStep1 = document.getElementById('btn-action-step-1');
+  const btnActionStep2 = document.getElementById('btn-action-step-2');
+  const btnActionStep3 = document.getElementById('btn-action-step-3');
+  const btnReopenFolder = document.getElementById('btn-reopen-folder');
+  const step3SwapBox = document.querySelector('.ext-step-action-swap');
+
+  let selectedBrowserKey = 'brave';
+  let selectedBrowserUrl = 'brave://extensions';
+
+  function activateStep(stepNum) {
+    [cardStep1, cardStep2, cardStep3].forEach(c => c?.classList.remove('is-active-step'));
+    if (stepNum === 1) {
+      cardStep1?.classList.add('is-active-step');
+      cardStep2?.classList.add('is-pending-step');
+      cardStep3?.classList.add('is-pending-step');
+    } else if (stepNum === 2) {
+      cardStep1?.classList.remove('is-pending-step');
+      cardStep2?.classList.remove('is-pending-step');
+      cardStep2?.classList.add('is-active-step');
+    } else if (stepNum === 3) {
+      cardStep3?.classList.remove('is-pending-step');
+      cardStep3?.classList.add('is-active-step');
+    }
+  }
+
+  // Comprueba qué navegadores están realmente instalados y apaga los inexistentes
+  async function checkAndApplyBrowserAvailability() {
+    try {
+      const installedMap = await pyCall('get_installed_browsers');
+      if (installedMap) {
+        let firstAvailableChip = null;
+
+        browserChips.forEach(chip => {
+          const bKey = chip.getAttribute('data-browser');
+          const isInstalled = !!installedMap[bKey];
+
+          if (!isInstalled) {
+            chip.classList.add('is-disabled');
+            chip.title = 'Navegador no detectado en este equipo';
+          } else {
+            chip.classList.remove('is-disabled');
+            chip.title = '';
+            if (!firstAvailableChip) firstAvailableChip = chip;
+          }
+        });
+
+        // Si el navegador seleccionado por defecto no existe, conmutar al primero que sí exista
+        const currentSelected = document.querySelector('.ext-browser-chip.active');
+        if (currentSelected && currentSelected.classList.contains('is-disabled') && firstAvailableChip) {
+          firstAvailableChip.click();
+        }
+      }
+    } catch (err) {
+      console.error('[BrowserDetection] Error comprobando navegadores:', err);
+    }
+  }
+
+  if (btnExtHelper && extModalOverlay) {
+    btnExtHelper.addEventListener('click', () => {
+      if (typeof playSynth === 'function') playSynth('click');
+      activateStep(1);
+      extModalOverlay.classList.add('active');
+      checkAndApplyBrowserAvailability();
+    });
+
+    // Control dinámico de selección de navegador con reset de pasos
+    browserChips.forEach(chip => {
+      chip.addEventListener('click', () => {
+        if (chip.classList.contains('is-disabled')) return;
+        if (typeof playSynth === 'function') playSynth('origami');
+        browserChips.forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+
+        selectedBrowserKey = chip.getAttribute('data-browser') || 'brave';
+        selectedBrowserUrl = chip.getAttribute('data-url') || 'brave://extensions';
+
+        if (mockUrlText) {
+          mockUrlText.style.animation = 'none';
+          mockUrlText.textContent = selectedBrowserUrl;
+          void mockUrlText.offsetWidth;
+          mockUrlText.style.animation = 'mockTypePaste 3.6s steps(18, end) infinite';
+        }
+
+        // Si el usuario cambia de navegador tras haber abierto uno, resetear al Paso 1
+        if (btnActionStep1) {
+          btnActionStep1.classList.remove('is-completed');
+          btnActionStep1.innerHTML = '<span>Copiar y abrir ventana ➔</span>';
+        }
+        if (btnActionStep2) {
+          btnActionStep2.classList.remove('is-completed');
+          btnActionStep2.innerHTML = '<span>Hecho, siguiente paso ➔</span>';
+        }
+        if (step3SwapBox) {
+          step3SwapBox.classList.remove('folder-opened');
+        }
+        activateStep(1);
+      });
+    });
+
+    // Paso 1: Copiar URL y lanzar el navegador seleccionado
+    btnActionStep1?.addEventListener('click', () => {
+      if (typeof playSynth === 'function') playSynth('chord');
+      pyCall('launch_browser_for_extension', selectedBrowserUrl, selectedBrowserKey);
+      btnActionStep1.classList.add('is-completed');
+      btnActionStep1.innerHTML = '✔ Navegador abierto';
+      activateStep(2);
+    });
+
+    // Paso 2: Confirmar interruptor de desarrollador
+    btnActionStep2?.addEventListener('click', () => {
+      if (typeof playSynth === 'function') playSynth('click');
+      btnActionStep2.classList.add('is-completed');
+      btnActionStep2.innerHTML = '✔ Modo activado';
+      activateStep(3);
+    });
+
+    // Paso 3: Abrir carpeta para arrastrar (transición fluida al botón Reabrir)
+    btnActionStep3?.addEventListener('click', () => {
+      if (typeof playSynth === 'function') playSynth('chord');
+      pyCall('open_extension_folder');
+      if (step3SwapBox) {
+        step3SwapBox.classList.add('folder-opened');
+      }
+    });
+
+    // Botón dedicado para volver a abrir la carpeta en cualquier momento
+    btnReopenFolder?.addEventListener('click', () => {
+      if (typeof playSynth === 'function') playSynth('click');
+      pyCall('open_extension_folder');
+      btnReopenFolder.classList.remove('pulse-receive');
+      void btnReopenFolder.offsetWidth;
+      btnReopenFolder.classList.add('pulse-receive');
+    });
+
+    const closeExtModal = () => {
+      if (typeof playSynth === 'function') playSynth('click');
+      extModalOverlay.classList.remove('active');
+      setTimeout(() => {
+        if (btnActionStep1) {
+          btnActionStep1.classList.remove('is-completed');
+          btnActionStep1.innerHTML = '<span>Copiar y abrir ventana ➔</span>';
+        }
+        if (btnActionStep2) {
+          btnActionStep2.classList.remove('is-completed');
+          btnActionStep2.innerHTML = '<span>Hecho, siguiente paso ➔</span>';
+        }
+        if (step3SwapBox) {
+          step3SwapBox.classList.remove('folder-opened');
+        }
+        activateStep(1);
+      }, 350);
+    };
+
+    if (btnExtClose) btnExtClose.addEventListener('click', closeExtModal);
+    if (btnExtDone) btnExtDone.addEventListener('click', closeExtModal);
+
+    extModalOverlay.addEventListener('click', (e) => {
+      if (e.target === extModalOverlay) closeExtModal();
+    });
+  }
 });

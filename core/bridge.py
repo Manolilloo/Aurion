@@ -657,3 +657,151 @@ start "" "{app_exe_path}"
 
         threading.Thread(target=download_and_run, daemon=True).start()
         return True
+
+    def open_extension_folder(self):
+        """Abre el explorador de Windows resaltando la carpeta extension."""
+        def _worker():
+            try:
+                import sys, os, subprocess
+                if getattr(sys, 'frozen', False):
+                    base_dir = os.path.dirname(sys.executable)
+                else:
+                    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                ext_dir = os.path.normpath(os.path.join(base_dir, "extension"))
+                if os.path.exists(ext_dir):
+                    subprocess.Popen(f'explorer /select,"{ext_dir}"')
+            except Exception as e:
+                print(f"[Core] Error abriendo carpeta extension: {e}")
+        threading.Thread(target=_worker, daemon=True).start()
+        return True
+
+    def get_installed_browsers(self):
+        """Devuelve un diccionario indicando cuáles navegadores Chromium están instalados en el sistema."""
+        known_paths = {
+            "brave": [
+                os.path.expandvars(r"%ProgramFiles%\BraveSoftware\Brave-Browser\Application\brave.exe"),
+                os.path.expandvars(r"%LocalAppData%\BraveSoftware\Brave-Browser\Application\brave.exe"),
+                os.path.expandvars(r"%ProgramFiles(x86)%\BraveSoftware\Brave-Browser\Application\brave.exe")
+            ],
+            "chrome": [
+                os.path.expandvars(r"%ProgramFiles%\Google\Chrome\Application\chrome.exe"),
+                os.path.expandvars(r"%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe"),
+                os.path.expandvars(r"%LocalAppData%\Google\Chrome\Application\chrome.exe")
+            ],
+            "edge": [
+                os.path.expandvars(r"%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe"),
+                os.path.expandvars(r"%ProgramFiles%\Microsoft\Edge\Application\msedge.exe")
+            ],
+            "opera": [
+                os.path.expandvars(r"%LocalAppData%\Programs\Opera\launcher.exe"),
+                os.path.expandvars(r"%ProgramFiles%\Opera\launcher.exe")
+            ],
+            "operagx": [
+                os.path.expandvars(r"%LocalAppData%\Programs\Opera GX\launcher.exe"),
+                os.path.expandvars(r"%ProgramFiles%\Opera GX\launcher.exe")
+            ],
+            "vivaldi": [
+                os.path.expandvars(r"%LocalAppData%\Vivaldi\Application\vivaldi.exe"),
+                os.path.expandvars(r"%ProgramFiles%\Vivaldi\Application\vivaldi.exe")
+            ],
+            "arc": [
+                os.path.expandvars(r"%LocalAppData%\Programs\Arc\Arc.exe"),
+                os.path.expandvars(r"%ProgramFiles%\Arc\Arc.exe")
+            ],
+            "chromium": [
+                os.path.expandvars(r"%LocalAppData%\Chromium\Application\chrome.exe"),
+                os.path.expandvars(r"%ProgramFiles%\Chromium\Application\chrome.exe")
+            ]
+        }
+        installed = {}
+        for b_key, paths in known_paths.items():
+            installed[b_key] = any(os.path.isfile(p) for p in paths)
+        return installed
+
+    def launch_browser_for_extension(self, target_url="chrome://extensions", browser_key="chrome"):
+        """Copia la URL al portapapeles y abre una ventana nueva del navegador correspondiente."""
+        def _worker():
+            try:
+                import os, subprocess, winreg
+                known_paths = {
+                    "brave": [
+                        os.path.expandvars(r"%ProgramFiles%\BraveSoftware\Brave-Browser\Application\brave.exe"),
+                        os.path.expandvars(r"%LocalAppData%\BraveSoftware\Brave-Browser\Application\brave.exe"),
+                        os.path.expandvars(r"%ProgramFiles(x86)%\BraveSoftware\Brave-Browser\Application\brave.exe")
+                    ],
+                    "chrome": [
+                        os.path.expandvars(r"%ProgramFiles%\Google\Chrome\Application\chrome.exe"),
+                        os.path.expandvars(r"%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe"),
+                        os.path.expandvars(r"%LocalAppData%\Google\Chrome\Application\chrome.exe")
+                    ],
+                    "edge": [
+                        os.path.expandvars(r"%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe"),
+                        os.path.expandvars(r"%ProgramFiles%\Microsoft\Edge\Application\msedge.exe")
+                    ],
+                    "opera": [
+                        os.path.expandvars(r"%LocalAppData%\Programs\Opera\launcher.exe"),
+                        os.path.expandvars(r"%ProgramFiles%\Opera\launcher.exe")
+                    ],
+                    "operagx": [
+                        os.path.expandvars(r"%LocalAppData%\Programs\Opera GX\launcher.exe"),
+                        os.path.expandvars(r"%ProgramFiles%\Opera GX\launcher.exe")
+                    ],
+                    "vivaldi": [
+                        os.path.expandvars(r"%LocalAppData%\Vivaldi\Application\vivaldi.exe"),
+                        os.path.expandvars(r"%ProgramFiles%\Vivaldi\Application\vivaldi.exe")
+                    ],
+                    "arc": [
+                        os.path.expandvars(r"%LocalAppData%\Programs\Arc\Arc.exe"),
+                        os.path.expandvars(r"%ProgramFiles%\Arc\Arc.exe")
+                    ],
+                    "chromium": [
+                        os.path.expandvars(r"%LocalAppData%\Chromium\Application\chrome.exe"),
+                        os.path.expandvars(r"%ProgramFiles%\Chromium\Application\chrome.exe")
+                    ]
+                }
+
+                chosen_exe = None
+                for path in known_paths.get(browser_key, []):
+                    if os.path.isfile(path):
+                        chosen_exe = path
+                        break
+
+                effective_url = target_url
+
+                # Si el navegador elegido no existe, buscar el predeterminado y adaptar la URL a ese
+                if not chosen_exe:
+                    try:
+                        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\Shell\Associations\UrlAssociations\http\UserChoice") as key:
+                            prog_id, _ = winreg.QueryValueEx(key, "ProgId")
+                        with winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, rf"{prog_id}\shell\open\command") as cmd_key:
+                            raw_cmd, _ = winreg.QueryValueEx(cmd_key, "")
+                        chosen_exe = raw_cmd.split('"')[1] if raw_cmd.startswith('"') else raw_cmd.split()[0]
+
+                        exe_lower = (chosen_exe or "").lower()
+                        if "brave" in exe_lower:
+                            effective_url = "brave://extensions"
+                        elif "edge" in exe_lower:
+                            effective_url = "edge://extensions"
+                        elif "opera" in exe_lower:
+                            effective_url = "opera://extensions"
+                        elif "vivaldi" in exe_lower:
+                            effective_url = "vivaldi://extensions"
+                        elif "arc" in exe_lower:
+                            effective_url = "arc://extensions"
+                        else:
+                            effective_url = "chrome://extensions"
+                    except Exception:
+                        pass
+
+                # Copiar al portapapeles la URL que de verdad coincida con el navegador abierto
+                subprocess.run(f'cmd /c <nul set /p="{effective_url}"| clip', shell=True, creationflags=0x08000000)
+
+                if chosen_exe and os.path.isfile(chosen_exe):
+                    subprocess.Popen([chosen_exe, "--new-window"])
+                else:
+                    subprocess.Popen('cmd /c start ""', shell=True, creationflags=0x08000000)
+
+            except Exception as e:
+                print(f"[Core] Error abriendo navegador: {e}")
+        threading.Thread(target=_worker, daemon=True).start()
+        return True

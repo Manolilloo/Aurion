@@ -44,6 +44,14 @@
         <span class="update-pulse-dot"></span>
       </button>
 
+      <!-- BOTÓN ASISTENTE DE EXTENSIÓN (PIEZA DE PUZLE) -->
+      <button class="liquid-help-btn liquid-puzzle-btn" id="btn-extension-helper" title="Instalar / Conectar Extensión del Navegador">
+        <span class="liquid-help-glow"></span>
+        <svg class="puzzle-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19.439 7.85c0-1.57.802-2.54 1.561-2.54 1.133 0 1.996.96 1.996 2.14 0 1.18-.863 2.14-1.996 2.14a2.98 2.98 0 0 1-.561-.06V14a2 2 0 0 1-2 2h-4.44a2.98 2.98 0 0 1 .06.561c0 1.133-.96 1.996-2.14 1.996-1.18 0-2.14-.863-2.14-1.996a2.98 2.98 0 0 1 .06-.561H6a2 2 0 0 1-2-2v-4.44a2.98 2.98 0 0 1-.561.06C2.306 9.58 1.443 8.62 1.443 7.44c0-1.18.863-2.14 1.996-2.14.759 0 1.561.97 1.561 2.54V6a2 2 0 0 1 2-2h4.44a2.98 2.98 0 0 1-.06-.561C11.38 2.306 12.34 1.443 13.52 1.443c1.18 0 2.14.863 2.14 1.996a2.98 2.98 0 0 1-.06.561H18a2 2 0 0 1 2 2v1.85z"/>
+        </svg>
+      </button>
+
       <button class="liquid-help-btn" id="win-help" title="Guía interactiva y Tutorial">
         <span class="liquid-help-glow"></span>
         <span class="liquid-help-txt">?</span>
@@ -538,6 +546,148 @@
           tarde</button>
         <button class="btn-update-primary" id="btn-update-now">Actualizar
           ahora</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL HUD: ASISTENTE DE EXTENSIÓN FLUIDO -->
+  <div class="ext-modal-overlay" id="ext-modal-overlay">
+    <div class="ext-modal-card" id="ext-modal-card">
+      <div class="ext-modal-header">
+        <div class="ext-badge">CONEXIÓN INSTANTÁNEA</div>
+        <button class="ext-close-btn" id="ext-modal-close">✕</button>
+      </div>
+
+      <h3 class="ext-modal-title">Instalar Extensión de Aurion</h3>
+
+      <!-- TRÍPTICO HORIZONTAL EQUILIBRADO Y PASO A PASO -->
+      <div class="ext-steps-triptych">
+        <!-- COLUMNA 1: NAVEGADOR Y RUTA -->
+        <div class="ext-step-card is-active-step" id="card-step-1">
+          <div class="ext-step-top">
+            <div class="ext-step-card-header">
+              <span class="ext-step-num">1</span>
+              <h4>Tu Navegador</h4>
+            </div>
+            <p class="ext-step-sub">Elige tu navegador habitual para copiar su ruta:</p>
+
+            <div class="ext-browser-selector" id="ext-browser-selector">
+              <button class="ext-browser-chip active" data-browser="brave" data-url="brave://extensions">
+                <span class="browser-icon">🦁</span>
+                <span>Brave</span>
+              </button>
+              <button class="ext-browser-chip" data-browser="chrome" data-url="chrome://extensions">
+                <span class="browser-icon">🌐</span>
+                <span>Chrome</span>
+              </button>
+              <button class="ext-browser-chip" data-browser="edge" data-url="edge://extensions">
+                <span class="browser-icon">🌊</span>
+                <span>Edge</span>
+              </button>
+              <button class="ext-browser-chip" data-browser="opera" data-url="opera://extensions">
+                <span class="browser-icon">⭕</span>
+                <span>Opera</span>
+              </button>
+              <button class="ext-browser-chip" data-browser="operagx" data-url="opera://extensions">
+                <span class="browser-icon">🎮</span>
+                <span>Opera GX</span>
+              </button>
+              <button class="ext-browser-chip" data-browser="vivaldi" data-url="vivaldi://extensions">
+                <span class="browser-icon">🔴</span>
+                <span>Vivaldi</span>
+              </button>
+              <button class="ext-browser-chip" data-browser="arc" data-url="arc://extensions">
+                <span class="browser-icon">🌈</span>
+                <span>Arc</span>
+              </button>
+              <button class="ext-browser-chip" data-browser="chromium" data-url="chrome://extensions">
+                <span class="browser-icon">⚙️</span>
+                <span>Chromium</span>
+              </button>
+            </div>
+
+            <div class="mock-browser-omnibox">
+              <span class="mock-lock-icon">🔒</span>
+              <div class="mock-url-input-track">
+                <span class="mock-url-text" id="mock-url-text">brave://extensions</span>
+                <span class="mock-cursor-caret">|</span>
+              </div>
+              <div class="mock-kbd-pill">Ctrl + V</div>
+            </div>
+            <div class="ext-step-instructions">
+              <span class="ext-card-tip">Pega con <b>Ctrl + V</b> y pulsa <b>Enter</b></span>
+              <span class="ext-fallback-notice">ℹ Si no tienes este navegador instalado, se abrirá tu navegador predeterminado.</span>
+            </div>
+          </div>
+
+          <button class="btn-step-action" id="btn-action-step-1">
+            <span>Copiar y abrir ventana ➔</span>
+          </button>
+        </div>
+
+        <!-- COLUMNA 2: MODO DESARROLLADOR -->
+        <div class="ext-step-card is-pending-step" id="card-step-2">
+          <div class="ext-step-top">
+            <div class="ext-step-card-header">
+              <span class="ext-step-num">2</span>
+              <h4>Modo Desarrollador</h4>
+            </div>
+            <p class="ext-step-sub">Enciende la palanca arriba a la derecha en la ventana:</p>
+
+            <div class="mock-browser-toggle-box">
+              <span class="mock-toggle-label">Modo de desarrollador</span>
+              <div class="mock-switch">
+                <div class="mock-switch-thumb"></div>
+              </div>
+              <div class="mock-cursor-hand">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="#ffffff" stroke="#000000" stroke-width="1.5">
+                  <path d="M4 3l7.5 17 2.5-6.5L20.5 11 4 3z"/>
+                </svg>
+              </div>
+            </div>
+            <span class="ext-card-tip">Permite cargar extensiones locales sin tienda</span>
+          </div>
+
+          <button class="btn-step-action" id="btn-action-step-2">
+            <span>Hecho, siguiente paso ➔</span>
+          </button>
+        </div>
+
+        <!-- COLUMNA 3: ARRASTRAR Y SOLTAR -->
+        <div class="ext-step-card is-pending-step" id="card-step-3">
+          <div class="ext-step-top">
+            <div class="ext-step-card-header">
+              <span class="ext-step-num">3</span>
+              <h4>Arrastra y Suelta</h4>
+            </div>
+            <p class="ext-step-sub">Suelta la carpeta que se abre dentro del navegador:</p>
+
+            <div class="mock-drag-drop-box">
+              <div class="mock-folder-pill">
+                <span>📁 extension</span>
+              </div>
+              <span class="mock-drag-arrow">➔</span>
+              <div class="mock-browser-drop-zone">
+                <span>🌐 Navegador</span>
+              </div>
+            </div>
+            <span class="ext-card-tip">¡Quedará instalada para siempre!</span>
+          </div>
+
+          <!-- Cluster de acción para el Paso 3 con transición fluida -->
+          <div class="ext-step-action-swap">
+            <button class="btn-step-action" id="btn-action-step-3">
+              <span>Abrir carpeta en Windows 📂</span>
+            </button>
+            <button class="btn-step-reopen" id="btn-reopen-folder" title="Vuelve a mostrar la carpeta en Windows">
+              <span>Reabrir carpeta 📂</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="ext-modal-actions">
+        <button class="btn-ext-primary" id="btn-ext-done">¡Todo listo, comenzar! 🚀</button>
       </div>
     </div>
   </div>
