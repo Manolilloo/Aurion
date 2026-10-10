@@ -1717,7 +1717,7 @@ document.addEventListener('DOMContentLoaded', () => {
     },
     {
       id: 'workspace_center',
-      target: '.search-container, .parallax-wrap, #main-poster',
+      target: '.search-container, #main-poster',
       title: '11. Búsqueda y Carátula Parallax',
       desc: 'Busca con autocompletado en AniList/IMDb. Al seleccionar un título, la portada y paleta se sincronizan.',
       placement: 'left-docked'
@@ -1754,6 +1754,12 @@ document.addEventListener('DOMContentLoaded', () => {
     window.__isTourDemoActive = false;
     window.__isTourDemoSearching = false;
 
+    // Detener y resetear la inclinación Parallax del póster
+    const mainPoster = document.getElementById('main-poster');
+    if (mainPoster) {
+      mainPoster.style.transform = '';
+    }
+
     // Limpiar inmediatamente TODAS las clases de atenuación para que no bloqueen los eventos del siguiente paso
     document.querySelectorAll('.tour-sub-dimmed, .tour-blurred-zone, .tour-highlighted-element, .tour-demo-anim, .tour-toggle-demo-1, .tour-toggle-demo-2, .tour-stepper-demo').forEach(el => {
       el.classList.remove('tour-sub-dimmed', 'tour-blurred-zone', 'tour-highlighted-element', 'tour-demo-anim', 'tour-toggle-demo-1', 'tour-toggle-demo-2', 'tour-stepper-demo');
@@ -1762,7 +1768,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const sInput = document.getElementById('search-input');
     if (sInput) {
       sInput.readOnly = false;
-      sInput.value = '';
     }
     const suggestions = document.getElementById('search-suggestions');
     if (suggestions) {
@@ -1789,9 +1794,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (switchThumb) switchThumb.style.transform = '';
     switchOpts.forEach(opt => opt.classList.toggle('active', opt.id === `mode-${currentMode}`));
 
-    // Restaurar los valores reales del usuario en el panel derecho
+    // Restaurar los valores reales del usuario en el panel derecho si no estamos en tour
     const state = modeStates[currentMode];
-    if (state) {
+    if (state && !document.body.classList.contains('tour-running-active')) {
       const cfgSave = document.getElementById('cfg-save-cover');
       const cfgOpen = document.getElementById('cfg-open-folder');
       const cfgDir = document.getElementById('cfg-dir');
@@ -2055,13 +2060,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (sInput && mainPoster) {
         sInput.readOnly = true;
+        sInput.value = '';
         const demoQuery = 'One Piece';
         let charIdx = 0;
-
-        // Portada oficial One Piece en alta definición precargada
-        const onePieceImg = 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/nx21-t4mDgIxGQycS.jpg';
-        const imgPreload = new Image();
-        imgPreload.src = onePieceImg;
 
         const typeInterval = setInterval(() => {
           if (charIdx <= demoQuery.length) {
@@ -2069,69 +2070,109 @@ document.addEventListener('DOMContentLoaded', () => {
             charIdx++;
           } else {
             clearInterval(typeInterval);
-            if (suggestions) {
-              // Lista con múltiples sugerencias reales enriquecidas
-              suggestions.innerHTML = `
-                <div class="sugg-item selected" id="sugg-op-main">
-                  <div class="sugg-thumb" style="background-image: url('${onePieceImg}');"></div>
+
+            // Búsqueda real a través del backend de Python
+            (async () => {
+              let realList = await pyCall('search_media', currentMode, 'One Piece');
+
+              // Fallback de alta fidelidad si no hubiera conexión a internet inmediata
+              if (!realList || realList.length === 0) {
+                realList = [
+                  {
+                    title: 'One Piece',
+                    image: 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/nx21-t4mDgIxGQycS.jpg',
+                    meta: 'EN EMISIÓN • ★ 8.8',
+                    color: '#e45044'
+                  },
+                  {
+                    title: 'One Piece: Fan Letter',
+                    image: 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx163270-YgPq1T2G254w.jpg',
+                    meta: 'ESPECIAL • ★ 9.1',
+                    color: '#f1a83b'
+                  },
+                  {
+                    title: 'One Piece Film Red',
+                    image: 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx141159-Qk05H1WjPz9P.jpg',
+                    meta: 'PELÍCULA • ★ 7.8',
+                    color: '#c2185b'
+                  }
+                ];
+              }
+
+              if (!suggestions || currentTourStep !== 10) return;
+
+              // Renderizado con la misma estructura y componentes exactos del buscador manual
+              suggestions.innerHTML = '';
+              realList.slice(0, 4).forEach((item, idx) => {
+                const div = document.createElement('div');
+                div.className = `sugg-item ${idx === 0 ? 'selected' : ''}`;
+                div.id = `tour-sugg-${idx}`;
+                div.innerHTML = `
+                  <div class="sugg-thumb" style="background-image: url('${item.image}');"></div>
                   <div class="sugg-info">
-                    <div class="sugg-title">One Piece</div>
-                    <div class="sugg-meta">EN EMISIÓN • ★ 8.8</div>
+                    <div class="sugg-title">${item.title}</div>
+                    <div class="sugg-meta">${item.meta}</div>
                   </div>
-                </div>
-                <div class="sugg-item" style="opacity: 0.65;">
-                  <div class="sugg-thumb" style="background-image: url('https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx163270-YgPq1T2G254w.jpg');"></div>
-                  <div class="sugg-info">
-                    <div class="sugg-title">One Piece: Fan Letter</div>
-                    <div class="sugg-meta">ESPECIAL • ★ 9.1</div>
-                  </div>
-                </div>
-                <div class="sugg-item" style="opacity: 0.55;">
-                  <div class="sugg-thumb" style="background-image: url('https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx141159-Qk05H1WjPz9P.jpg');"></div>
-                  <div class="sugg-info">
-                    <div class="sugg-title">One Piece Film Red</div>
-                    <div class="sugg-meta">PELÍCULA • ★ 7.8</div>
-                  </div>
-                </div>
-              `;
+                `;
+                suggestions.appendChild(div);
+              });
               suggestions.classList.add('active');
 
-              // Selección automática tras mostrar la lista desplegable
-              setTimeout(() => {
-                const selectedItem = document.getElementById('sugg-op-main');
-                if (selectedItem) selectedItem.style.background = 'rgba(255, 214, 10, 0.18)';
+              // Selección automática del primer resultado tras unos instantes para apreciarlo
+              setTimeout(async () => {
+                if (currentTourStep !== 10) return;
+                const chosen = realList[0];
+                if (!chosen) return;
 
-                setTimeout(() => {
+                // Feedback visual de click/selección en la sugerencia
+                const firstSugg = document.getElementById('tour-sugg-0');
+                if (firstSugg) {
+                  firstSugg.style.background = 'rgba(255, 255, 255, 0.16)';
+                  firstSugg.style.transform = 'translateX(6px)';
+                }
+                if (typeof playSynth === 'function') playSynth('click');
+
+                setTimeout(async () => {
+                  if (currentTourStep !== 10) return;
                   suggestions.classList.remove('active');
                   suggestions.innerHTML = '';
+                  sInput.value = chosen.title;
+
                   if (tourLauncher) tourLauncher.style.display = 'none';
                   if (posterInfo) posterInfo.style.display = 'block';
 
-                  // Aplicación real directa al póster central para evitar cuadro negro
-                  mainPoster.style.backgroundImage = `url('${onePieceImg}')`;
-                  const aL1 = document.getElementById('ambient-layer-1');
-                  const aL2 = document.getElementById('ambient-layer-2');
-                  if (aL1) aL1.style.backgroundImage = `url('${onePieceImg}')`;
-                  if (aL2) aL2.style.backgroundImage = `url('${onePieceImg}')`;
+                  // Aplicación completa y funcional de póster, título y tags
+                  updatePoster(chosen.image, chosen.title, chosen.meta);
+                  setUnifiedTitle(chosen.title);
 
-                  updatePoster(onePieceImg, 'One Piece', 'EN EMISIÓN • ★ 8.8');
-                  setUnifiedTitle('One Piece');
-                  
-                  // Paleta vibrante característica de One Piece (Rojo / Dorado Cálido)
-                  applyDynamicPalette('rgb(255, 60, 60)', 'rgb(255, 175, 0)');
+                  // Extracción y aplicación de la paleta dinámica real a toda la interfaz
+                  if (chosen.image && window.pywebview && window.pywebview.api && window.pywebview.api.get_dominant_colors) {
+                    const pal = await pyCall('get_dominant_colors', chosen.image);
+                    if (pal && pal.accent1) {
+                      applyDynamicPalette(pal.accent1, pal.accent2 || '#ffaa00');
+                    } else if (chosen.color) {
+                      applyDynamicPalette(chosen.color, '#ff9900');
+                    } else {
+                      applyDynamicPalette('rgb(255, 60, 60)', 'rgb(255, 175, 0)');
+                    }
+                  } else if (chosen.color) {
+                    applyDynamicPalette(chosen.color, '#ffaa00');
+                  } else {
+                    applyDynamicPalette('rgb(255, 60, 60)', 'rgb(255, 175, 0)');
+                  }
 
-                  // Demostración Parallax tridimensional activa
+                  // Efecto Parallax tridimensional fluido sobre la portada real
                   let deg = 0;
                   const parallaxInterval = setInterval(() => {
-                    deg = (deg + 2.5) % 360;
-                    const tiltX = Math.sin(deg * Math.PI / 180) * 7;
-                    const tiltY = Math.cos(deg * Math.PI / 180) * 7;
-                    mainPoster.style.transform = `rotateX(${tiltX}deg) rotateY(${tiltY}deg) scale(1.03)`;
+                    deg = (deg + 2.4) % 360;
+                    const tiltX = Math.sin(deg * Math.PI / 180) * 7.5;
+                    const tiltY = Math.cos(deg * Math.PI / 180) * 7.5;
+                    mainPoster.style.transform = `rotateX(${tiltX}deg) rotateY(${tiltY}deg) scale(1.035)`;
                   }, 30);
                   tourDemoIntervals.push(parallaxInterval);
-                }, 500);
-              }, 700);
-            }
+                }, 550);
+              }, 850);
+            })();
           }
         }, 65);
         tourDemoIntervals.push(typeInterval);
@@ -2247,22 +2288,36 @@ document.addEventListener('DOMContentLoaded', () => {
   function startTour(fromCenter = false) {
     isTourStartedFromCenter = fromCenter;
     
-    // Captura snapshot del estado real antes de iniciar el tour
+    const curState = modeStates[currentMode] || {};
+    const sInput = document.getElementById('search-input');
+    const pInput = document.getElementById('cfg-prefix');
+    const dInput = document.getElementById('cfg-dir');
+
+    // Captura snapshot exhaustivo de todo el estado antes de iniciar el tour
     tourSnapshot = {
-      title: modeStates[currentMode]?.title || 'Esperando consulta...',
-      tags: modeStates[currentMode]?.tags || 'SISTEMA LISTO',
-      bg: modeStates[currentMode]?.bg || '',
-      accent1: modeStates[currentMode]?.accent1 || '#ffd60a',
-      accent2: modeStates[currentMode]?.accent2 || '#ffb703',
-      dir: modeStates[currentMode]?.dir || '',
-      season: modeStates[currentMode]?.season || 1
+      mode: currentMode,
+      query: sInput ? sInput.value : (curState.query || ''),
+      prefix: pInput ? pInput.value : (curState.prefix || ''),
+      title: curState.title || 'Esperando consulta...',
+      tags: curState.tags || 'SISTEMA LISTO',
+      bg: curState.bg || '',
+      accent1: curState.accent1 || '#ffd60a',
+      accent2: curState.accent2 || '#ffb703',
+      dir: dInput ? dInput.value : (curState.dir || ''),
+      season: curState.season || 1,
+      startEp: curState.startEp || 1,
+      singleSeason: !!curState.singleSeason,
+      saveCover: curState.saveCover !== false,
+      openFolder: curState.openFolder !== false,
+      fmt: curState.fmt || 'mkv',
+      threads: curState.threads || '32',
+      simul: curState.simul || '20'
     };
 
     expandCenterWorkspace();
 
     const launcherCenter = document.getElementById('tour-launcher-center');
-    const stateBg = modeStates[currentMode]?.bg;
-    const hasRealCover = typeof stateBg === 'string' && stateBg !== '' && stateBg !== 'none';
+    const hasRealCover = typeof tourSnapshot.bg === 'string' && tourSnapshot.bg !== '' && tourSnapshot.bg !== 'none' && tourSnapshot.title !== 'Esperando consulta...';
 
     if (launcherCenter) {
       launcherCenter.style.display = hasRealCover ? 'none' : 'flex';
@@ -2283,15 +2338,43 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Restauración fiel del 100% del estado previo al tour
     if (tourSnapshot) {
-      modeStates[currentMode].title = tourSnapshot.title;
-      modeStates[currentMode].tags = tourSnapshot.tags;
-      modeStates[currentMode].bg = tourSnapshot.bg;
-      modeStates[currentMode].dir = tourSnapshot.dir;
-      modeStates[currentMode].season = tourSnapshot.season;
+      const mode = tourSnapshot.mode || currentMode;
+      const state = modeStates[mode];
 
+      state.title = tourSnapshot.title;
+      state.tags = tourSnapshot.tags;
+      state.bg = tourSnapshot.bg;
+      state.dir = tourSnapshot.dir;
+      state.season = tourSnapshot.season;
+      state.startEp = tourSnapshot.startEp;
+      state.singleSeason = tourSnapshot.singleSeason;
+      state.saveCover = tourSnapshot.saveCover;
+      state.openFolder = tourSnapshot.openFolder;
+      state.fmt = tourSnapshot.fmt;
+      state.threads = tourSnapshot.threads;
+      state.simul = tourSnapshot.simul;
+      state.query = tourSnapshot.query;
+      state.prefix = tourSnapshot.prefix;
+      state.accent1 = tourSnapshot.accent1;
+      state.accent2 = tourSnapshot.accent2;
+
+      // Restaurar inputs de texto
+      const sInput = document.getElementById('search-input');
+      const pInput = document.getElementById('cfg-prefix');
+      const dInput = document.getElementById('cfg-dir');
+      if (sInput) {
+        sInput.value = tourSnapshot.query;
+        sInput.readOnly = false;
+      }
+      if (pInput) pInput.value = tourSnapshot.prefix;
+      if (dInput) dInput.value = tourSnapshot.dir;
+
+      // Restaurar posters y ambient layers
       const mPoster = document.getElementById('main-poster');
       const aL1 = document.getElementById('ambient-layer-1');
       const aL2 = document.getElementById('ambient-layer-2');
+      const pTitle = document.getElementById('poster-title');
+      const pTags = document.getElementById('poster-tags');
       const posterInfo = document.getElementById('poster-info-bar');
       const launcherCenter = document.getElementById('tour-launcher-center');
       const finishCard = document.getElementById('tour-finished-card');
@@ -2303,12 +2386,19 @@ document.addEventListener('DOMContentLoaded', () => {
       if (aL1) aL1.style.backgroundImage = tourSnapshot.bg;
       if (aL2) aL2.style.backgroundImage = tourSnapshot.bg;
 
-      const hasRealCover = typeof tourSnapshot.bg === 'string' && tourSnapshot.bg !== '' && tourSnapshot.bg !== 'none';
+      const hasRealCover = typeof tourSnapshot.bg === 'string' && tourSnapshot.bg !== '' && tourSnapshot.bg !== 'none' && tourSnapshot.title !== 'Esperando consulta...';
 
       if (hasRealCover) {
+        if (pTitle) pTitle.innerText = tourSnapshot.title;
+        if (pTags) pTags.innerHTML = tourSnapshot.tags;
         if (posterInfo) posterInfo.style.display = 'block';
-        if (launcherCenter) launcherCenter.style.display = 'none';
+        if (launcherCenter) {
+          launcherCenter.classList.add('is-hidden');
+          launcherCenter.style.display = 'none';
+        }
       } else {
+        if (pTitle) pTitle.innerText = 'Esperando consulta...';
+        if (pTags) pTags.innerHTML = 'AURION READY';
         if (posterInfo) posterInfo.style.display = 'none';
         if (launcherCenter) {
           launcherCenter.classList.remove('is-hidden');
@@ -2316,8 +2406,27 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
 
+      // Restaurar paleta cromática original
       applyDynamicPalette(tourSnapshot.accent1, tourSnapshot.accent2);
 
+      // Restaurar steppers, toggles y chips en el panel derecho
+      setStepperValue('cfg-season', tourSnapshot.season, 0);
+      setStepperValue('cfg-start-ep', tourSnapshot.startEp, 0);
+      updateSingleSeasonState(tourSnapshot.season);
+
+      const cfgSingle = document.getElementById('cfg-single-season');
+      if (cfgSingle) {
+        cfgSingle.checked = tourSnapshot.singleSeason;
+        document.body.classList.toggle('is-single-season', tourSnapshot.singleSeason);
+      }
+      const cfgSave = document.getElementById('cfg-save-cover');
+      if (cfgSave) cfgSave.checked = tourSnapshot.saveCover;
+      const cfgOpen = document.getElementById('cfg-open-folder');
+      if (cfgOpen) cfgOpen.checked = tourSnapshot.openFolder;
+
+      applyChipsState(state);
+
+      // Si terminó el tour desde el botón central y no había anime previo, mostrar la tarjeta de éxito
       if (isFinished && isTourStartedFromCenter && !hasRealCover) {
         if (launcherCenter) launcherCenter.style.display = 'none';
         if (finishCard) finishCard.style.display = 'flex';

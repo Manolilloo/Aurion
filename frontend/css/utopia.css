@@ -5261,6 +5261,15 @@ body.mode-youtube #sites-dock {
   transform: translateZ(0);
 }
 
+/* Durante el tour, el contenedor de búsqueda y sus sugerencias siempre van por encima del póster */
+.search-container.tour-highlighted-element {
+  z-index: 99995 !important;
+}
+
+.search-container.tour-highlighted-element .search-suggestions {
+  z-index: 100000 !important;
+}
+
 /* Atenuación ligera y rápida para zonas inactivas sin saturar la GPU */
 body.tour-running-active .tour-blurred-zone {
   opacity: 0.35 !important;
