@@ -2316,7 +2316,7 @@ window.onUpdateAvailable = function(info) {
           </svg>
         </div>
         <div class="update-title">Nueva versión disponible</div>
-        <span class="update-badge" id="updateVersionBadge">v${info.version}</span>
+        <span class="update-badge" id="updateVersionBadge">v${info.latest || info.version || '1.1.0'}</span>
         <p class="update-desc" id="updateDescText">
           Hay una nueva actualización lista para instalar. Las mejoras y correcciones se aplicarán en un instante.
         </p>
@@ -2344,10 +2344,11 @@ window.onUpdateAvailable = function(info) {
     // Acción de actualizar
     const btnNow = document.getElementById('btnUpdateNow');
     btnNow.addEventListener('click', () => {
+      const targetUrl = info.url || info.download_url;
       document.getElementById('updateActions').style.display = 'none';
       document.getElementById('updateDescText').textContent = 'Descargando e instalando en segundo plano...';
       document.getElementById('updateProgressContainer').style.display = 'block';
-      pyCall('start_auto_update', info.download_url);
+      pyCall('start_auto_update', targetUrl);
     });
 
     // Acción de posponer ("Más tarde")
