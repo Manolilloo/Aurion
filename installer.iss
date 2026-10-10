@@ -12,6 +12,8 @@ AppPublisher={#MyAppPublisher}
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=commandline
 UsedUserAreasWarning=no
+CreateUninstallRegKey=no
+UpdateUninstallLogAppName=no
 DefaultDirName={localappdata}\Programs\{#MyAppName}
 DisableProgramGroupPage=yes
 OutputDir=Output
@@ -35,10 +37,10 @@ Source: "dist\Aurion\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs c
 Source: "extension\*"; DestDir: "{app}\extension"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{autoprograms}\{#MyAppName}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\{#MyAppExeName}"
-Name: "{autoprograms}\{#MyAppName}\Carpeta de la Extensión"; Filename: "{app}\extension"
-Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon; IconFilename: "{app}\{#MyAppExeName}"
-Name: "{autodesktop}\Carpeta Extensión Aurion"; Filename: "{app}\extension"; Tasks: extdesktopicon
+Name: "{userprograms}\{#MyAppName}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\{#MyAppExeName}"
+Name: "{userprograms}\{#MyAppName}\Carpeta de la Extensión"; Filename: "{app}\extension"
+Name: "{userdesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon; IconFilename: "{app}\{#MyAppExeName}"
+Name: "{userdesktop}\Carpeta Extensión Aurion"; Filename: "{app}\extension"; Tasks: extdesktopicon
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall

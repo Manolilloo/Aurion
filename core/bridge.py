@@ -509,20 +509,15 @@ class AurionBridge:
         return opts
 
     def check_for_updates(self):
-        """SIMULACIÓN: Dispara el modal a los 2 segundos sin tocar GitHub."""
+        """SIMULACIÓN: Dispara el modal con payload de prueba local."""
         def simular():
             import time
             time.sleep(2)
             if self._window:
-                # Usamos el instalador local recién compilado para verificar que no pide UAC
-                project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                local_setup = os.path.join(project_root, "Output", "AurionSetup.exe")
-                file_url = urllib.parse.urljoin("file:", urllib.request.pathname2url(local_setup)) if os.path.exists(local_setup) else "https://github.com/Manolilloo/Aurion/releases/download/v1.0.0/AurionSetup.exe"
-
                 fake_payload = json.dumps({
                     "current": "1.0.0",
                     "latest": "1.1.0",
-                    "url": file_url
+                    "url": "local_mock_update"
                 })
                 self._window.evaluate_js(f"window.onUpdateAvailable && window.onUpdateAvailable({fake_payload});")
 
@@ -530,61 +525,85 @@ class AurionBridge:
         return True
 
     def start_auto_update(self, download_url):
-        """Descarga la actualización e inicia el proceso estilo Discord (sin UAC y con auto-reinicio)."""
+        """Actualización limpia con robocopy, detección dinámica de ruta y sin UAC."""
         def download_and_run():
             try:
+                import sys
+                import time
+                import shutil
                 temp_dir = tempfile.gettempdir()
-                installer_path = os.path.join(temp_dir, "aurion_pkg.exe")
                 bat_path = os.path.join(temp_dir, "aurion_restart.bat")
+                
+                # Detectar dinámicamente la ruta exacta donde está corriendo el ejecutable
+                if getattr(sys, 'frozen', False):
+                    app_exe_path = sys.executable
+                    install_dir = os.path.dirname(sys.executable)
+                else:
+                    install_dir = os.path.expandvars(r"%LOCALAPPDATA%\Programs\Aurion")
+                    app_exe_path = os.path.join(install_dir, "Aurion.exe")
 
-                # Ruta donde se instala la app en modo usuario
-                app_exe_path = os.path.expandvars(r"%LOCALAPPDATA%\Programs\Aurion\Aurion.exe")
+                staging_dir = os.path.join(temp_dir, "aurion_new_version")
+                os.makedirs(staging_dir, exist_ok=True)
 
-                ctx = ssl.create_default_context()
-                req = urllib.request.Request(download_url, headers={'User-Agent': 'AurionApp'})
-
-                with urllib.request.urlopen(req, context=ctx, timeout=40) as resp, open(installer_path, 'wb') as f:
-                    total_length = resp.getheader('content-length')
-                    total_bytes = int(total_length) if total_length else 0
-                    downloaded = 0
-                    chunk_size = 64 * 1024
-
-                    while True:
-                        chunk = resp.read(chunk_size)
-                        if not chunk:
-                            break
-                        f.write(chunk)
-                        downloaded += len(chunk)
-                        if total_bytes and self._window:
-                            pct = round((downloaded / total_bytes) * 100, 1)
+                # Si es simulación local, avanzamos la barra sin hacer peticiones web
+                if not download_url or download_url == "local_mock_update" or not download_url.startswith("http"):
+                    for pct in [20, 50, 75, 90, 100]:
+                        time.sleep(0.2)
+                        if self._window:
                             self._window.evaluate_js(f"window.onUpdateProgress && window.onUpdateProgress({pct});")
+                else:
+                    ctx = ssl.create_default_context()
+                    req = urllib.request.Request(download_url, headers={'User-Agent': 'AurionApp'})
+                    zip_path = os.path.join(temp_dir, "aurion_update.zip")
+                    with urllib.request.urlopen(req, context=ctx, timeout=40) as resp, open(zip_path, 'wb') as f:
+                        total_length = resp.getheader('content-length')
+                        total_bytes = int(total_length) if total_length else 0
+                        downloaded = 0
+                        chunk_size = 64 * 1024
+                        while True:
+                            chunk = resp.read(chunk_size)
+                            if not chunk:
+                                break
+                            f.write(chunk)
+                            downloaded += len(chunk)
+                            if total_bytes and self._window:
+                                pct = round((downloaded / total_bytes) * 100, 1)
+                                self._window.evaluate_js(f"window.onUpdateProgress && window.onUpdateProgress({pct});")
+                    shutil.unpack_archive(zip_path, staging_dir)
 
-                # Crear script batch en %TEMP% para coordinar instalación silenciosa y reinicio
+                # Script que espera cierre de Aurion.exe, copia archivos y relanza
                 bat_content = f"""@echo off
-timeout /t 2 /nobreak >nul
-start "" /wait "{installer_path}" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /NOCLOSEAPPLICATIONS
-timeout /t 2 /nobreak >nul
-if exist "{app_exe_path}" (
-    start "" "{app_exe_path}"
+:WAIT_LOOP
+tasklist /fi "imagename eq Aurion.exe" 2>nul | find /i "Aurion.exe" >nul
+if not errorlevel 1 (
+    timeout /t 1 /nobreak >nul
+    goto WAIT_LOOP
 )
-del "{installer_path}" >nul 2>&1
+
+timeout /t 1 /nobreak >nul
+if exist "{staging_dir}" (
+    robocopy "{staging_dir}" "{install_dir}" /e /r:3 /w:1 /np /nfl /ndl >nul 2>&1
+)
+
+start "" "{app_exe_path}"
 (goto) 2>nul & del "%~f0"
 """
                 with open(bat_path, "w", encoding="utf-8") as f:
                     f.write(bat_content)
 
-                # Ejecutar el script batch de forma totalmente oculta
-                creation_flags = 0x08000000  # CREATE_NO_WINDOW en Windows
+                creation_flags = 0x08000000  # CREATE_NO_WINDOW
                 subprocess.Popen(["cmd.exe", "/c", bat_path], creationflags=creation_flags)
 
-                # Cerrar la ventana y el proceso actual
                 if self._window:
                     self._window.destroy()
                 os._exit(0)
 
             except Exception as e:
-                print(f"[AutoUpdate] Error en actualización: {e}")
+                err_msg = str(e).replace('"', '\\"').replace("'", "\\'")
+                print(f"[AutoUpdate Error]: {e}")
                 if self._window:
+                    # Muestra una ventana de alerta con el error exacto
+                    self._window.evaluate_js(f"alert('Error exacto de Python:\\n{err_msg}');")
                     self._window.evaluate_js("window.onUpdateError && window.onUpdateError();")
 
         threading.Thread(target=download_and_run, daemon=True).start()

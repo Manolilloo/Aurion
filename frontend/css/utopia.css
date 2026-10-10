@@ -4216,9 +4216,105 @@ body.mode-youtube #sites-dock {
 }
 
 /* ==========================================================================
-   MODAL DE ACTUALIZACIÓN (AURION DESIGN SYSTEM)
+   MODAL DE ACTUALIZACIÓN Y BOTÓN INDICADOR (AURION DESIGN SYSTEM)
    ========================================================================== */
 
+/* Botón líquido en la barra de navegación */
+.liquid-update-badge-btn {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: none; /* Se activa dinámicamente con JS cuando hay update */
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: 1px solid rgba(168, 85, 247, 0.45);
+  background: radial-gradient(135% 135% at 25% 20%, rgba(168, 85, 247, 0.25) 0%, rgba(124, 58, 237, 0.08) 50%, rgba(0, 0, 0, 0.5) 100%);
+  backdrop-filter: blur(14px) saturate(180%);
+  -webkit-backdrop-filter: blur(14px) saturate(180%);
+  box-shadow: 
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.6),
+    inset 0 -2px 4px 0 rgba(0, 0, 0, 0.5),
+    0 4px 12px rgba(0, 0, 0, 0.45),
+    0 0 16px rgba(168, 85, 247, 0.3);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease, border-color 0.25s ease;
+  overflow: visible;
+  user-select: none;
+  color: #c084fc;
+}
+
+.liquid-update-badge-btn.visible {
+  display: flex !important;
+}
+
+.liquid-update-badge-btn svg {
+  width: 17px;
+  height: 17px;
+  filter: drop-shadow(0 0 6px rgba(168, 85, 247, 0.6));
+}
+
+.liquid-update-glow {
+  position: absolute;
+  top: 2px;
+  left: 6px;
+  width: 14px;
+  height: 7px;
+  background: radial-gradient(ellipse at center, rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0) 80%);
+  border-radius: 50%;
+  transform: rotate(-20deg);
+  pointer-events: none;
+}
+
+.update-pulse-dot {
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  width: 9px;
+  height: 9px;
+  background: #a855f7;
+  border: 1.5px solid #05080e;
+  border-radius: 50%;
+  box-shadow: 0 0 10px #a855f7, 0 0 16px #a855f7;
+  animation: updatePulseDot 2s infinite ease-in-out;
+}
+
+@keyframes updatePulseDot {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.35);
+    opacity: 0.5;
+  }
+}
+
+.liquid-update-badge-btn:hover {
+  transform: translateY(-1px) scale(1.1);
+  border-color: rgba(192, 132, 252, 0.75);
+  box-shadow: 
+    inset 0 1px 2px 0 rgba(255, 255, 255, 0.8),
+    0 6px 20px rgba(0, 0, 0, 0.55),
+    0 0 22px rgba(168, 85, 247, 0.6);
+  color: #ffffff;
+}
+
+.liquid-update-badge-btn:active {
+  transform: translateY(1px) scale(0.95);
+}
+
+.liquid-update-badge-btn.pulse-receive {
+  animation: badgeReceiveBounce 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes badgeReceiveBounce {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.35); }
+  100% { transform: scale(1); }
+}
+
+/* Telón del modal */
 .update-modal-overlay {
   position: fixed;
   inset: 0;
@@ -4231,7 +4327,7 @@ body.mode-youtube #sites-dock {
   z-index: 99999;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: opacity 0.38s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .update-modal-overlay.active {
@@ -4239,26 +4335,33 @@ body.mode-youtube #sites-dock {
   pointer-events: auto;
 }
 
+/* Tarjeta del modal con transformaciones de vuelo hacia el botón */
 .update-modal-card {
   position: relative;
   width: 90%;
   max-width: 440px;
-  background: linear-gradient(135deg, rgba(26, 27, 38, 0.92) 0%, rgba(16, 17, 24, 0.96) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(135deg, rgba(26, 27, 38, 0.94) 0%, rgba(16, 17, 24, 0.98) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 20px;
   padding: 32px 28px;
   box-shadow: 
-    0 24px 64px -12px rgba(0, 0, 0, 0.8),
+    0 24px 64px -12px rgba(0, 0, 0, 0.85),
     0 0 0 1px rgba(255, 255, 255, 0.05),
-    0 0 40px -10px var(--accent-glow, rgba(124, 58, 237, 0.25));
-  transform: scale(0.92) translateY(12px);
-  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    0 0 45px -10px rgba(168, 85, 247, 0.35);
   overflow: hidden;
   text-align: center;
+  will-change: transform, opacity, filter;
+  transform: scale(1) translate(0px, 0px);
+  opacity: 1;
+  filter: blur(0px);
+  transition: transform 0.42s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.35s ease, filter 0.35s ease;
 }
 
-.update-modal-overlay.active .update-modal-card {
-  transform: scale(1) translateY(0);
+/* Estado cuando se minimiza hacia el botón superior o emerge desde él */
+.update-modal-card.flying-to-badge {
+  transform: translate(var(--badge-tx, 0px), var(--badge-ty, 0px)) scale(0.06) !important;
+  opacity: 0 !important;
+  filter: blur(6px) !important;
 }
 
 /* Efecto de resplandor sutil superior */

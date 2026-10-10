@@ -2297,12 +2297,89 @@ window.updateRealSizeOnly = function(taskId, totalBytes) {
 // ========================================================
 // SISTEMA DE ACTUALIZACIÓN FLUIDO (ESTILO DISCORD)
 // ========================================================
-let pendingUpdateUrl = null;
+let cachedUpdateInfo = null;
+
+function computeTrajectoryToBadge(modalCard) {
+  const badgeBtn = document.getElementById('btn-update-badge');
+  if (!badgeBtn || !modalCard) return;
+
+  const bRect = badgeBtn.getBoundingClientRect();
+  const mRect = modalCard.getBoundingClientRect();
+
+  const bCenterX = bRect.left + bRect.width / 2;
+  const bCenterY = bRect.top + bRect.height / 2;
+
+  const mCenterX = mRect.left + mRect.width / 2;
+  const mCenterY = mRect.top + mRect.height / 2;
+
+  const deltaX = bCenterX - mCenterX;
+  const deltaY = bCenterY - mCenterY;
+
+  modalCard.style.setProperty('--badge-tx', `${deltaX}px`);
+  modalCard.style.setProperty('--badge-ty', `${deltaY}px`);
+}
+
+function openUpdateModalFlyIn() {
+  const overlay = document.getElementById('aurionUpdateOverlay');
+  if (!overlay) return;
+  const card = overlay.querySelector('.update-modal-card');
+  if (!card) return;
+
+  // Calculamos la distancia hacia el botón
+  computeTrajectoryToBadge(card);
+
+  // Empieza contraído en el botón y se abre al centro
+  card.classList.add('flying-to-badge');
+  overlay.classList.add('active');
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      card.classList.remove('flying-to-badge');
+    });
+  });
+}
+
+function minimizeUpdateModalToBadge() {
+  const overlay = document.getElementById('aurionUpdateOverlay');
+  if (!overlay) return;
+  const card = overlay.querySelector('.update-modal-card');
+  const badgeBtn = document.getElementById('btn-update-badge');
+  if (!card) return;
+
+  computeTrajectoryToBadge(card);
+  card.classList.add('flying-to-badge');
+  overlay.style.opacity = '0';
+
+  setTimeout(() => {
+    overlay.classList.remove('active');
+    overlay.style.opacity = '';
+    card.classList.remove('flying-to-badge');
+
+    // Rebote sutil de recepción en el icono de la barra
+    if (badgeBtn) {
+      badgeBtn.classList.remove('pulse-receive');
+      void badgeBtn.offsetWidth; // Forzar reflow
+      badgeBtn.classList.add('pulse-receive');
+    }
+  }, 380);
+}
 
 window.onUpdateAvailable = function(info) {
+  cachedUpdateInfo = info;
+
+  // 1. Mostrar el icono con el pulso en la barra superior
+  const badgeBtn = document.getElementById('btn-update-badge');
+  if (badgeBtn) {
+    badgeBtn.classList.add('visible');
+    badgeBtn.onclick = () => {
+      if (typeof playSynth === 'function') playSynth('click');
+      openUpdateModalFlyIn();
+    };
+  }
+
+  // 2. Crear el overlay del modal si aún no existe
   let modalOverlay = document.getElementById('aurionUpdateOverlay');
   if (!modalOverlay) {
-    modalOverlay = document.createElement('div');
     modalOverlay = document.createElement('div');
     modalOverlay.id = 'aurionUpdateOverlay';
     modalOverlay.className = 'update-modal-overlay';
@@ -2341,26 +2418,28 @@ window.onUpdateAvailable = function(info) {
     `;
     document.body.appendChild(modalOverlay);
 
-    // Acción de actualizar
+    // Acción: Actualizar ahora
     const btnNow = document.getElementById('btnUpdateNow');
     btnNow.addEventListener('click', () => {
-      const targetUrl = info.url || info.download_url;
+      if (typeof playSynth === 'function') playSynth('chord');
+      const targetUrl = cachedUpdateInfo?.url || cachedUpdateInfo?.download_url || '';
       document.getElementById('updateActions').style.display = 'none';
       document.getElementById('updateDescText').textContent = 'Descargando e instalando en segundo plano...';
       document.getElementById('updateProgressContainer').style.display = 'block';
       pyCall('start_auto_update', targetUrl);
     });
 
-    // Acción de posponer ("Más tarde")
+    // Acción: Más tarde (minimiza suavemente hacia el icono de la barra)
     const btnLater = document.getElementById('btnUpdateLater');
     btnLater.addEventListener('click', () => {
-      modalOverlay.classList.remove('active');
+      if (typeof playSynth === 'function') playSynth('click');
+      minimizeUpdateModalToBadge();
     });
   }
 
-  // Activar con animación fluida
+  // Desplegar el modal por primera vez
   setTimeout(() => {
-    modalOverlay.classList.add('active');
+    openUpdateModalFlyIn();
   }, 100);
 };
 
@@ -2379,3 +2458,17 @@ window.onUpdateError = function() {
   const actions = document.getElementById('updateActions');
   if (actions) actions.style.display = 'flex';
 };
+
+document.addEventListener('DOMContentLoaded', () => {
+  const badgeBtn = document.getElementById('btn-update-badge');
+  if (badgeBtn) {
+    badgeBtn.addEventListener('click', () => {
+      // Si el modal aún no se había creado, lo creamos con datos por defecto
+      if (!document.getElementById('aurionUpdateOverlay')) {
+        window.onUpdateAvailable({ latest: '1.1.0', url: 'local_mock_update' });
+      } else {
+        openUpdateModalFlyIn();
+      }
+    });
+  }
+});
