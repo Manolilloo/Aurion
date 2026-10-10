@@ -205,8 +205,9 @@ function setStepperValue(id, val, delta) {
   if (dispEl) {
     dispEl.innerText = newVal;
     dispEl.classList.remove('anim-up', 'anim-down');
-    void dispEl.offsetWidth;
-    dispEl.classList.add(delta >= 0 ? 'anim-up' : 'anim-down');
+    requestAnimationFrame(() => {
+      dispEl.classList.add(delta >= 0 ? 'anim-up' : 'anim-down');
+    });
   }
 
   if (id === 'cfg-season') {
@@ -659,7 +660,8 @@ function applyDynamicPalette(c1, c2) {
 }
 
 function updatePoster(imgUrl, title, meta) {
-  const bgVal = imgUrl ? `url('${imgUrl}')` : 'none';
+  const hasRealImage = typeof imgUrl === 'string' && imgUrl.trim() !== '' && imgUrl !== 'none';
+  const bgVal = hasRealImage ? `url('${imgUrl}')` : 'none';
   const aL1 = document.getElementById('ambient-layer-1');
   const aL2 = document.getElementById('ambient-layer-2');
   const mPoster = document.getElementById('main-poster');
@@ -671,6 +673,23 @@ function updatePoster(imgUrl, title, meta) {
   if (mPoster) mPoster.style.backgroundImage = bgVal;
   if (pTitle) pTitle.innerText = title;
   if (pTags) pTags.innerHTML = meta;
+
+  // Blindaje: la tarjeta de bienvenida central NO se oculta jamás salvo que haya carátula real
+  const launcherCenter = document.getElementById('tour-launcher-center');
+  const posterInfo = document.getElementById('poster-info-bar');
+  if (hasRealImage) {
+    if (launcherCenter) {
+      launcherCenter.classList.add('is-hidden');
+      launcherCenter.style.display = 'none';
+    }
+    if (posterInfo) posterInfo.style.display = 'block';
+  } else {
+    if (launcherCenter) {
+      launcherCenter.classList.remove('is-hidden');
+      launcherCenter.style.display = 'flex';
+    }
+    if (posterInfo) posterInfo.style.display = 'none';
+  }
 
   modeStates[currentMode].title = title;
   modeStates[currentMode].tags = meta;
@@ -720,27 +739,7 @@ function expandCenterWorkspace() {
   }
 }
 
-function showWelcomeScreen() {
-  document.body.classList.remove('workspace-open');
-
-  const welcome = document.getElementById('welcome-card');
-  const workspace = document.getElementById('workspace-card');
-  const backdrop = document.getElementById('welcome-backdrop');
-  const guides = document.getElementById('welcome-guides');
-
-  if (workspace) {
-    workspace.classList.remove('is-active');
-    workspace.style.display = 'none';
-  }
-
-  if (welcome) {
-    welcome.classList.remove('is-hidden');
-    welcome.style.display = 'flex';
-  }
-  if (backdrop) backdrop.classList.remove('is-hidden');
-  if (guides) guides.classList.remove('is-hidden');
-  document.querySelectorAll('.hud-pointer').forEach(p => p.style.display = 'flex');
-}
+// La pantalla de bienvenida antigua queda completamente eliminada
 
 function showMatchModal(proposedItem, rawData, detectedEp) {
   const backdrop = document.getElementById('match-modal-backdrop');
@@ -1036,6 +1035,7 @@ document.addEventListener('DOMContentLoaded', () => {
       saveCurrentState();
     });
     cfgDirInput.addEventListener('input', () => {
+      if (window.__isTourDemoActive) return; // Evita saturar PyWebView durante las demos del tour
       modeStates[currentMode].dir = cfgDirInput.value;
       saveCurrentState();
     });
@@ -1161,6 +1161,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (searchInput && suggestionsBox) {
     searchInput.addEventListener('input', () => {
+      if (window.__isTourDemoSearching) return;
       clearTimeout(searchDebounceTimer);
       const query = searchInput.value.trim();
       activeSuggIndex = -1;
@@ -1633,38 +1634,726 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // ========================================================
+  // GUÍA TURÍSTICO CINEMÁTICO POR BLOQUES
+  // ========================================================
+  let currentTourStep = 0;
+  let isTourOpenFromGuided = false;
+  let isTourStartedFromCenter = false;
+  let tourDemoIntervals = [];
+  let tourSnapshot = null;
+
+  const tourSteps = [
+    {
+      id: 'extension',
+      target: '#btn-extension-helper',
+      title: '1. Extensión del Navegador',
+      desc: 'Es fundamental configurarla para capturar vídeos y enlaces con 1 solo clic.',
+      isExtensionStep: true,
+      placement: 'bottom-center'
+    },
+    {
+      id: 'modes',
+      target: '#btn-switch-mode',
+      title: '2. Selector de Modos',
+      desc: 'Alterna entre ANIME, CINE y YOUTUBE con opciones y colores adaptados (Atajo: TAB).',
+      placement: 'bottom-center'
+    },
+    {
+      id: 'sites',
+      target: '#sites-dock',
+      title: '3. Sitios Recomendados',
+      desc: 'Accesos directos a portales óptimos para ver y capturar contenido sin publicidad molesta.',
+      placement: 'bottom-left'
+    },
+    {
+      id: 'pipeline',
+      target: '.glass-box:first-child',
+      title: '4. Pipeline Activo',
+      desc: 'Tu centro de descargas: monitorea la resolución, el peso real en megabytes y el progreso en vivo.',
+      placement: 'center-modal'
+    },
+    {
+      id: 'dest_dir',
+      target: '#block-dest-dir',
+      title: '5. Destino Local',
+      desc: 'Elige la carpeta o disco de tu PC donde se guardarán todos los archivos extraídos.',
+      placement: 'left-center'
+    },
+    {
+      id: 'season_group',
+      target: '#block-season-group',
+      title: '6. Temporada y Temporada Única',
+      desc: 'Ajusta el número de temporada o activa Temporada Única para series de una sola entrega.',
+      placement: 'left-center'
+    },
+    {
+      id: 'toggles_group',
+      target: '#block-toggles-group',
+      title: '7. Portada y Apertura Automática',
+      desc: 'Guarda folder.jpg en alta resolución para Plex/Kodi y abre la carpeta al terminar la descarga.',
+      placement: 'left-center'
+    },
+    {
+      id: 'container_fmt',
+      target: '#block-container-fmt',
+      title: '8. Formato Contenedor',
+      desc: 'Selecciona si deseas empaquetar el vídeo en formato .MKV o .MP4.',
+      placement: 'left-center'
+    },
+    {
+      id: 'threads_simul',
+      target: '#block-threads-simul',
+      title: '9. Hilos y Paralelas',
+      desc: 'Acelera la descarga configurando múltiples conexiones simultáneas en paralelo.',
+      placement: 'left-center'
+    },
+    {
+      id: 'telemetry',
+      target: '#block-telemetry',
+      title: '10. Espacio en Disco',
+      desc: 'Telemetría continua del espacio disponible en tu disco para evitar quedarte sin almacenamiento.',
+      placement: 'left-center'
+    },
+    {
+      id: 'workspace_center',
+      target: '.search-container, .parallax-wrap, #main-poster',
+      title: '11. Búsqueda y Carátula Parallax',
+      desc: 'Busca con autocompletado en AniList/IMDb. Al seleccionar un título, la portada y paleta se sincronizan.',
+      placement: 'left-docked'
+    },
+    {
+      id: 'master_extraction',
+      target: '#mag-wrap',
+      title: '12. Botón Maestro de Extracción',
+      desc: 'Inicia la descarga con un clic o pulsando Espacio. Se divide elásticamente para permitir cancelar.',
+      placement: 'master-docked-left' // Pegado abajo del todo y a la izquierda del botón maestro
+    },
+    {
+      id: 'top_right',
+      target: '.nav-right-cluster',
+      title: '13. Controles y Asistencia',
+      desc: 'Vuelve a abrir este tour cuando quieras o revisa si hay actualizaciones automáticas.',
+      placement: 'bottom-right'
+    }
+  ];
+
+  const tourBackdrop = document.getElementById('tour-backdrop');
+  const tourCard = document.getElementById('tour-card');
+  const tourBadge = document.getElementById('tour-step-badge');
+  const tourTitle = document.getElementById('tour-card-title');
+  const tourDesc = document.getElementById('tour-card-desc');
+  const tourActions = document.getElementById('tour-card-actions');
+  const btnStartTour = document.getElementById('btn-start-tour');
+  const virtualCursor = document.getElementById('tour-virtual-cursor');
+
+  function stopAllTourDemos() {
+    tourDemoIntervals.forEach(i => clearInterval(i));
+    tourDemoIntervals = [];
+
+    window.__isTourDemoActive = false;
+    window.__isTourDemoSearching = false;
+
+    // Limpiar inmediatamente TODAS las clases de atenuación para que no bloqueen los eventos del siguiente paso
+    document.querySelectorAll('.tour-sub-dimmed, .tour-blurred-zone, .tour-highlighted-element, .tour-demo-anim, .tour-toggle-demo-1, .tour-toggle-demo-2, .tour-stepper-demo').forEach(el => {
+      el.classList.remove('tour-sub-dimmed', 'tour-blurred-zone', 'tour-highlighted-element', 'tour-demo-anim', 'tour-toggle-demo-1', 'tour-toggle-demo-2', 'tour-stepper-demo');
+    });
+
+    const sInput = document.getElementById('search-input');
+    if (sInput) {
+      sInput.readOnly = false;
+      sInput.value = '';
+    }
+    const suggestions = document.getElementById('search-suggestions');
+    if (suggestions) {
+      suggestions.classList.remove('active');
+      suggestions.innerHTML = '';
+    }
+
+    const splitCluster = document.getElementById('split-cluster-master');
+    if (splitCluster) {
+      splitCluster.classList.remove('is-split');
+      const mTxt = document.getElementById('mag-txt');
+      if (mTxt) mTxt.innerText = 'INICIAR EXTRACCIÓN';
+    }
+
+    const sitesDock = document.getElementById('sites-dock');
+    if (sitesDock) {
+      sitesDock.classList.remove('is-open');
+      const trigger = document.querySelector('.sites-trigger');
+      if (trigger) trigger.textContent = 'SITIOS ▶';
+    }
+
+    const switchThumb = document.querySelector('#btn-switch-mode .matrix-thumb');
+    const switchOpts = document.querySelectorAll('#btn-switch-mode .matrix-opt');
+    if (switchThumb) switchThumb.style.transform = '';
+    switchOpts.forEach(opt => opt.classList.toggle('active', opt.id === `mode-${currentMode}`));
+
+    // Restaurar los valores reales del usuario en el panel derecho
+    const state = modeStates[currentMode];
+    if (state) {
+      const cfgSave = document.getElementById('cfg-save-cover');
+      const cfgOpen = document.getElementById('cfg-open-folder');
+      const cfgDir = document.getElementById('cfg-dir');
+      if (cfgSave) cfgSave.checked = state.saveCover !== false;
+      if (cfgOpen) cfgOpen.checked = state.openFolder !== false;
+      if (cfgDir) cfgDir.value = state.dir || '';
+      setStepperValue('cfg-season', state.season || 1, 0);
+      applyChipsState(state);
+    }
+  }
+
+  function clearTourHighlights() {
+    stopAllTourDemos();
+    document.body.classList.remove('tour-running-active');
+  }
+
+  function applySelectiveBlur(activeEls) {
+    document.body.classList.add('tour-running-active');
+    const allPanels = document.querySelectorAll('.glass-box, .center-stage, .top-nav');
+
+    const firstTarget = activeEls[0];
+    const settingsArea = document.querySelector('.settings-area');
+    const isTargetInsideSettings = settingsArea && firstTarget && settingsArea.contains(firstTarget);
+    const isWorkspaceCenter = currentTourStep === 10;
+
+    if (firstTarget && tourBackdrop) {
+      const rect = firstTarget.getBoundingClientRect();
+      let centerX = rect.left + rect.width / 2;
+      let centerY = rect.top + rect.height / 2;
+      let dynamicRadius = Math.max(380, Math.max(rect.width, rect.height) * 0.78);
+
+      if (isWorkspaceCenter) {
+        // Spotlight amplio que cubre a la vez buscador y póster central sin sombras agresivas
+        const centerStage = document.getElementById('center-stage');
+        if (centerStage) {
+          const stageRect = centerStage.getBoundingClientRect();
+          centerX = stageRect.left + stageRect.width / 2;
+          centerY = stageRect.top + stageRect.height / 2;
+          dynamicRadius = Math.max(540, stageRect.height * 0.65);
+        }
+      } else if (isTargetInsideSettings) {
+        dynamicRadius = Math.max(220, Math.max(rect.width, rect.height) * 0.75);
+      }
+
+      tourBackdrop.style.setProperty('--spot-x', `${centerX}px`);
+      tourBackdrop.style.setProperty('--spot-y', `${centerY}px`);
+      tourBackdrop.style.setProperty('--spot-r', `${dynamicRadius}px`);
+    }
+
+    allPanels.forEach(panel => {
+      let isInsideActive = false;
+      activeEls.forEach(target => {
+        if (panel === target || panel.contains(target) || target.contains(panel)) {
+          isInsideActive = true;
+        }
+      });
+      // Si el objetivo está dentro de la consola derecha, la caja padre no se desenfoca para poder ver el bloque nítido
+      if (isTargetInsideSettings && panel.contains(firstTarget)) {
+        panel.classList.remove('tour-blurred-zone');
+      } else if (!isInsideActive) {
+        panel.classList.add('tour-blurred-zone');
+      } else {
+        panel.classList.remove('tour-blurred-zone');
+      }
+    });
+
+    // Enfoque estricto en el bloque de Ingeniería Multimedia: desenfoca y atenúa todos los demás bloques
+    if (settingsArea) {
+      Array.from(settingsArea.children).forEach(child => {
+        const isChildActive = activeEls.some(t => child === t || child.contains(t));
+        if (isTargetInsideSettings) {
+          if (!isChildActive) {
+            child.classList.add('tour-sub-dimmed');
+            child.classList.remove('tour-highlighted-element');
+          } else {
+            child.classList.remove('tour-sub-dimmed');
+            child.classList.add('tour-highlighted-element');
+          }
+        } else {
+          child.classList.remove('tour-sub-dimmed');
+        }
+      });
+    }
+  }
+
+  function positionTourCard(targetEl, placement) {
+    if (!tourCard) return;
+    const cardWidth = Math.min(390, window.innerWidth * 0.9);
+    const cardHeight = 210;
+
+    let top = 100;
+    let left = 100;
+
+    if (placement === 'master-docked-left') {
+      // Ubica la ventana abajo del todo, alineada en vertical con el botón y a su izquierda
+      const magWrap = document.getElementById('mag-wrap');
+      if (magWrap) {
+        const magRect = magWrap.getBoundingClientRect();
+        top = Math.max(20, magRect.bottom - cardHeight);
+        left = Math.max(30, magRect.left - cardWidth - 28);
+      } else {
+        top = window.innerHeight - cardHeight - 30;
+        left = 40;
+      }
+    } else if (placement === 'bottom-docked') {
+      top = window.innerHeight - cardHeight - 24;
+      left = window.innerWidth / 2 - cardWidth / 2;
+    } else if (placement === 'left-docked') {
+      top = 160;
+      left = 40;
+    } else if (placement === 'center-modal') {
+      top = window.innerHeight / 2 - cardHeight / 2;
+      left = window.innerWidth / 2 - cardWidth / 2;
+    } else if (targetEl) {
+      const rect = targetEl.getBoundingClientRect();
+      if (placement === 'left-center') {
+        top = Math.max(80, rect.top + rect.height / 2 - cardHeight / 2);
+        left = Math.max(20, rect.left - cardWidth - 24);
+      } else if (placement === 'bottom-right') {
+        top = rect.bottom + 16;
+        left = Math.max(20, rect.right - cardWidth);
+      } else if (placement === 'bottom-left') {
+        top = rect.bottom + 16;
+        left = Math.max(20, rect.left);
+      } else {
+        top = rect.bottom + 16;
+        left = rect.left + rect.width / 2 - cardWidth / 2;
+      }
+    }
+
+    if (top + cardHeight > window.innerHeight - 20) {
+      top = Math.max(20, window.innerHeight - cardHeight - 30);
+    }
+    if (left < 20) left = 20;
+    if (left + cardWidth > window.innerWidth - 20) {
+      left = window.innerWidth - cardWidth - 20;
+    }
+
+    tourCard.style.top = `${top}px`;
+    tourCard.style.left = `${left}px`;
+  }
+
+  function startStepInteractiveDemo(stepId) {
+    if (stepId === 'modes') {
+      const switchThumb = document.querySelector('#btn-switch-mode .matrix-thumb');
+      const switchOpts = document.querySelectorAll('#btn-switch-mode .matrix-opt');
+      if (switchThumb) {
+        let modeIdx = 0;
+        const interval = setInterval(() => {
+          modeIdx = (modeIdx + 1) % 3;
+          switchThumb.style.setProperty('transform', `translateX(${modeIdx * 100}%)`, 'important');
+          switchOpts.forEach((opt, idx) => {
+            opt.classList.toggle('active', idx === modeIdx);
+          });
+        }, 900);
+        tourDemoIntervals.push(interval);
+      }
+    } else if (stepId === 'sites') {
+      const dock = document.getElementById('sites-dock');
+      const trigger = document.querySelector('.sites-trigger');
+      if (dock && trigger) {
+        let state = false;
+        const interval = setInterval(() => {
+          state = !state;
+          dock.classList.toggle('is-open', state);
+          trigger.textContent = state ? 'SITIOS ▼' : 'SITIOS ▶';
+        }, 1400);
+        tourDemoIntervals.push(interval);
+      }
+    } else if (stepId === 'dest_dir') {
+      const input = document.getElementById('cfg-dir');
+      const btnBrowse = document.getElementById('btn-browse-dir');
+      if (input) {
+        window.__isTourDemoActive = true;
+        const demoPath = 'D:\\Anime\\Aurion Downloads';
+        let charIdx = 0;
+        let isDeleting = false;
+        input.value = '';
+        const interval = setInterval(() => {
+          if (!input || currentTourStep !== 4) return;
+          if (!isDeleting) {
+            charIdx += 2;
+            input.value = demoPath.substring(0, Math.min(demoPath.length, charIdx));
+            if (charIdx >= demoPath.length + 6) isDeleting = true;
+          } else {
+            charIdx -= 2;
+            input.value = demoPath.substring(0, Math.max(0, charIdx));
+            if (charIdx <= 0) isDeleting = false;
+          }
+        }, 70);
+        tourDemoIntervals.push(interval);
+        btnBrowse?.classList.add('tour-demo-anim');
+      }
+    } else if (stepId === 'season_group') {
+      let count = 1;
+      let inc = true;
+      const toggle = document.getElementById('cfg-single-season');
+      const interval = setInterval(() => {
+        if (inc) {
+          count++;
+          if (count >= 4) inc = false;
+        } else {
+          count--;
+          if (count <= 1) inc = true;
+        }
+        setStepperValue('cfg-season', count, 0);
+        if (toggle && count === 1) {
+          toggle.checked = !toggle.checked;
+          document.body.classList.toggle('is-single-season', toggle.checked);
+        }
+      }, 650);
+      tourDemoIntervals.push(interval);
+    } else if (stepId === 'toggles_group') {
+      const i1 = setInterval(() => {
+        const c1 = document.getElementById('cfg-save-cover');
+        if (c1) c1.checked = !c1.checked;
+      }, 700);
+      const i2 = setInterval(() => {
+        const c2 = document.getElementById('cfg-open-folder');
+        if (c2) c2.checked = !c2.checked;
+      }, 950);
+      tourDemoIntervals.push(i1, i2);
+    } else if (stepId === 'container_fmt') {
+      const fmtGroup = document.querySelector('.chip-group[data-cfg="fmt"]');
+      const btnsFmt = fmtGroup?.querySelectorAll('.chip-btn');
+      let iFmt = 0;
+      const i1 = setInterval(() => {
+        if (btnsFmt && btnsFmt.length) {
+          iFmt = (iFmt + 1) % btnsFmt.length;
+          btnsFmt[iFmt].click();
+        }
+      }, 800);
+      tourDemoIntervals.push(i1);
+    } else if (stepId === 'threads_simul') {
+      const thrGroup = document.querySelector('.chip-group[data-cfg="threads"]');
+      const simGroup = document.querySelector('.chip-group[data-cfg="simul"]');
+      const btnsThr = thrGroup?.querySelectorAll('.chip-btn');
+      const btnsSim = simGroup?.querySelectorAll('.chip-btn');
+      let iThr = 0;
+      let iSim = 0;
+      const i1 = setInterval(() => {
+        if (btnsThr && btnsThr.length) {
+          iThr = (iThr + 1) % btnsThr.length;
+          btnsThr[iThr].click();
+        }
+      }, 850);
+      const i2 = setInterval(() => {
+        if (btnsSim && btnsSim.length) {
+          iSim = (iSim + 1) % btnsSim.length;
+          btnsSim[iSim].click();
+        }
+      }, 1150);
+      tourDemoIntervals.push(i1, i2);
+    } else if (stepId === 'workspace_center') {
+      window.__isTourDemoSearching = true;
+      const sInput = document.getElementById('search-input');
+      const suggestions = document.getElementById('search-suggestions');
+      const mainPoster = document.getElementById('main-poster');
+      const tourLauncher = document.getElementById('tour-launcher-center');
+      const posterInfo = document.getElementById('poster-info-bar');
+
+      if (sInput && mainPoster) {
+        sInput.readOnly = true;
+        const demoQuery = 'One Piece';
+        let charIdx = 0;
+
+        // Portada oficial One Piece en alta definición precargada
+        const onePieceImg = 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/nx21-t4mDgIxGQycS.jpg';
+        const imgPreload = new Image();
+        imgPreload.src = onePieceImg;
+
+        const typeInterval = setInterval(() => {
+          if (charIdx <= demoQuery.length) {
+            sInput.value = demoQuery.substring(0, charIdx);
+            charIdx++;
+          } else {
+            clearInterval(typeInterval);
+            if (suggestions) {
+              // Lista con múltiples sugerencias reales enriquecidas
+              suggestions.innerHTML = `
+                <div class="sugg-item selected" id="sugg-op-main">
+                  <div class="sugg-thumb" style="background-image: url('${onePieceImg}');"></div>
+                  <div class="sugg-info">
+                    <div class="sugg-title">One Piece</div>
+                    <div class="sugg-meta">EN EMISIÓN • ★ 8.8</div>
+                  </div>
+                </div>
+                <div class="sugg-item" style="opacity: 0.65;">
+                  <div class="sugg-thumb" style="background-image: url('https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx163270-YgPq1T2G254w.jpg');"></div>
+                  <div class="sugg-info">
+                    <div class="sugg-title">One Piece: Fan Letter</div>
+                    <div class="sugg-meta">ESPECIAL • ★ 9.1</div>
+                  </div>
+                </div>
+                <div class="sugg-item" style="opacity: 0.55;">
+                  <div class="sugg-thumb" style="background-image: url('https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx141159-Qk05H1WjPz9P.jpg');"></div>
+                  <div class="sugg-info">
+                    <div class="sugg-title">One Piece Film Red</div>
+                    <div class="sugg-meta">PELÍCULA • ★ 7.8</div>
+                  </div>
+                </div>
+              `;
+              suggestions.classList.add('active');
+
+              // Selección automática tras mostrar la lista desplegable
+              setTimeout(() => {
+                const selectedItem = document.getElementById('sugg-op-main');
+                if (selectedItem) selectedItem.style.background = 'rgba(255, 214, 10, 0.18)';
+
+                setTimeout(() => {
+                  suggestions.classList.remove('active');
+                  suggestions.innerHTML = '';
+                  if (tourLauncher) tourLauncher.style.display = 'none';
+                  if (posterInfo) posterInfo.style.display = 'block';
+
+                  // Aplicación real directa al póster central para evitar cuadro negro
+                  mainPoster.style.backgroundImage = `url('${onePieceImg}')`;
+                  const aL1 = document.getElementById('ambient-layer-1');
+                  const aL2 = document.getElementById('ambient-layer-2');
+                  if (aL1) aL1.style.backgroundImage = `url('${onePieceImg}')`;
+                  if (aL2) aL2.style.backgroundImage = `url('${onePieceImg}')`;
+
+                  updatePoster(onePieceImg, 'One Piece', 'EN EMISIÓN • ★ 8.8');
+                  setUnifiedTitle('One Piece');
+                  
+                  // Paleta vibrante característica de One Piece (Rojo / Dorado Cálido)
+                  applyDynamicPalette('rgb(255, 60, 60)', 'rgb(255, 175, 0)');
+
+                  // Demostración Parallax tridimensional activa
+                  let deg = 0;
+                  const parallaxInterval = setInterval(() => {
+                    deg = (deg + 2.5) % 360;
+                    const tiltX = Math.sin(deg * Math.PI / 180) * 7;
+                    const tiltY = Math.cos(deg * Math.PI / 180) * 7;
+                    mainPoster.style.transform = `rotateX(${tiltX}deg) rotateY(${tiltY}deg) scale(1.03)`;
+                  }, 30);
+                  tourDemoIntervals.push(parallaxInterval);
+                }, 500);
+              }, 700);
+            }
+          }
+        }, 65);
+        tourDemoIntervals.push(typeInterval);
+      }
+    } else if (stepId === 'master_extraction') {
+      const splitCluster = document.getElementById('split-cluster-master');
+      if (splitCluster) {
+        let splitState = false;
+        const splitInterval = setInterval(() => {
+          splitState = !splitState;
+          splitCluster.classList.toggle('is-split', splitState);
+          const mTxt = document.getElementById('mag-txt');
+          if (mTxt) mTxt.innerText = splitState ? 'DESCARGANDO...' : 'INICIAR EXTRACCIÓN';
+        }, 1200);
+        tourDemoIntervals.push(splitInterval);
+      }
+    }
+  }
+
+  function renderTourStep(stepIdx) {
+    clearTourHighlights();
+    const step = tourSteps[stepIdx];
+    if (!step) {
+      endTour(true);
+      return;
+    }
+
+    currentTourStep = stepIdx;
+    if (tourBadge) tourBadge.textContent = `PASO ${stepIdx + 1} DE ${tourSteps.length}`;
+    if (tourTitle) tourTitle.textContent = step.title;
+    if (tourDesc) tourDesc.textContent = step.desc;
+
+    let targetEls = [];
+    try {
+      targetEls = document.querySelectorAll(step.target);
+      targetEls.forEach(el => el.classList.add('tour-highlighted-element'));
+      applySelectiveBlur(targetEls);
+    } catch (e) {
+      console.warn('[Tour] Fallo localizando objetivo:', e);
+    }
+
+    const firstTarget = targetEls[0] || document.body;
+    try {
+      positionTourCard(firstTarget, step.placement);
+    } catch (e) {
+      console.warn('[Tour] Fallo posicionando tarjeta:', e);
+    }
+
+    try {
+      startStepInteractiveDemo(step.id);
+    } catch (e) {
+      console.warn('[Tour] Fallo en demo interactiva:', e);
+    }
+
+    if (tourActions) {
+      tourActions.innerHTML = '';
+
+      const isExtConfigured = localStorage.getItem('aurion_extension_configured') === 'true';
+
+      if (step.isExtensionStep && !isExtConfigured) {
+        const btnConfigure = document.createElement('button');
+        btnConfigure.className = 'btn-tour-primary';
+        btnConfigure.textContent = 'Configurar extensión 🧩';
+        btnConfigure.addEventListener('click', () => {
+          isTourOpenFromGuided = true;
+          document.body.classList.add('tour-extension-locked');
+          tourCard?.classList.remove('active');
+          tourBackdrop?.classList.remove('active');
+          clearTourHighlights();
+          document.getElementById('btn-extension-helper')?.click();
+        });
+
+        const btnLater = document.createElement('button');
+        btnLater.className = 'btn-tour-secondary';
+        btnLater.textContent = 'Más tarde ➔';
+        btnLater.addEventListener('click', () => {
+          renderTourStep(stepIdx + 1);
+        });
+
+        tourActions.appendChild(btnLater);
+        tourActions.appendChild(btnConfigure);
+      } else {
+        if (stepIdx > 0) {
+          const btnPrev = document.createElement('button');
+          btnPrev.className = 'btn-tour-secondary';
+          btnPrev.textContent = 'Anterior';
+          btnPrev.addEventListener('click', () => {
+            stopAllTourDemos();
+            renderTourStep(stepIdx - 1);
+          });
+          tourActions.appendChild(btnPrev);
+        }
+
+        const btnNext = document.createElement('button');
+        btnNext.className = 'btn-tour-primary';
+        btnNext.textContent = stepIdx === tourSteps.length - 1 ? '¡Finalizar Tour! 🎉' : 'Siguiente ➔';
+        btnNext.addEventListener('click', () => {
+          stopAllTourDemos();
+          if (stepIdx === tourSteps.length - 1) {
+            endTour(true);
+          } else {
+            renderTourStep(stepIdx + 1);
+          }
+        });
+        tourActions.appendChild(btnNext);
+      }
+    }
+
+    tourBackdrop?.classList.add('active');
+    tourCard?.classList.add('active');
+  }
+
+  function startTour(fromCenter = false) {
+    isTourStartedFromCenter = fromCenter;
+    
+    // Captura snapshot del estado real antes de iniciar el tour
+    tourSnapshot = {
+      title: modeStates[currentMode]?.title || 'Esperando consulta...',
+      tags: modeStates[currentMode]?.tags || 'SISTEMA LISTO',
+      bg: modeStates[currentMode]?.bg || '',
+      accent1: modeStates[currentMode]?.accent1 || '#ffd60a',
+      accent2: modeStates[currentMode]?.accent2 || '#ffb703',
+      dir: modeStates[currentMode]?.dir || '',
+      season: modeStates[currentMode]?.season || 1
+    };
+
+    expandCenterWorkspace();
+
+    const launcherCenter = document.getElementById('tour-launcher-center');
+    const stateBg = modeStates[currentMode]?.bg;
+    const hasRealCover = typeof stateBg === 'string' && stateBg !== '' && stateBg !== 'none';
+
+    if (launcherCenter) {
+      launcherCenter.style.display = hasRealCover ? 'none' : 'flex';
+    }
+
+    const finishCard = document.getElementById('tour-finished-card');
+    if (finishCard) finishCard.style.display = 'none';
+
+    renderTourStep(0);
+  }
+
+  function endTour(isFinished = false) {
+    clearTourHighlights();
+    tourBackdrop?.classList.remove('active');
+    tourCard?.classList.remove('active');
+    document.body.classList.remove('tour-extension-locked');
+    isTourOpenFromGuided = false;
+
+    // Restauración fiel del 100% del estado previo al tour
+    if (tourSnapshot) {
+      modeStates[currentMode].title = tourSnapshot.title;
+      modeStates[currentMode].tags = tourSnapshot.tags;
+      modeStates[currentMode].bg = tourSnapshot.bg;
+      modeStates[currentMode].dir = tourSnapshot.dir;
+      modeStates[currentMode].season = tourSnapshot.season;
+
+      const mPoster = document.getElementById('main-poster');
+      const aL1 = document.getElementById('ambient-layer-1');
+      const aL2 = document.getElementById('ambient-layer-2');
+      const posterInfo = document.getElementById('poster-info-bar');
+      const launcherCenter = document.getElementById('tour-launcher-center');
+      const finishCard = document.getElementById('tour-finished-card');
+
+      if (mPoster) {
+        mPoster.style.backgroundImage = tourSnapshot.bg;
+        mPoster.style.transform = '';
+      }
+      if (aL1) aL1.style.backgroundImage = tourSnapshot.bg;
+      if (aL2) aL2.style.backgroundImage = tourSnapshot.bg;
+
+      const hasRealCover = typeof tourSnapshot.bg === 'string' && tourSnapshot.bg !== '' && tourSnapshot.bg !== 'none';
+
+      if (hasRealCover) {
+        if (posterInfo) posterInfo.style.display = 'block';
+        if (launcherCenter) launcherCenter.style.display = 'none';
+      } else {
+        if (posterInfo) posterInfo.style.display = 'none';
+        if (launcherCenter) {
+          launcherCenter.classList.remove('is-hidden');
+          launcherCenter.style.display = 'flex';
+        }
+      }
+
+      applyDynamicPalette(tourSnapshot.accent1, tourSnapshot.accent2);
+
+      if (isFinished && isTourStartedFromCenter && !hasRealCover) {
+        if (launcherCenter) launcherCenter.style.display = 'none';
+        if (finishCard) finishCard.style.display = 'flex';
+      } else if (finishCard) {
+        finishCard.style.display = 'none';
+      }
+    }
+  }
+
+  // Listener para el botón de configurar extensión dentro de la tarjeta final
+  document.getElementById('btn-tour-finish-ext')?.addEventListener('click', () => {
+    isTourOpenFromGuided = true;
+    document.body.classList.add('tour-extension-locked');
+    document.getElementById('btn-extension-helper')?.click();
+  });
+
+  document.getElementById('btn-tour-finish-close')?.addEventListener('click', () => {
+    const finishCard = document.getElementById('tour-finished-card');
+    if (finishCard) finishCard.style.display = 'none';
+    document.getElementById('tour-launcher-center')?.classList.remove('is-hidden');
+  });
+
+  btnStartTour?.addEventListener('click', () => {
+    if (typeof playSynth === 'function') playSynth('chord');
+    startTour(true); // Iniciado desde el centro (usuario nuevo)
+  });
+
+  document.getElementById('tour-btn-skip')?.addEventListener('click', () => endTour(false));
+
   const btnHelp = document.getElementById('win-help');
   btnHelp?.classList.add('pulse-attention');
 
   btnHelp?.addEventListener('click', () => {
     if (typeof playSynth === 'function') playSynth('click');
     btnHelp.classList.remove('pulse-attention');
-
-    if (currentMode === 'youtube') {
-      const ytCard = document.getElementById('yt-welcome-card');
-      const ytBackdrop = document.getElementById('yt-tutorial-backdrop');
-      if (ytCard) {
-        const isShown = ytCard.style.display === 'flex';
-        ytCard.style.display = isShown ? 'none' : 'flex';
-        if (ytBackdrop) {
-          if (isShown) {
-            ytBackdrop.classList.remove('active');
-          } else {
-            ytBackdrop.classList.add('active');
-          }
-        }
-      }
-      return;
-    }
-
-    const isWelcomeOpen = !document.getElementById('welcome-card')?.classList.contains('is-hidden') && 
-                          document.getElementById('welcome-card')?.style.display !== 'none';
-
-    if (isWelcomeOpen) {
-      expandCenterWorkspace();
-    } else {
-      showWelcomeScreen();
-    }
+    startTour(false); // Iniciado desde arriba a la derecha (no resetea)
   });
 
   const closeYtTutorial = () => {
@@ -1677,29 +2366,22 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('yt-tutorial-close-btn')?.addEventListener('click', closeYtTutorial);
   document.getElementById('yt-tutorial-backdrop')?.addEventListener('click', closeYtTutorial);
 
-  const welcomeBackdrop = document.getElementById('welcome-backdrop');
-  welcomeBackdrop?.addEventListener('click', () => {
-    if (typeof playSynth === 'function') playSynth('click');
-    expandCenterWorkspace();
-  });
-
   document.addEventListener('click', (e) => {
-    const isWelcomeOpen = !document.body.classList.contains('workspace-open') && currentMode !== 'youtube';
-    if (isWelcomeOpen) {
-      const clickedBlurredPanel = e.target.closest('#cockpit-grid .glass-box');
-      if (clickedBlurredPanel) {
-        if (typeof playSynth === 'function') playSynth('click');
-        expandCenterWorkspace();
-        return;
-      }
-    }
-
     if (e.target.closest('#poster-help-trigger')) {
       btnHelp?.click();
     }
   });
 
   window.addEventListener('keydown', (e) => {
+    // Si el asistente de extensión está abierto en modo guiado, BLOQUEAR TAB y ESPACIO por completo
+    if (document.body.classList.contains('tour-extension-locked')) {
+      if (e.key === 'Tab' || e.code === 'Space' || e.key === ' ') {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+    }
+
     const isModalOpen = document.getElementById('match-modal-backdrop')?.classList.contains('active');
     if (isModalOpen) return;
 
@@ -2444,6 +3126,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const extModalOverlay = document.getElementById('ext-modal-overlay');
   const btnExtClose = document.getElementById('ext-modal-close');
   const btnExtDone = document.getElementById('btn-ext-done');
+  const extActionsBox = document.getElementById('ext-modal-actions-box');
   const browserChips = document.querySelectorAll('.ext-browser-chip');
   const mockUrlText = document.getElementById('mock-url-text');
 
@@ -2460,9 +3143,26 @@ document.addEventListener('DOMContentLoaded', () => {
   let selectedBrowserKey = 'brave';
   let selectedBrowserUrl = 'brave://extensions';
 
+  let isStep1Done = false;
+  let isStep2Done = false;
+  let isStep3Done = false;
+
+  function checkStepsCompletion() {
+    if (isStep1Done && isStep2Done && isStep3Done) {
+      if (extActionsBox) {
+        extActionsBox.classList.remove('is-hidden');
+      }
+    } else {
+      if (extActionsBox) {
+        extActionsBox.classList.add('is-hidden');
+      }
+    }
+  }
+
   function activateStep(stepNum) {
     [cardStep1, cardStep2, cardStep3].forEach(c => c?.classList.remove('is-active-step'));
     if (stepNum === 1) {
+      cardStep1?.classList.remove('is-pending-step');
       cardStep1?.classList.add('is-active-step');
       cardStep2?.classList.add('is-pending-step');
       cardStep3?.classList.add('is-pending-step');
@@ -2470,10 +3170,14 @@ document.addEventListener('DOMContentLoaded', () => {
       cardStep1?.classList.remove('is-pending-step');
       cardStep2?.classList.remove('is-pending-step');
       cardStep2?.classList.add('is-active-step');
+      cardStep3?.classList.add('is-pending-step');
     } else if (stepNum === 3) {
+      cardStep1?.classList.remove('is-pending-step');
+      cardStep2?.classList.remove('is-pending-step');
       cardStep3?.classList.remove('is-pending-step');
       cardStep3?.classList.add('is-active-step');
     }
+    checkStepsCompletion();
   }
 
   // Comprueba qué navegadores están realmente instalados y apaga los inexistentes
@@ -2497,7 +3201,6 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         });
 
-        // Si el navegador seleccionado por defecto no existe, conmutar al primero que sí exista
         const currentSelected = document.querySelector('.ext-browser-chip.active');
         if (currentSelected && currentSelected.classList.contains('is-disabled') && firstAvailableChip) {
           firstAvailableChip.click();
@@ -2511,6 +3214,10 @@ document.addEventListener('DOMContentLoaded', () => {
   if (btnExtHelper && extModalOverlay) {
     btnExtHelper.addEventListener('click', () => {
       if (typeof playSynth === 'function') playSynth('click');
+      isStep1Done = false;
+      isStep2Done = false;
+      isStep3Done = false;
+      checkStepsCompletion();
       activateStep(1);
       extModalOverlay.classList.add('active');
       checkAndApplyBrowserAvailability();
@@ -2535,6 +3242,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Si el usuario cambia de navegador tras haber abierto uno, resetear al Paso 1
+        isStep1Done = false;
+        isStep2Done = false;
+        isStep3Done = false;
         if (btnActionStep1) {
           btnActionStep1.classList.remove('is-completed');
           btnActionStep1.innerHTML = '<span>Copiar y abrir ventana ➔</span>';
@@ -2556,30 +3266,38 @@ document.addEventListener('DOMContentLoaded', () => {
       pyCall('launch_browser_for_extension', selectedBrowserUrl, selectedBrowserKey);
       btnActionStep1.classList.add('is-completed');
       btnActionStep1.innerHTML = '✔ Navegador abierto';
+      isStep1Done = true;
       activateStep(2);
     });
 
-    // Paso 2: Confirmar interruptor de desarrollador
+    // Paso 2: Confirmar interruptor de desarrollador (bloqueado si el Paso 1 no está hecho)
     btnActionStep2?.addEventListener('click', () => {
+      if (!isStep1Done) return;
       if (typeof playSynth === 'function') playSynth('click');
       btnActionStep2.classList.add('is-completed');
       btnActionStep2.innerHTML = '✔ Modo activado';
+      isStep2Done = true;
       activateStep(3);
     });
 
-    // Paso 3: Abrir carpeta para arrastrar (transición fluida al botón Reabrir)
-    btnActionStep3?.addEventListener('click', () => {
+    // Paso 3: Abrir carpeta para arrastrar (bloqueado si Paso 1 y Paso 2 no están hechos)
+    btnActionStep3?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (!isStep1Done || !isStep2Done) return;
       if (typeof playSynth === 'function') playSynth('chord');
-      pyCall('open_extension_folder');
+      try { pyCall('open_extension_folder'); } catch (err) { console.error(err); }
+      isStep3Done = true;
       if (step3SwapBox) {
         step3SwapBox.classList.add('folder-opened');
       }
+      checkStepsCompletion();
     });
 
     // Botón dedicado para volver a abrir la carpeta en cualquier momento
-    btnReopenFolder?.addEventListener('click', () => {
+    btnReopenFolder?.addEventListener('click', (e) => {
+      e.stopPropagation();
       if (typeof playSynth === 'function') playSynth('click');
-      pyCall('open_extension_folder');
+      try { pyCall('open_extension_folder'); } catch (err) { console.error(err); }
       btnReopenFolder.classList.remove('pulse-receive');
       void btnReopenFolder.offsetWidth;
       btnReopenFolder.classList.add('pulse-receive');
@@ -2588,6 +3306,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const closeExtModal = () => {
       if (typeof playSynth === 'function') playSynth('click');
       extModalOverlay.classList.remove('active');
+      document.body.classList.remove('tour-extension-locked');
+
       setTimeout(() => {
         if (btnActionStep1) {
           btnActionStep1.classList.remove('is-completed');
@@ -2600,15 +3320,42 @@ document.addEventListener('DOMContentLoaded', () => {
         if (step3SwapBox) {
           step3SwapBox.classList.remove('folder-opened');
         }
+        isStep1Done = false;
+        isStep2Done = false;
+        isStep3Done = false;
+        checkStepsCompletion();
         activateStep(1);
-      }, 350);
+
+        // Restaurar estado visual del launcher central
+        const launcherCenter = document.getElementById('tour-launcher-center');
+        if (launcherCenter && (!modeStates[currentMode].bg || modeStates[currentMode].bg === 'none')) {
+          launcherCenter.classList.remove('is-hidden');
+          launcherCenter.style.display = 'flex';
+        }
+
+        if (isTourOpenFromGuided) {
+          isTourOpenFromGuided = false;
+          renderTourStep(1);
+        }
+      }, 200);
     };
 
     if (btnExtClose) btnExtClose.addEventListener('click', closeExtModal);
-    if (btnExtDone) btnExtDone.addEventListener('click', closeExtModal);
+    if (btnExtDone) {
+      btnExtDone.addEventListener('click', () => {
+        localStorage.setItem('aurion_extension_configured', 'true');
+        closeExtModal();
+      });
+    }
 
     extModalOverlay.addEventListener('click', (e) => {
       if (e.target === extModalOverlay) closeExtModal();
+    });
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && extModalOverlay.classList.contains('active')) {
+        closeExtModal();
+      }
     });
   }
 });

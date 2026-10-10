@@ -659,19 +659,59 @@ start "" "{app_exe_path}"
         return True
 
     def open_extension_folder(self):
-        """Abre el explorador de Windows resaltando la carpeta extension."""
+        """Abre la carpeta raíz de Aurion con la carpeta 'extension' seleccionada y resaltada."""
         def _worker():
             try:
-                import sys, os, subprocess
+                import sys, os, subprocess, ctypes
+                from ctypes import wintypes
+
                 if getattr(sys, 'frozen', False):
                     base_dir = os.path.dirname(sys.executable)
                 else:
                     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                ext_dir = os.path.normpath(os.path.join(base_dir, "extension"))
-                if os.path.exists(ext_dir):
-                    subprocess.Popen(f'explorer /select,"{ext_dir}"')
+
+                ext_dir = os.path.abspath(os.path.join(base_dir, "extension"))
+                if not os.path.exists(ext_dir):
+                    os.makedirs(ext_dir, exist_ok=True)
+
+                # Método 1 (Nativo de Windows API: Shell32): Infalible, abre Aurion y marca 'extension'
+                opened = False
+                try:
+                    shell32 = ctypes.windll.shell32
+                    ole32 = ctypes.windll.ole32
+
+                    ole32.CoInitialize(None)
+
+                    # Obtener el ITEMIDLIST (PIDL) de la carpeta extension
+                    ILCreateFromPathW = shell32.ILCreateFromPathW
+                    ILCreateFromPathW.argtypes = [wintypes.LPCWSTR]
+                    ILCreateFromPathW.restype = ctypes.c_void_p
+
+                    pidl = ILCreateFromPathW(ext_dir)
+                    if pidl:
+                        SHOpenFolderAndSelectItems = shell32.SHOpenFolderAndSelectItems
+                        SHOpenFolderAndSelectItems.argtypes = [ctypes.c_void_p, wintypes.UINT, ctypes.c_void_p, wintypes.DWORD]
+                        SHOpenFolderAndSelectItems.restype = ctypes.HRESULT
+
+                        # Le pide directamente al shell de Windows que abra la carpeta padre y seleccione el item
+                        hr = SHOpenFolderAndSelectItems(pidl, 0, None, 0)
+                        shell32.ILFree(pidl)
+                        if hr == 0:
+                            opened = True
+                    ole32.CoUninitialize()
+                except Exception as ex:
+                    print(f"[Core] Fallo en SHOpenFolderAndSelectItems: {ex}")
+
+                # Método 2 (Fallback estándar de Windows con explorer.exe):
+                if not opened:
+                    # explorer.exe requiere que la ruta use barras invertidas estrictas de Windows
+                    win_path = ext_dir.replace("/", "\\")
+                    cmd = f'explorer.exe /select,"{win_path}"'
+                    subprocess.Popen(cmd, shell=True)
+
             except Exception as e:
-                print(f"[Core] Error abriendo carpeta extension: {e}")
+                print(f"[Core] Error abriendo y seleccionando carpeta extension: {e}")
+
         threading.Thread(target=_worker, daemon=True).start()
         return True
 

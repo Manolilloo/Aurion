@@ -1,5 +1,15 @@
 import os
 import sys
+
+# Sincronización nativa a los Hz del monitor (165 Hz) sin saturar la CPU
+os.environ['WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS'] = (
+    '--enable-gpu-rasterization '
+    '--enable-zero-copy '
+    '--ignore-gpu-blocklist '
+    '--canvas-oop-rasterization '
+    '--enable-features=VaapiVideoDecoder'
+)
+
 import webview
 from core.bridge import AurionBridge
 
