@@ -534,7 +534,7 @@ class AurionBridge:
         def download_and_run():
             try:
                 temp_dir = tempfile.gettempdir()
-                installer_path = os.path.join(temp_dir, "aurion_patch.exe")
+                installer_path = os.path.join(temp_dir, "aurion_payload.bin")
                 bat_path = os.path.join(temp_dir, "aurion_restart.bat")
 
                 # Ruta donde se instala la app en modo usuario
@@ -561,8 +561,8 @@ class AurionBridge:
 
                 # Crear script batch en %TEMP% para coordinar instalación silenciosa y reinicio
                 bat_content = f"""@echo off
-timeout /t 1 /nobreak >nul
-start "" /wait "{installer_path}" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS
+timeout /t 2 /nobreak >nul
+start "" /wait "{installer_path}" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /NOCLOSEAPPLICATIONS
 timeout /t 1 /nobreak >nul
 if exist "{app_exe_path}" (
     start "" "{app_exe_path}"
