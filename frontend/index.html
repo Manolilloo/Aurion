@@ -44,11 +44,11 @@
         <span class="update-pulse-dot"></span>
       </button>
 
-      <!-- BOTÓN ASISTENTE DE EXTENSIÓN (PIEZA DE PUZLE) -->
+      <!-- BOTÓN ASISTENTE DE EXTENSIÓN (PIEZA DE PUZLE RELLENA) -->
       <button class="liquid-help-btn liquid-puzzle-btn" id="btn-extension-helper" title="Instalar / Conectar Extensión del Navegador">
         <span class="liquid-help-glow"></span>
-        <svg class="puzzle-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M19.439 7.85c0-1.57.802-2.54 1.561-2.54 1.133 0 1.996.96 1.996 2.14 0 1.18-.863 2.14-1.996 2.14a2.98 2.98 0 0 1-.561-.06V14a2 2 0 0 1-2 2h-4.44a2.98 2.98 0 0 1 .06.561c0 1.133-.96 1.996-2.14 1.996-1.18 0-2.14-.863-2.14-1.996a2.98 2.98 0 0 1 .06-.561H6a2 2 0 0 1-2-2v-4.44a2.98 2.98 0 0 1-.561.06C2.306 9.58 1.443 8.62 1.443 7.44c0-1.18.863-2.14 1.996-2.14.759 0 1.561.97 1.561 2.54V6a2 2 0 0 1 2-2h4.44a2.98 2.98 0 0 1-.06-.561C11.38 2.306 12.34 1.443 13.52 1.443c1.18 0 2.14.863 2.14 1.996a2.98 2.98 0 0 1-.06.561H18a2 2 0 0 1 2 2v1.85z"/>
+        <svg class="puzzle-svg-icon" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M20.5 11c-.83 0-1.5.67-1.5 1.5v2c0 .55-.45 1-1 1h-2c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5h-2c-.55 0-1-.45-1-1v-2c.83 0 1.5-.67 1.5-1.5S10.33 9 9.5 9V7c0-.55.45-1 1-1h2c0 .83.67 1.5 1.5 1.5S15.5 6.83 15.5 6h2c.55 0 1 .45 1 1v2c.83 0 1.5.67 1.5 1.5s.67 1.5 1.5 1.5v-.5zM19 3h-3.8c-.42-1.16-1.52-2-2.82-2s-2.4 0.84-2.82 2H5c-1.1 0-2 .9-2 2v4.8c1.16.42 2 1.52 2 2.82s-.84 2.4-2 2.82V19c0 1.1.9 2 2 2h4.8c.42 1.16 1.52 2 2.82 2s2.4-.84 2.82-2H19c1.1 0 2-.9 2-2v-3.8c1.16-.42 2-1.52 2-2.82s-.84-2.4-2-2.82V5c0-1.1-.9-2-2-2z"/>
         </svg>
       </button>
 
@@ -64,9 +64,6 @@
       </div>
     </div>
   </div>
-
-  <!-- TELÓN DE DESENFOQUE TOTAL -->
-  <div class="welcome-cinematic-backdrop" id="welcome-backdrop"></div>
 
   <!-- CABINA PRINCIPAL -->
   <div class="cockpit" id="cockpit-grid">
@@ -97,46 +94,10 @@
       </div>
     </div>
 
-    <!-- COLUMNA 2: ESCENARIO CENTRAL -->
+    <!-- COLUMNA 2: ESCENARIO CENTRAL (DIRECTO AL WORKSPACE) -->
     <div class="center-stage" id="center-stage">
 
-      <!-- ESTADO A: BIENVENIDA -->
-      <div class="welcome-card" id="welcome-card">
-        <h2 class="shimmer-text">TUTORIAL RÁPIDO</h2>
-
-        <p class="welcome-desc">
-          Aquí en esta app vas a poder descargar tus animes de una manera más
-          cómoda y rápida con opciones de descarga y una interfaz locura.
-        </p>
-
-        <p class="welcome-desc">
-          Para empezar, si no sabes a dónde ir para buscar animes o películas,
-          te recomiendo pinchar en <b>SITIOS</b> arriba a la izquierda y mirar
-          por esas páginas. Hay 3 enlaces por sección (<b>ANIME</b> o
-          <b>CINE</b> &rarr; puedes cambiarlo pinchando arriba o pulsando
-          <span class="hotkey-pill"
-            style="display:inline-block; vertical-align:middle; padding:1px 5px; font-size:8px;">TAB</span>).
-        </p>
-
-        <p class="welcome-subdesc">
-          Los de <b>ANIME</b> sirven, pero los de <b>CINE</b> son una mierda
-          porque no encuentro buenos sitios (casi todas las pelis son idioma
-          panchito (perdón pero es verdad)).
-        </p>
-
-        <p class="welcome-desc">
-          Este programa funciona con una <b>EXTENSIÓN</b> propia que he hecho
-          también que se conecta a la app para hacer más fácil todo y cómodo.
-          Todavía no he hecho ni <b>.exe</b> de la app ni na.
-        </p>
-
-        <div class="welcome-footer-tag">
-          Mañana meto más cosas 😼
-        </div>
-      </div>
-
-      <!-- ESTADO B: WORKSPACE -->
-      <div class="workspace-card" id="workspace-card" style="display: none;">
+      <div class="workspace-card is-active" id="workspace-card" style="display: flex;">
         <div class="search-container">
           <input type="text" class="search-input" id="search-input" placeholder="Invoca un anime..." autocomplete="off">
           <div class="search-suggestions" id="search-suggestions"></div>
@@ -144,19 +105,38 @@
 
         <div class="parallax-wrap" id="parallax-sensor">
           <div class="parallax-poster" id="main-poster">
-            <div class="poster-info">
-              <div class="poster-tags" id="poster-tags">AURION READY</div>
-              <div class="poster-title" id="poster-title">
-                ¿NUEVO POR AQUÍ?
-                <div class="poster-help-hint" id="poster-help-trigger">
-                  <span>PULSA</span>
-                  <div class="liquid-help-btn mini-hint-btn">
-                    <span class="liquid-help-glow"></span>
-                    <span class="liquid-help-txt">?</span>
-                  </div>
-                  <span>PARA ABRIR LA GUÍA</span>
-                </div>
+            <!-- Emblema central interactivo para nuevos usuarios -->
+            <div class="tour-launcher-center" id="tour-launcher-center">
+              <div class="tour-launcher-badge">PRIMEROS PASOS</div>
+              <h2 class="tour-launcher-title">DESCUBRE AURION</h2>
+              <p class="tour-launcher-sub">Aprende a exprimir las descargas y la interfaz en 1 minuto</p>
+              <button class="tour-launch-btn" id="btn-start-tour">
+                <span class="tour-btn-sparkle">✨</span>
+                <span>INICIAR TOUR GUIADO</span>
+                <span class="tour-btn-arrow">➔</span>
+              </button>
+            </div>
+
+            <!-- Tarjeta informal de fin de tour -->
+            <div class="tour-finished-card" id="tour-finished-card" style="display: none;">
+              <div class="tour-finished-badge">¡TOUR COMPLETADO! 🎉</div>
+              <h2 class="tour-finished-title">¡Ya eres todo un pro!</h2>
+              <p class="tour-finished-sub">
+                Para empezar a descargar, abre <b>SITIOS</b> arriba a la izquierda y elige tu anime o peli. Cuando estés en el reproductor, ¡la extensión se encargará de todo!
+              </p>
+              <div class="tour-finished-actions">
+                <button class="btn-tour-primary" id="btn-tour-finish-ext">
+                  <span>Instalar extensión 🧩</span>
+                </button>
+                <button class="btn-tour-secondary" id="btn-tour-finish-close">
+                  <span>¡A descargar! 🚀</span>
+                </button>
               </div>
+            </div>
+
+            <div class="poster-info" id="poster-info-bar" style="display: none;">
+              <div class="poster-tags" id="poster-tags">AURION READY</div>
+              <div class="poster-title" id="poster-title">Esperando consulta...</div>
             </div>
           </div>
         </div>
@@ -182,7 +162,7 @@
         <div class="box-header">INGENIERÍA MULTIMEDIA</div>
 
         <div class="settings-area">
-          <div>
+          <div id="block-dest-dir">
             <label class="section-label">DESTINO LOCAL</label>
             <div style="display: flex; gap: 8px;">
               <input type="text" class="search-input" id="cfg-dir"
@@ -194,56 +174,59 @@
           </div>
           <input type="hidden" id="cfg-prefix" value>
 
-          <!-- NUMERACIÓN COLAPSABLE (SOLO ANIME) -->
-          <div class="collapsible-section" id="section-steppers">
-            <div class="collapsible-inner">
-              <div class="steppers-grid-wrapper" id="steppers-wrapper" style="justify-content: center;">
-                <div class="stepper-wrapper-col" id="col-season" style="max-width: 100%; width: 100%;">
-                  <label class="section-label" style="text-align: center;">TEMPORADA</label>
-                  <div class="stepper-box" data-id="cfg-season" data-min="1" data-max="99">
-                    <button class="step-btn step-dec" type="button">−</button>
-                    <div class="step-viewport">
-                      <span class="step-val" id="disp-cfg-season">1</span>
+          <div id="block-season-group">
+            <!-- NUMERACIÓN COLAPSABLE (SOLO ANIME) -->
+            <div class="collapsible-section" id="section-steppers">
+              <div class="collapsible-inner">
+                <div class="steppers-grid-wrapper" id="steppers-wrapper" style="justify-content: center;">
+                  <div class="stepper-wrapper-col" id="col-season" style="max-width: 100%; width: 100%;">
+                    <label class="section-label" style="text-align: center;">TEMPORADA</label>
+                    <div class="stepper-box" data-id="cfg-season" data-min="1" data-max="99">
+                      <button class="step-btn step-dec" type="button">−</button>
+                      <div class="step-viewport">
+                        <span class="step-val" id="disp-cfg-season">1</span>
+                      </div>
+                      <button class="step-btn step-inc" type="button">+</button>
+                      <input type="hidden" id="cfg-season" value="1">
                     </div>
-                    <button class="step-btn step-inc" type="button">+</button>
-                    <input type="hidden" id="cfg-season" value="1">
                   </div>
+                  <input type="hidden" id="cfg-start-ep" value="1">
                 </div>
-                <!-- Episodio inicial mantenido solo como valor oculto para la lógica interna -->
-                <input type="hidden" id="cfg-start-ep" value="1">
               </div>
+            </div>
+
+            <!-- TOGGLE: TEMPORADA ÚNICA (SOLO ANIME) -->
+            <div class="toggle-card" id="card-single-season" style="margin-top: 6px;">
+              <span class="toggle-label">TEMPORADA ÚNICA</span>
+              <label class="switch-toggle">
+                <input type="checkbox" id="cfg-single-season">
+                <span class="switch-slider"></span>
+              </label>
             </div>
           </div>
 
-          <!-- TOGGLE: TEMPORADA ÚNICA (SOLO ANIME) -->
-          <div class="toggle-card" id="card-single-season">
-            <span class="toggle-label">TEMPORADA ÚNICA</span>
-            <label class="switch-toggle">
-              <input type="checkbox" id="cfg-single-season">
-              <span class="switch-slider"></span>
-            </label>
-          </div>
+          <div id="block-toggles-group" style="display: flex; flex-direction: column; gap: 6px;">
+            <!-- TOGGLE: PORTADA -->
+            <div class="toggle-card" id="card-save-cover">
+              <span class="toggle-label">GUARDAR PORTADA (FOLDER.JPG)</span>
+              <label class="switch-toggle">
+                <input type="checkbox" id="cfg-save-cover" checked>
+                <span class="switch-slider"></span>
+              </label>
+            </div>
 
-          <!-- TOGGLE: PORTADA -->
-          <div class="toggle-card">
-            <span class="toggle-label">GUARDAR PORTADA (FOLDER.JPG)</span>
-            <label class="switch-toggle">
-              <input type="checkbox" id="cfg-save-cover" checked>
-              <span class="switch-slider"></span>
-            </label>
-          </div>
-
-          <!-- TOGGLE: ABRIR CARPETA AL FINALIZAR (NUEVO) -->
-          <div class="toggle-card">
-            <span class="toggle-label">ABRIR CARPETA AL FINALIZAR</span>
-            <label class="switch-toggle">
-              <input type="checkbox" id="cfg-open-folder" checked>
-              <span class="switch-slider"></span>
-            </label>
+            <!-- TOGGLE: ABRIR CARPETA AL FINALIZAR -->
+            <div class="toggle-card" id="card-open-folder">
+              <span class="toggle-label">ABRIR CARPETA AL FINALIZAR</span>
+              <label class="switch-toggle">
+                <input type="checkbox" id="cfg-open-folder" checked>
+                <span class="switch-slider"></span>
+              </label>
+            </div>
           </div>
 
           <!-- CHIP: CONTENEDOR (MKV POR DEFECTO) -->
-          <div>
+          <div id="block-container-fmt">
             <label class="section-label">CONTENEDOR</label>
             <div class="chip-group" data-cfg="fmt">
               <div class="chip-glider"></div>
@@ -253,7 +236,7 @@
           </div>
 
           <!-- CHIPS: HILOS Y PARALELAS -->
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <div id="block-threads-simul" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
             <div>
               <label class="section-label">HILOS: <span id="val-threads"
                   style="color: var(--color-accent-1);">32</span></label>
@@ -277,7 +260,7 @@
           </div>
 
           <!-- TELEMETRÍA DE DISCO -->
-          <div class="telemetry-card">
+          <div class="telemetry-card" id="block-telemetry">
             <div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: 800;">
               <span id="disk-drive-name">J: DISCO</span>
               <span id="disk-free-txt" style="color: var(--color-accent-1);">171.5 GB Libres / 931.5
@@ -686,9 +669,32 @@
         </div>
       </div>
 
-      <div class="ext-modal-actions">
+      <div class="ext-modal-actions is-hidden" id="ext-modal-actions-box">
         <button class="btn-ext-primary" id="btn-ext-done">¡Todo listo, comenzar! 🚀</button>
       </div>
+    </div>
+  </div>
+
+  <!-- CURSOR VIRTUAL PARA DEMOS INTERACTIVAS -->
+  <div class="tour-virtual-cursor" id="tour-virtual-cursor">
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="#ffffff" stroke="#000000" stroke-width="1.5">
+      <path d="M4 3l7.5 17 2.5-6.5L20.5 11 4 3z"/>
+    </svg>
+  </div>
+
+  <!-- HUD DEL TOUR GUIADO CINEMÁTICO -->
+  <div class="tour-backdrop" id="tour-backdrop"></div>
+  <div class="tour-card" id="tour-card">
+    <div class="tour-card-header">
+      <div class="tour-step-badge" id="tour-step-badge">PASO 1 DE 13</div>
+      <button class="tour-card-skip" id="tour-btn-skip">Saltar todo ✕</button>
+    </div>
+    <div class="tour-card-body">
+      <h3 class="tour-card-title" id="tour-card-title">Título del paso</h3>
+      <p class="tour-card-desc" id="tour-card-desc">Descripción detallada de la función.</p>
+    </div>
+    <div class="tour-card-actions" id="tour-card-actions">
+      <!-- Los botones de navegación se inyectan dinámicamente -->
     </div>
   </div>
 

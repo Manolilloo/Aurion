@@ -464,13 +464,30 @@ function loadState(mode) {
   expandCenterWorkspace();
 
   const hasCover = typeof state.bg === 'string' && state.bg.trim() !== '' && state.bg !== 'none' && state.title && state.title !== 'Esperando consulta...';
+  const launcherCenter = document.getElementById('tour-launcher-center');
+  const posterInfo = document.getElementById('poster-info-bar');
+
   if (hasCover) {
+    // Si ya hay carátula persistente, ocultamos por completo la tarjeta de "Iniciar tour"
+    if (launcherCenter) {
+      launcherCenter.classList.add('is-hidden');
+      launcherCenter.style.display = 'none';
+    }
+    if (posterInfo) posterInfo.style.display = 'block';
+
     if (pTitle) pTitle.innerText = state.title;
     if (pTags) pTags.innerHTML = state.tags || 'SISTEMA LISTO';
     if (mPoster) mPoster.style.backgroundImage = state.bg;
     if (aL1) aL1.style.backgroundImage = state.bg;
     if (aL2) aL2.style.backgroundImage = state.bg;
   } else {
+    // Solo si la app está completamente vacía se muestra la invitación central
+    if (launcherCenter) {
+      launcherCenter.classList.remove('is-hidden');
+      launcherCenter.style.display = 'flex';
+    }
+    if (posterInfo) posterInfo.style.display = 'none';
+
     if (pTitle) {
       pTitle.innerHTML = `
         ¿NUEVO POR AQUÍ?
@@ -1667,67 +1684,67 @@ document.addEventListener('DOMContentLoaded', () => {
       placement: 'bottom-left'
     },
     {
-      id: 'pipeline',
-      target: '.glass-box:first-child',
-      title: '4. Pipeline Activo',
-      desc: 'Tu centro de descargas: monitorea la resolución, el peso real en megabytes y el progreso en vivo.',
-      placement: 'center-modal'
-    },
-    {
       id: 'dest_dir',
       target: '#block-dest-dir',
-      title: '5. Destino Local',
+      title: '4. Destino Local',
       desc: 'Elige la carpeta o disco de tu PC donde se guardarán todos los archivos extraídos.',
       placement: 'left-center'
     },
     {
       id: 'season_group',
       target: '#block-season-group',
-      title: '6. Temporada y Temporada Única',
+      title: '5. Temporada y Temporada Única',
       desc: 'Ajusta el número de temporada o activa Temporada Única para series de una sola entrega.',
       placement: 'left-center'
     },
     {
       id: 'toggles_group',
       target: '#block-toggles-group',
-      title: '7. Portada y Apertura Automática',
+      title: '6. Portada y Apertura Automática',
       desc: 'Guarda folder.jpg en alta resolución para Plex/Kodi y abre la carpeta al terminar la descarga.',
       placement: 'left-center'
     },
     {
       id: 'container_fmt',
       target: '#block-container-fmt',
-      title: '8. Formato Contenedor',
+      title: '7. Formato Contenedor',
       desc: 'Selecciona si deseas empaquetar el vídeo en formato .MKV o .MP4.',
       placement: 'left-center'
     },
     {
       id: 'threads_simul',
       target: '#block-threads-simul',
-      title: '9. Hilos y Paralelas',
+      title: '8. Hilos y Paralelas',
       desc: 'Acelera la descarga configurando múltiples conexiones simultáneas en paralelo.',
       placement: 'left-center'
     },
     {
       id: 'telemetry',
       target: '#block-telemetry',
-      title: '10. Espacio en Disco',
+      title: '9. Espacio en Disco',
       desc: 'Telemetría continua del espacio disponible en tu disco para evitar quedarte sin almacenamiento.',
       placement: 'left-center'
     },
     {
       id: 'workspace_center',
       target: '.search-container, #main-poster',
-      title: '11. Búsqueda y Carátula Parallax',
+      title: '10. Búsqueda y Carátula Parallax',
       desc: 'Busca con autocompletado en AniList/IMDb. Al seleccionar un título, la portada y paleta se sincronizan.',
       placement: 'left-docked'
     },
     {
       id: 'master_extraction',
-      target: '#mag-wrap',
-      title: '12. Botón Maestro de Extracción',
-      desc: 'Inicia la descarga con un clic o pulsando Espacio. Se divide elásticamente para permitir cancelar.',
-      placement: 'master-docked-left' // Pegado abajo del todo y a la izquierda del botón maestro
+      target: '#mag-wrap, .glass-box:first-child, .workspace-card',
+      title: '11. Botón Maestro de Extracción',
+      desc: 'Inicia la descarga con un clic o pulsando Espacio. Se divide elásticamente para permitir cancelar en vivo.',
+      placement: 'master-docked-left'
+    },
+    {
+      id: 'pipeline',
+      target: '.glass-box:first-child',
+      title: '12. Pipeline en Ejecución',
+      desc: 'Monitorea el progreso, la velocidad y la resolución de tus episodios en paralelo sin bloqueos.',
+      placement: 'center-modal'
     },
     {
       id: 'top_right',
@@ -1753,6 +1770,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window.__isTourDemoActive = false;
     window.__isTourDemoSearching = false;
+
+    // Limpieza de las descargas simuladas del tour
+    document.querySelectorAll('.pipeline-card[id^="tour-mock-task-"]').forEach(el => el.remove());
+    if (window.__tourMockRunning) {
+      window.__tourMockRunning = false;
+      renderFullQueue(currentMode);
+      const currentQueue = modeStates[currentMode].queue || [];
+      const hasRunning = currentQueue.some(t => t.status !== 'Completado' && t.status !== 'Cancelado' && t.status !== 'Error');
+      setMasterDownloadState(hasRunning);
+    }
 
     // Detener y resetear la inclinación Parallax del póster
     const mainPoster = document.getElementById('main-poster');
@@ -1828,8 +1855,8 @@ document.addEventListener('DOMContentLoaded', () => {
       let centerY = rect.top + rect.height / 2;
       let dynamicRadius = Math.max(380, Math.max(rect.width, rect.height) * 0.78);
 
-      if (isWorkspaceCenter) {
-        // Spotlight amplio que cubre a la vez buscador y póster central sin sombras agresivas
+      if (currentTourStep === 9) {
+        // Paso 10: Spotlight amplio que cubre a la vez buscador y póster central
         const centerStage = document.getElementById('center-stage');
         if (centerStage) {
           const stageRect = centerStage.getBoundingClientRect();
@@ -1837,6 +1864,11 @@ document.addEventListener('DOMContentLoaded', () => {
           centerY = stageRect.top + stageRect.height / 2;
           dynamicRadius = Math.max(540, stageRect.height * 0.65);
         }
+      } else if (currentTourStep === 10) {
+        // Paso 11: Triple enfoque (Pipeline + Centro + Botón maestro)
+        centerX = window.innerWidth * 0.38;
+        centerY = window.innerHeight * 0.52;
+        dynamicRadius = Math.max(720, window.innerWidth * 0.55);
       } else if (isTargetInsideSettings) {
         dynamicRadius = Math.max(220, Math.max(rect.width, rect.height) * 0.75);
       }
@@ -1975,8 +2007,10 @@ document.addEventListener('DOMContentLoaded', () => {
         let charIdx = 0;
         let isDeleting = false;
         input.value = '';
+
         const interval = setInterval(() => {
-          if (!input || currentTourStep !== 4) return;
+          // El paso 4 corresponde al índice 3 de tourSteps
+          if (!input || currentTourStep !== 3) return;
           if (!isDeleting) {
             charIdx += 2;
             input.value = demoPath.substring(0, Math.min(demoPath.length, charIdx));
@@ -2099,7 +2133,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 ];
               }
 
-              if (!suggestions || currentTourStep !== 10) return;
+              if (!suggestions || currentTourStep !== 9) return;
 
               // Renderizado con la misma estructura y componentes exactos del buscador manual
               suggestions.innerHTML = '';
@@ -2120,7 +2154,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
               // Selección automática del primer resultado tras unos instantes para apreciarlo
               setTimeout(async () => {
-                if (currentTourStep !== 10) return;
+                if (currentTourStep !== 9) return;
                 const chosen = realList[0];
                 if (!chosen) return;
 
@@ -2133,7 +2167,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (typeof playSynth === 'function') playSynth('click');
 
                 setTimeout(async () => {
-                  if (currentTourStep !== 10) return;
+                  if (currentTourStep !== 9) return;
                   suggestions.classList.remove('active');
                   suggestions.innerHTML = '';
                   sInput.value = chosen.title;
@@ -2177,18 +2211,80 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 65);
         tourDemoIntervals.push(typeInterval);
       }
-    } else if (stepId === 'master_extraction') {
+    } else if (stepId === 'master_extraction' || stepId === 'pipeline') {
+      window.__tourMockRunning = true;
+      const queueList = document.getElementById('queue-list');
       const splitCluster = document.getElementById('split-cluster-master');
-      if (splitCluster) {
-        let splitState = false;
-        const splitInterval = setInterval(() => {
-          splitState = !splitState;
-          splitCluster.classList.toggle('is-split', splitState);
-          const mTxt = document.getElementById('mag-txt');
-          if (mTxt) mTxt.innerText = splitState ? 'DESCARGANDO...' : 'INICIAR EXTRACCIÓN';
-        }, 1200);
-        tourDemoIntervals.push(splitInterval);
+      const mTxt = document.getElementById('mag-txt');
+      const bMaster = document.getElementById('btn-master');
+
+      if (splitCluster) splitCluster.classList.add('is-split');
+      if (mTxt) mTxt.innerText = 'DESCARGANDO...';
+      if (bMaster) bMaster.style.pointerEvents = 'none';
+
+      const mockEpisodes = [
+        { id: 'tour-mock-task-1', title: 'One Piece - Ep 1080', res: '1080p', size: '1,42 GB', initialProg: 12, speed: '14.2 MB/s' },
+        { id: 'tour-mock-task-2', title: 'One Piece - Ep 1081', res: '1080p', size: '1,38 GB', initialProg: 6, speed: '11.8 MB/s' },
+        { id: 'tour-mock-task-3', title: 'One Piece - Ep 1082', res: '1080p', size: '1,45 GB', initialProg: 0, speed: 'Conectando...' }
+      ];
+
+      // Si ya existen en pantalla durante la transición del paso 12 al 13, no recrear desde cero
+      if (!document.getElementById('tour-mock-task-1') && queueList) {
+        queueList.innerHTML = '';
+        mockEpisodes.forEach((task, idx) => {
+          setTimeout(() => {
+            if (!window.__tourMockRunning || !queueList) return;
+            const card = document.createElement('div');
+            card.className = 'pipeline-card';
+            card.id = task.id;
+            card.style.animation = 'macSlideIn 0.3s ease';
+            card.innerHTML = `
+              <div class="pipeline-card-top">
+                <span class="pipeline-card-title" title="${task.title}">${task.title}</span>
+                <button class="pipeline-card-btn-del" style="pointer-events:none;">✕</button>
+              </div>
+              <div class="pipeline-card-meta">
+                <div class="pipeline-tags-cluster">
+                  <span class="pipeline-card-size">${task.size}</span>
+                  <span class="pipeline-card-res">${task.res}</span>
+                </div>
+                <span class="pipeline-card-status" id="mock-status-${task.id}">${task.speed}</span>
+              </div>
+              <div class="pipeline-progress-track">
+                <div class="pipeline-progress-fill" id="mock-prog-${task.id}" style="width: ${task.initialProg}%;"></div>
+              </div>
+            `;
+            queueList.appendChild(card);
+            if (typeof playSynth === 'function') playSynth('click');
+          }, idx * 340);
+        });
       }
+
+      // Ciclo fluido de avance de descargas en bucle (bajo coste de CPU)
+      let simTick = 0;
+      const progressLoop = setInterval(() => {
+        simTick += 1.8;
+        const p1 = (15 + simTick * 1.5) % 100;
+        const p2 = (8 + simTick * 1.1) % 100;
+        const p3 = (simTick * 0.8) % 100;
+
+        const f1 = document.getElementById('mock-prog-tour-mock-task-1');
+        const f2 = document.getElementById('mock-prog-tour-mock-task-2');
+        const f3 = document.getElementById('mock-prog-tour-mock-task-3');
+
+        if (f1) f1.style.width = `${p1.toFixed(1)}%`;
+        if (f2) f2.style.width = `${p2.toFixed(1)}%`;
+        if (f3) f3.style.width = `${p3.toFixed(1)}%`;
+
+        const s1 = document.getElementById('mock-status-tour-mock-task-1');
+        const s2 = document.getElementById('mock-status-tour-mock-task-2');
+        const s3 = document.getElementById('mock-status-tour-mock-task-3');
+
+        if (s1) s1.innerText = p1 >= 98 ? 'Completando...' : '16.4 MB/s';
+        if (s2) s2.innerText = p2 >= 98 ? 'Completando...' : '12.8 MB/s';
+        if (s3) s3.innerText = p3 >= 98 ? 'Completando...' : (p3 > 5 ? '8.9 MB/s' : 'Iniciando...');
+      }, 70);
+      tourDemoIntervals.push(progressLoop);
     }
   }
 
@@ -2426,12 +2522,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
       applyChipsState(state);
 
-      // Si terminó el tour desde el botón central y no había anime previo, mostrar la tarjeta de éxito
-      if (isFinished && isTourStartedFromCenter && !hasRealCover) {
+      // Si el usuario ya tenía carátula activa antes del tour, se restaura directamente sin mostrar "Eres un pro"
+      if (hasRealCover) {
+        if (finishCard) finishCard.style.display = 'none';
+        if (launcherCenter) launcherCenter.style.display = 'none';
+        if (posterInfo) posterInfo.style.display = 'block';
+      } else if (isFinished && isTourStartedFromCenter) {
+        // Solo para usuarios novatos sin anime previo iniciado desde el botón central
         if (launcherCenter) launcherCenter.style.display = 'none';
         if (finishCard) finishCard.style.display = 'flex';
-      } else if (finishCard) {
-        finishCard.style.display = 'none';
+      } else {
+        if (finishCard) finishCard.style.display = 'none';
+        if (launcherCenter) launcherCenter.style.display = 'flex';
       }
     }
   }

@@ -4548,10 +4548,10 @@ body.mode-youtube #sites-dock {
 }
 
 .puzzle-svg-icon {
-  width: 17px;
-  height: 17px;
-  stroke: var(--color-accent-1);
-  filter: drop-shadow(0 0 4px var(--color-glow));
+  width: 18px;
+  height: 18px;
+  color: var(--color-accent-1);
+  filter: drop-shadow(0 0 6px var(--color-glow));
 }
 
 /* Telón del modal */
