@@ -1441,7 +1441,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // Comprobar actualización en segundo plano
     setTimeout(() => {
       pyCall('check_for_updates');
-    }, 1200);
+      // SIMULACIÓN DE PRUEBA LOCAL:
+      if (typeof window.onUpdateAvailable === 'function') {
+        window.onUpdateAvailable({
+          latest: '1.1.0',
+          version: '1.1.0',
+          url: 'mock_update',
+          body: 'Nueva versión con mejoras de rendimiento y animaciones fluidas.'
+        });
+      }
+    }, 1500);
   });
 
   updateDiskTelemetry(modeStates.anime.dir);
@@ -2320,15 +2329,13 @@ function computeTrajectoryToBadge(modalCard) {
 }
 
 function openUpdateModalFlyIn() {
-  const overlay = document.getElementById('aurionUpdateOverlay');
+  const overlay = document.getElementById('update-modal-overlay');
   if (!overlay) return;
   const card = overlay.querySelector('.update-modal-card');
   if (!card) return;
 
-  // Calculamos la distancia hacia el botón
   computeTrajectoryToBadge(card);
 
-  // Empieza contraído en el botón y se abre al centro
   card.classList.add('flying-to-badge');
   overlay.classList.add('active');
 
@@ -2340,7 +2347,7 @@ function openUpdateModalFlyIn() {
 }
 
 function minimizeUpdateModalToBadge() {
-  const overlay = document.getElementById('aurionUpdateOverlay');
+  const overlay = document.getElementById('update-modal-overlay');
   if (!overlay) return;
   const card = overlay.querySelector('.update-modal-card');
   const badgeBtn = document.getElementById('btn-update-badge');
@@ -2348,127 +2355,96 @@ function minimizeUpdateModalToBadge() {
 
   computeTrajectoryToBadge(card);
   card.classList.add('flying-to-badge');
-  overlay.style.opacity = '0';
 
   setTimeout(() => {
     overlay.classList.remove('active');
-    overlay.style.opacity = '';
     card.classList.remove('flying-to-badge');
 
-    // Rebote sutil de recepción en el icono de la barra
     if (badgeBtn) {
+      badgeBtn.classList.add('visible');
       badgeBtn.classList.remove('pulse-receive');
-      void badgeBtn.offsetWidth; // Forzar reflow
+      void badgeBtn.offsetWidth;
       badgeBtn.classList.add('pulse-receive');
     }
   }, 380);
 }
 
 window.onUpdateAvailable = function(info) {
+  if (!info) return;
   cachedUpdateInfo = info;
 
-  // 1. Mostrar el icono con el pulso en la barra superior
   const badgeBtn = document.getElementById('btn-update-badge');
   if (badgeBtn) {
     badgeBtn.classList.add('visible');
-    badgeBtn.onclick = () => {
-      if (typeof playSynth === 'function') playSynth('click');
-      openUpdateModalFlyIn();
-    };
   }
 
-  // 2. Crear el overlay del modal si aún no existe
-  let modalOverlay = document.getElementById('aurionUpdateOverlay');
-  if (!modalOverlay) {
-    modalOverlay = document.createElement('div');
-    modalOverlay.id = 'aurionUpdateOverlay';
-    modalOverlay.className = 'update-modal-overlay';
-    modalOverlay.innerHTML = `
-      <div class="update-modal-card">
-        <div class="update-icon-wrapper">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-            <polyline points="7 10 12 15 17 10"></polyline>
-            <line x1="12" y1="15" x2="12" y2="3"></line>
-          </svg>
-        </div>
-        <div class="update-title">Nueva versión disponible</div>
-        <span class="update-badge" id="updateVersionBadge">v${info.latest || info.version || '1.1.0'}</span>
-        <p class="update-desc" id="updateDescText">
-          Hay una nueva actualización lista para instalar. Las mejoras y correcciones se aplicarán en un instante.
-        </p>
-
-        <div class="update-progress-container" id="updateProgressContainer">
-          <div class="update-progress-track">
-            <div class="update-progress-fill" id="updateProgressFill"></div>
-          </div>
-          <div class="update-progress-text">
-            <span>Descargando parche...</span>
-            <span id="updateProgressNum">0%</span>
-          </div>
-        </div>
-
-        <div class="update-actions" id="updateActions">
-          <button class="btn-update-secondary" id="btnUpdateLater">Más tarde</button>
-          <button class="btn-update-primary" id="btnUpdateNow">
-            <span>Actualizar ahora</span>
-          </button>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(modalOverlay);
-
-    // Acción: Actualizar ahora
-    const btnNow = document.getElementById('btnUpdateNow');
-    btnNow.addEventListener('click', () => {
-      if (typeof playSynth === 'function') playSynth('chord');
-      const targetUrl = cachedUpdateInfo?.url || cachedUpdateInfo?.download_url || '';
-      document.getElementById('updateActions').style.display = 'none';
-      document.getElementById('updateDescText').textContent = 'Descargando e instalando en segundo plano...';
-      document.getElementById('updateProgressContainer').style.display = 'block';
-      pyCall('start_auto_update', targetUrl);
-    });
-
-    // Acción: Más tarde (minimiza suavemente hacia el icono de la barra)
-    const btnLater = document.getElementById('btnUpdateLater');
-    btnLater.addEventListener('click', () => {
-      if (typeof playSynth === 'function') playSynth('click');
-      minimizeUpdateModalToBadge();
-    });
+  const verBadge = document.getElementById('update-badge-version');
+  if (verBadge) {
+    verBadge.textContent = `v${info.latest || info.version || '1.1.0'}`;
   }
 
-  // Desplegar el modal por primera vez
+  const descText = document.getElementById('update-desc');
+  if (descText && info.body) {
+    const summary = info.body.split('\n')[0].replace(/^#+\s*/, '').trim();
+    if (summary) descText.textContent = summary;
+  }
+
   setTimeout(() => {
     openUpdateModalFlyIn();
-  }, 100);
+  }, 400);
 };
 
 window.onUpdateProgress = function(pct) {
-  const fill = document.getElementById('updateProgressFill');
-  const num = document.getElementById('updateProgressNum');
+  const fill = document.getElementById('update-progress-fill');
+  const num = document.getElementById('update-pct-text');
   if (fill) fill.style.width = pct + '%';
   if (num) num.textContent = Math.round(pct) + '%';
 };
 
 window.onUpdateError = function() {
-  const desc = document.getElementById('updateDescText');
-  const fill = document.getElementById('updateProgressFill');
-  if (desc) desc.textContent = 'Hubo un error al descargar. Puedes intentarlo de nuevo más tarde.';
+  const statusTxt = document.getElementById('update-status-text');
+  const fill = document.getElementById('update-progress-fill');
+  if (statusTxt) {
+    statusTxt.textContent = 'Error al descargar parche.';
+    statusTxt.style.color = '#ff3366';
+  }
   if (fill) fill.style.background = '#ef4444';
-  const actions = document.getElementById('updateActions');
+  const actions = document.getElementById('update-actions');
   if (actions) actions.style.display = 'flex';
 };
 
 document.addEventListener('DOMContentLoaded', () => {
+  const btnNow = document.getElementById('btn-update-now');
+  const btnLater = document.getElementById('btn-update-later');
   const badgeBtn = document.getElementById('btn-update-badge');
+
   if (badgeBtn) {
     badgeBtn.addEventListener('click', () => {
-      // Si el modal aún no se había creado, lo creamos con datos por defecto
-      if (!document.getElementById('aurionUpdateOverlay')) {
-        window.onUpdateAvailable({ latest: '1.1.0', url: 'local_mock_update' });
-      } else {
-        openUpdateModalFlyIn();
-      }
+      if (typeof playSynth === 'function') playSynth('click');
+      openUpdateModalFlyIn();
+    });
+  }
+
+  if (btnNow) {
+    btnNow.addEventListener('click', () => {
+      if (typeof playSynth === 'function') playSynth('chord');
+      const targetUrl = cachedUpdateInfo?.download_url || cachedUpdateInfo?.url || '';
+      const actions = document.getElementById('update-actions');
+      const progBox = document.getElementById('update-progress-container');
+      const descText = document.getElementById('update-desc');
+
+      if (actions) actions.style.display = 'none';
+      if (progBox) progBox.style.display = 'block';
+      if (descText) descText.textContent = 'Descargando y aplicando parche silencioso...';
+
+      pyCall('start_auto_update', targetUrl);
+    });
+  }
+
+  if (btnLater) {
+    btnLater.addEventListener('click', () => {
+      if (typeof playSynth === 'function') playSynth('click');
+      minimizeUpdateModalToBadge();
     });
   }
 });

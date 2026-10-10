@@ -509,19 +509,62 @@ class AurionBridge:
         return opts
 
     def check_for_updates(self):
-        """SIMULACIÓN: Dispara el modal con payload de prueba local."""
-        def simular():
-            import time
-            time.sleep(2)
-            if self._window:
-                fake_payload = json.dumps({
-                    "current": "1.0.0",
-                    "latest": "1.1.0",
-                    "url": "local_mock_update"
-                })
-                self._window.evaluate_js(f"window.onUpdateAvailable && window.onUpdateAvailable({fake_payload});")
+        """Consulta la API de GitHub Releases y avisa si hay una versión superior."""
+        def check():
+            import re
+            api_url = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
+            ctx = ssl.create_default_context()
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
+            req = urllib.request.Request(
+                api_url,
+                headers={
+                    "User-Agent": "AurionApp",
+                    "Accept": "application/vnd.github.v3+json"
+                }
+            )
+            try:
+                with urllib.request.urlopen(req, context=ctx, timeout=8) as resp:
+                    if resp.status != 200:
+                        return
+                    data = json.loads(resp.read().decode("utf-8"))
 
-        threading.Thread(target=simular, daemon=True).start()
+                tag_name = data.get("tag_name", "").strip().lstrip("v")
+                if not tag_name:
+                    return
+
+                def parse_semver(ver_str):
+                    parts = re.findall(r"\d+", str(ver_str))
+                    return tuple(int(p) for p in parts) if parts else (0,)
+
+                if parse_semver(tag_name) <= parse_semver(APP_VERSION):
+                    return
+
+                zip_url = ""
+                for asset in data.get("assets", []):
+                    name = asset.get("name", "").lower()
+                    if name.endswith(".zip"):
+                        zip_url = asset.get("browser_download_url", "")
+                        break
+
+                if not zip_url:
+                    zip_url = data.get("zipball_url", "")
+
+                payload = json.dumps({
+                    "current": APP_VERSION,
+                    "latest": tag_name,
+                    "version": tag_name,
+                    "url": zip_url,
+                    "download_url": zip_url,
+                    "body": data.get("body", "")
+                })
+
+                if self._window:
+                    self._window.evaluate_js(f"window.onUpdateAvailable && window.onUpdateAvailable({payload});")
+            except Exception as e:
+                print(f"[Update Checker] Error al comprobar releases en GitHub: {e}")
+
+        threading.Thread(target=check, daemon=True).start()
         return True
 
     def start_auto_update(self, download_url):
@@ -570,6 +613,11 @@ class AurionBridge:
                                 pct = round((downloaded / total_bytes) * 100, 1)
                                 self._window.evaluate_js(f"window.onUpdateProgress && window.onUpdateProgress({pct});")
                     shutil.unpack_archive(zip_path, staging_dir)
+
+                    # Si el zip contenía una sola carpeta raíz contenedora, usarla como origen
+                    subdirs = [os.path.join(staging_dir, d) for d in os.listdir(staging_dir) if os.path.isdir(os.path.join(staging_dir, d))]
+                    if len(subdirs) == 1 and not any(os.path.isfile(os.path.join(staging_dir, f)) for f in os.listdir(staging_dir)):
+                        staging_dir = subdirs[0]
 
                 # Script que espera cierre de Aurion.exe, copia archivos y relanza
                 bat_content = f"""@echo off

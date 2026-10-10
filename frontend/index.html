@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
   <meta charset="UTF-8">
   <title>Aurion</title>
   <link rel="stylesheet" href="css/utopia.css">
 </head>
+
 <body class="mode-anime">
   <!-- FONDOS AMBIENTALES -->
   <div class="ambient-layer ambient-primary" id="ambient-layer-1"></div>
@@ -31,6 +33,17 @@
 
     <!-- CONTROLES DE VENTANA INTEGRADOS CON BOTÓN TUTORIAL LIQUID GLASS -->
     <div class="nav-right-cluster">
+      <button class="liquid-update-badge-btn" id="btn-update-badge" title="Nueva versión disponible">
+        <span class="liquid-update-glow"></span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+          stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="7 10 12 15 17 10"></polyline>
+          <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+        <span class="update-pulse-dot"></span>
+      </button>
+
       <button class="liquid-help-btn" id="win-help" title="Guía interactiva y Tutorial">
         <span class="liquid-help-glow"></span>
         <span class="liquid-help-txt">?</span>
@@ -47,17 +60,19 @@
   <!-- TELÓN DE DESENFOQUE TOTAL -->
   <div class="welcome-cinematic-backdrop" id="welcome-backdrop"></div>
 
-  
-
   <!-- CABINA PRINCIPAL -->
   <div class="cockpit" id="cockpit-grid">
-    
+
     <!-- COLUMNA 1: PIPELINE ACTIVO (IZQUIERDA) -->
     <div class="glass-box">
       <div class="glass-inner">
-        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255, 255, 255, 0.06); padding-bottom: 6px; margin-bottom: 4px;">
-          <div class="box-header" style="border-bottom: none; margin-bottom: 0; padding-bottom: 0;">PIPELINE ACTIVO</div>
-          <span id="badge-single-season" style="font-size: 8.5px; font-weight: 800; color: #ffaa00; background: rgba(255, 170, 0, 0.1); border: 1px solid rgba(255, 170, 0, 0.25); padding: 2px 6px; border-radius: 6px; letter-spacing: 0.5px;">1 TEMPORADA A LA VEZ</span>
+        <div
+          style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255, 255, 255, 0.06); padding-bottom: 6px; margin-bottom: 4px;">
+          <div class="box-header" style="border-bottom: none; margin-bottom: 0; padding-bottom: 0;">PIPELINE
+            ACTIVO</div>
+          <span id="badge-single-season"
+            style="font-size: 8.5px; font-weight: 800; color: #ffaa00; background: rgba(255, 170, 0, 0.1); border: 1px solid rgba(255, 170, 0, 0.25); padding: 2px 6px; border-radius: 6px; letter-spacing: 0.5px;">1
+            TEMPORADA A LA VEZ</span>
         </div>
         <div class="queue-area" id="queue-list">
           <div style="text-align: center; color: var(--color-text-dim); font-size: 12px; margin-top: 40px;">
@@ -65,7 +80,8 @@
           </div>
         </div>
         <div class="neu-controls">
-          <button class="btn-neu" id="btn-clear" style="flex: 1;" title="Limpiar tareas terminadas o vaciar cola">🧹 VACIAR</button>
+          <button class="btn-neu" id="btn-clear" style="flex: 1;" title="Limpiar tareas terminadas o vaciar cola">🧹
+            VACIAR</button>
           <div class="total-size-badge" id="total-queue-size" title="Peso total acumulado">
             TOTAL: <span id="val-total-size">0 MB</span>
           </div>
@@ -75,29 +91,39 @@
 
     <!-- COLUMNA 2: ESCENARIO CENTRAL -->
     <div class="center-stage" id="center-stage">
-      
+
       <!-- ESTADO A: BIENVENIDA -->
       <div class="welcome-card" id="welcome-card">
         <h2 class="shimmer-text">TUTORIAL RÁPIDO</h2>
-        
+
         <p class="welcome-desc">
-          Aquí en esta app vas a poder descargar tus animes de una manera más cómoda y rápida con opciones de descarga y una interfaz locura.
+          Aquí en esta app vas a poder descargar tus animes de una manera más
+          cómoda y rápida con opciones de descarga y una interfaz locura.
         </p>
 
         <p class="welcome-desc">
-          Para empezar, si no sabes a dónde ir para buscar animes o películas, te recomiendo pinchar en <b>SITIOS</b> arriba a la izquierda y mirar por esas páginas. Hay 3 enlaces por sección (<b>ANIME</b> o <b>CINE</b> &rarr; puedes cambiarlo pinchando arriba o pulsando <span class="hotkey-pill" style="display:inline-block; vertical-align:middle; padding:1px 5px; font-size:8px;">TAB</span>).
+          Para empezar, si no sabes a dónde ir para buscar animes o películas,
+          te recomiendo pinchar en <b>SITIOS</b> arriba a la izquierda y mirar
+          por esas páginas. Hay 3 enlaces por sección (<b>ANIME</b> o
+          <b>CINE</b> &rarr; puedes cambiarlo pinchando arriba o pulsando
+          <span class="hotkey-pill"
+            style="display:inline-block; vertical-align:middle; padding:1px 5px; font-size:8px;">TAB</span>).
         </p>
 
         <p class="welcome-subdesc">
-          Los de <b>ANIME</b> sirven, pero los de <b>CINE</b> son una mierda porque no encuentro buenos sitios (casi todas las pelis son idioma panchito (perdón pero es verdad)).
+          Los de <b>ANIME</b> sirven, pero los de <b>CINE</b> son una mierda
+          porque no encuentro buenos sitios (casi todas las pelis son idioma
+          panchito (perdón pero es verdad)).
         </p>
 
         <p class="welcome-desc">
-          Este programa funciona con una <b>EXTENSIÓN</b> propia que he hecho también que se conecta a la app para hacer más fácil todo y cómodo. Todavía no he hecho ni <b>.exe</b> de la app ni na.
+          Este programa funciona con una <b>EXTENSIÓN</b> propia que he hecho
+          también que se conecta a la app para hacer más fácil todo y cómodo.
+          Todavía no he hecho ni <b>.exe</b> de la app ni na.
         </p>
 
         <div class="welcome-footer-tag">
-          Si eso meto más cosas algun día
+          Mañana meto más cosas 😼
         </div>
       </div>
 
@@ -146,18 +172,19 @@
     <div class="glass-box">
       <div class="glass-inner">
         <div class="box-header">INGENIERÍA MULTIMEDIA</div>
-        
+
         <div class="settings-area">
           <div>
             <label class="section-label">DESTINO LOCAL</label>
             <div style="display: flex; gap: 8px;">
-              <input type="text" class="search-input" id="cfg-dir" style="flex: 1; border-radius: 12px; padding: 8px 12px; font-size: 11px; text-align: left;" value="" placeholder="Seleccionar carpeta de destino...">
-              <button class="btn-neu" id="btn-browse-dir" style="padding: 0 14px; border-radius: 12px;" title="Buscar en explorador">📂</button>
+              <input type="text" class="search-input" id="cfg-dir"
+                style="flex: 1; border-radius: 12px; padding: 8px 12px; font-size: 11px; text-align: left;" value
+                placeholder="Seleccionar carpeta de destino...">
+              <button class="btn-neu" id="btn-browse-dir" style="padding: 0 14px; border-radius: 12px;"
+                title="Buscar en explorador">📂</button>
             </div>
           </div>
-          <input type="hidden" id="cfg-prefix" value="">
-
-          
+          <input type="hidden" id="cfg-prefix" value>
 
           <!-- NUMERACIÓN COLAPSABLE (SOLO ANIME) -->
           <div class="collapsible-section" id="section-steppers">
@@ -220,7 +247,8 @@
           <!-- CHIPS: HILOS Y PARALELAS -->
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
             <div>
-              <label class="section-label">HILOS: <span id="val-threads" style="color: var(--color-accent-1);">32</span></label>
+              <label class="section-label">HILOS: <span id="val-threads"
+                  style="color: var(--color-accent-1);">32</span></label>
               <div class="chip-group" data-cfg="threads">
                 <div class="chip-glider"></div>
                 <button class="chip-btn active" data-val="32">32 H</button>
@@ -229,7 +257,8 @@
               </div>
             </div>
             <div>
-              <label class="section-label">PARALELAS: <span id="val-simul" style="color: var(--color-accent-1);">20</span></label>
+              <label class="section-label">PARALELAS: <span id="val-simul"
+                  style="color: var(--color-accent-1);">20</span></label>
               <div class="chip-group" data-cfg="simul">
                 <div class="chip-glider"></div>
                 <button class="chip-btn active" data-val="20">20 S</button>
@@ -243,7 +272,8 @@
           <div class="telemetry-card">
             <div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: 800;">
               <span id="disk-drive-name">J: DISCO</span>
-              <span id="disk-free-txt" style="color: var(--color-accent-1);">171.5 GB Libres / 931.5 GB</span>
+              <span id="disk-free-txt" style="color: var(--color-accent-1);">171.5 GB Libres / 931.5
+                GB</span>
             </div>
             <div class="disk-bar-track">
               <div class="disk-bar-fill" id="disk-bar-fill" style="width: 82%;"></div>
@@ -262,11 +292,13 @@
     <div class="yt-search-col">
       <div class="yt-hero-wrapper" id="yt-hero-wrapper">
         <div class="yt-search-input-box">
-          <svg class="yt-search-ico" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+          <svg class="yt-search-ico" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+            stroke-width="2">
             <circle cx="11" cy="11" r="8"></circle>
             <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
           </svg>
-          <input type="text" class="search-input yt-input" id="yt-search-input" placeholder="Buscar vídeos o pegar enlace de YouTube..." autocomplete="off">
+          <input type="text" class="search-input yt-input" id="yt-search-input"
+            placeholder="Buscar vídeos o pegar enlace de YouTube..." autocomplete="off">
           <button class="yt-clear-btn" id="yt-clear-btn" style="display: none;">✕</button>
         </div>
       </div>
@@ -277,21 +309,29 @@
       <!-- TUTORIAL RÁPIDO DEDICADO YOUTUBE -->
       <div class="welcome-card yt-welcome-card" id="yt-welcome-card" style="display: none;">
         <h2 class="shimmer-text">TUTORIAL YOUTUBE</h2>
-        
+
         <p class="welcome-desc">
-          Aquí vas a poder bajarte cualquier vídeo o audio de YouTube sin rollos de anuncios raros ni páginas que te meten 20 virus.
+          Aquí vas a poder bajarte cualquier vídeo o audio de YouTube sin
+          rollos de anuncios raros ni páginas que te meten 20 virus.
         </p>
 
         <p class="welcome-desc">
-          Puedes escribir <b>el nombre del vídeo</b> directamente en el buscador o si tienes el link a mano, <b>pegas la URL completa</b> y le das al Enter. Sale al instante con su miniatura y su duración en horas y minutos para que no te líes.
+          Puedes escribir <b>el nombre del vídeo</b> directamente en el
+          buscador o si tienes el link a mano, <b>pegas la URL completa</b> y
+          le das al Enter. Sale al instante con su miniatura y su duración en
+          horas y minutos para que no te líes.
         </p>
 
         <p class="welcome-subdesc">
-          En el panel de la derecha eliges si quieres el <b>VÍDEO (MP4)</b> con calidades desde <b>MIN</b> hasta <b>4K</b> o si prefieres solo el audio en <b>MP3</b> para meterlo al móvil o donde te dé la gana. Cada vídeo se guarda limpio en su propia carpetita.
+          En el panel de la derecha eliges si quieres el <b>VÍDEO (MP4)</b>
+          con calidades desde <b>MIN</b> hasta <b>4K</b> o si prefieres solo
+          el audio en <b>MP3</b> para meterlo al móvil o donde te dé la gana.
+          Cada vídeo se guarda limpio en su propia carpetita.
         </p>
 
         <p class="welcome-desc">
-          Recuerda pulsar en <b>DESCARGAR</b> y verás la barra rellenándose en vivo sin saltos raros.
+          Recuerda pulsar en <b>DESCARGAR</b> y verás la barra rellenándose en
+          vivo sin saltos raros.
         </p>
 
         <div class="welcome-footer-tag" id="yt-tutorial-close-btn" style="cursor: pointer;">
@@ -316,13 +356,14 @@
         <!-- Previsualización -->
         <div class="yt-preview-card">
           <div class="yt-preview-media" id="yt-preview-media">
-            <img id="yt-preview-img" src="" alt="Thumbnail" style="display: none;">
+            <img id="yt-preview-img" src alt="Thumbnail" style="display: none;">
             <div class="yt-preview-empty" id="yt-preview-empty">
               <span>SELECCIONA UN VÍDEO</span>
             </div>
           </div>
           <div class="yt-preview-meta">
-            <div class="yt-prev-title" id="yt-prev-title">Ningún vídeo activo</div>
+            <div class="yt-prev-title" id="yt-prev-title">Ningún vídeo
+              activo</div>
             <div class="yt-prev-channel" id="yt-prev-channel">Canal --</div>
           </div>
         </div>
@@ -332,8 +373,11 @@
           <div>
             <label class="section-label">DESTINO LOCAL</label>
             <div style="display: flex; gap: 8px;">
-              <input type="text" class="search-input" id="yt-cfg-dir" style="flex: 1; border-radius: 12px; padding: 8px 12px; font-size: 11px; text-align: left;" value="" placeholder="Seleccionar carpeta de destino...">
-              <button class="btn-neu" id="yt-btn-browse" style="padding: 0 14px; border-radius: 12px;" title="Buscar carpeta">📂</button>
+              <input type="text" class="search-input" id="yt-cfg-dir"
+                style="flex: 1; border-radius: 12px; padding: 8px 12px; font-size: 11px; text-align: left;" value
+                placeholder="Seleccionar carpeta de destino...">
+              <button class="btn-neu" id="yt-btn-browse" style="padding: 0 14px; border-radius: 12px;"
+                title="Buscar carpeta">📂</button>
             </div>
           </div>
 
@@ -342,15 +386,18 @@
             <label class="section-label">FORMATO DE SALIDA</label>
             <div class="chip-group" id="yt-format-chips">
               <div class="chip-glider"></div>
-              <button class="chip-btn active" data-format="video">VÍDEO (MP4)</button>
-              <button class="chip-btn" data-format="audio">AUDIO (MP3)</button>
+              <button class="chip-btn active" data-format="video">VÍDEO
+                (MP4)</button>
+              <button class="chip-btn" data-format="audio">AUDIO
+                (MP3)</button>
             </div>
           </div>
 
           <!-- Selector de resolución (solo si es vídeo) -->
           <div id="yt-res-group">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-              <label class="section-label" style="margin-bottom: 0;">CALIDAD MÁXIMA</label>
+              <label class="section-label" style="margin-bottom: 0;">CALIDAD
+                MÁXIMA</label>
               <span class="yt-drag-hint">↔ ARRASTRA</span>
             </div>
             <div class="chip-group yt-chips-resolutions" id="yt-res-chips">
@@ -377,19 +424,19 @@
             </label>
           </div>
 
-          
-              <!-- Botón de extracción con bifurcación elástica -->
+          <!-- Botón de extracción con bifurcación elástica -->
           <div class="mag-wrapper" style="margin-top: 18px;">
             <div class="split-cluster" id="yt-split-cluster">
               <button class="btn-god btn-split-main" id="yt-btn-download">
-                <span class="btn-god-txt" id="yt-btn-txt">DESCARGAR VÍDEO</span>
+                <span class="btn-god-txt" id="yt-btn-txt">DESCARGAR
+                  VÍDEO</span>
               </button>
               <button class="btn-split-cancel" id="yt-btn-cancel" title="Cancelar descarga activa">
                 <span>⏹ CANCELAR</span>
               </button>
             </div>
           </div>
-              
+
           <!-- Barra de progreso de descarga YouTube -->
           <div class="yt-download-progress-box" id="yt-dl-progress-box" style="display: none;">
             <div class="yt-progress-meta">
@@ -428,14 +475,17 @@
       <div class="modal-proposal-box">
         <div class="modal-proposal-thumb" id="modal-prop-thumb"></div>
         <div class="modal-proposal-details">
-          <div class="modal-proposal-sub" id="modal-prop-sub">COINCIDENCIA ENCONTRADA:</div>
+          <div class="modal-proposal-sub" id="modal-prop-sub">COINCIDENCIA
+            ENCONTRADA:</div>
           <div class="modal-proposal-title" id="modal-prop-title">Buscando...</div>
-          <div class="modal-proposal-meta" id="modal-prop-meta">Calculando compatibilidad...</div>
+          <div class="modal-proposal-meta" id="modal-prop-meta">Calculando
+            compatibilidad...</div>
         </div>
       </div>
 
       <div class="modal-actions" id="modal-initial-actions">
-        <button class="modal-btn modal-btn-confirm" id="modal-btn-confirm">✔ SÍ, ES CORRECTO</button>
+        <button class="modal-btn modal-btn-confirm" id="modal-btn-confirm">✔
+          SÍ, ES CORRECTO</button>
         <button class="modal-btn modal-btn-correct" id="modal-btn-show-search">✏ CORREGIR TÍTULO</button>
       </div>
 
@@ -447,7 +497,8 @@
             <div class="matrix-opt" id="modal-mode-movie">CINE</div>
           </div>
           <div class="search-container" style="margin-top: 10px; position: relative;">
-            <input type="text" class="search-input" id="modal-search-input" placeholder="Escribe el nombre real..." autocomplete="off">
+            <input type="text" class="search-input" id="modal-search-input" placeholder="Escribe el nombre real..."
+              autocomplete="off">
             <div class="search-suggestions" id="modal-suggestions"></div>
           </div>
         </div>
@@ -456,7 +507,43 @@
     </div>
   </div>
 
+  <!-- MODAL DE ACTUALIZACIÓN FLUIDO -->
+  <div class="update-modal-overlay" id="update-modal-overlay">
+    <div class="update-modal-card" id="update-modal-card">
+      <div class="update-icon-wrapper">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+          stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="7 10 12 15 17 10"></polyline>
+          <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+      </div>
+      <h3 class="update-title" id="update-title">Actualización lista</h3>
+      <span class="update-badge" id="update-badge-version">v1.0.1</span>
+      <p class="update-desc" id="update-desc">Hay una versión más reciente de
+        Aurion con mejoras de rendimiento y correcciones.</p>
+
+      <div class="update-progress-container" id="update-progress-container">
+        <div class="update-progress-track">
+          <div class="update-progress-fill" id="update-progress-fill"></div>
+        </div>
+        <div class="update-progress-text">
+          <span id="update-status-text">Descargando parche...</span>
+          <span id="update-pct-text">0%</span>
+        </div>
+      </div>
+
+      <div class="update-actions" id="update-actions">
+        <button class="btn-update-secondary" id="btn-update-later">Más
+          tarde</button>
+        <button class="btn-update-primary" id="btn-update-now">Actualizar
+          ahora</button>
+      </div>
+    </div>
+  </div>
+
   <script src="js/animations.js"></script>
   <script src="js/app.js"></script>
 </body>
+
 </html>
