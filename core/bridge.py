@@ -530,7 +530,7 @@ class AurionBridge:
         def download_and_run():
             try:
                 temp_dir = tempfile.gettempdir()
-                installer_path = os.path.join(temp_dir, "AurionSetup_Update.exe")
+                installer_path = os.path.join(temp_dir, "aurion_patch.exe")
                 bat_path = os.path.join(temp_dir, "aurion_restart.bat")
 
                 # Ruta donde se instala la app en modo usuario

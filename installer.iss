@@ -10,7 +10,8 @@ AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 ; Instalación a nivel de usuario sin requerir elevación ni permisos de admin
 PrivilegesRequired=lowest
-PrivilegesRequiredOverridesAllowed=dialog
+PrivilegesRequiredOverridesAllowed=commandline
+UsedUserAreasWarning=no
 DefaultDirName={localappdata}\Programs\{#MyAppName}
 DisableProgramGroupPage=yes
 OutputDir=Output
