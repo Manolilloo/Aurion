@@ -5,12 +5,16 @@ import ssl
 import shutil
 import urllib.request
 import urllib.parse
+import tempfile
+import subprocess
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from PIL import Image
 import io
 import webview
 from .downloader import AurionDownloader
 
+APP_VERSION = "1.0.0"
+GITHUB_REPO = "Manolilloo/Aurion"
 CONFIG_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config.json")
 
 class AurionHTTPHandler(BaseHTTPRequestHandler):
@@ -503,3 +507,81 @@ class AurionBridge:
             })
             
         return opts
+
+    def check_for_updates(self):
+        """SIMULACIÓN: Dispara el modal a los 2 segundos sin tocar GitHub."""
+        def simular():
+            import time
+            time.sleep(2)
+            if self._window:
+                # URL de prueba o enlace directo a un archivo ejecutable
+                fake_payload = json.dumps({
+                    "current": "1.0.0",
+                    "latest": "1.1.0",
+                    "url": "https://github.com/Manolilloo/Aurion/releases/download/v1.0.0/AurionSetup.exe"
+                })
+                self._window.evaluate_js(f"window.onUpdateAvailable && window.onUpdateAvailable({fake_payload});")
+
+        threading.Thread(target=simular, daemon=True).start()
+        return True
+
+    def start_auto_update(self, download_url):
+        """Descarga la actualización e inicia el proceso estilo Discord (sin UAC y con auto-reinicio)."""
+        def download_and_run():
+            try:
+                temp_dir = tempfile.gettempdir()
+                installer_path = os.path.join(temp_dir, "AurionSetup_Update.exe")
+                bat_path = os.path.join(temp_dir, "aurion_restart.bat")
+
+                # Ruta donde se instala la app en modo usuario
+                app_exe_path = os.path.expandvars(r"%LOCALAPPDATA%\Programs\Aurion\Aurion.exe")
+
+                ctx = ssl.create_default_context()
+                req = urllib.request.Request(download_url, headers={'User-Agent': 'AurionApp'})
+
+                with urllib.request.urlopen(req, context=ctx, timeout=40) as resp, open(installer_path, 'wb') as f:
+                    total_length = resp.getheader('content-length')
+                    total_bytes = int(total_length) if total_length else 0
+                    downloaded = 0
+                    chunk_size = 64 * 1024
+
+                    while True:
+                        chunk = resp.read(chunk_size)
+                        if not chunk:
+                            break
+                        f.write(chunk)
+                        downloaded += len(chunk)
+                        if total_bytes and self._window:
+                            pct = round((downloaded / total_bytes) * 100, 1)
+                            self._window.evaluate_js(f"window.onUpdateProgress && window.onUpdateProgress({pct});")
+
+                # Crear script batch en %TEMP% para coordinar instalación silenciosa y reinicio
+                bat_content = f"""@echo off
+timeout /t 1 /nobreak >nul
+start "" /wait "{installer_path}" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS
+timeout /t 1 /nobreak >nul
+if exist "{app_exe_path}" (
+    start "" "{app_exe_path}"
+)
+del "{installer_path}" >nul 2>&1
+del "%~f0" >nul 2>&1
+"""
+                with open(bat_path, "w", encoding="utf-8") as f:
+                    f.write(bat_content)
+
+                # Ejecutar el script batch de forma totalmente oculta
+                creation_flags = 0x08000000  # CREATE_NO_WINDOW en Windows
+                subprocess.Popen(["cmd.exe", "/c", bat_path], creationflags=creation_flags)
+
+                # Cerrar la ventana y el proceso actual
+                if self._window:
+                    self._window.destroy()
+                os._exit(0)
+
+            except Exception as e:
+                print(f"[AutoUpdate] Error en actualización: {e}")
+                if self._window:
+                    self._window.evaluate_js("window.onUpdateError && window.onUpdateError();")
+
+        threading.Thread(target=download_and_run, daemon=True).start()
+        return True

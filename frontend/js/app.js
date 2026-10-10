@@ -1438,6 +1438,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   window.addEventListener('pywebviewready', function() {
     pyCall('get_initial_state')?.then(applyLoadedConfig);
+    // Comprobar actualización en segundo plano
+    setTimeout(() => {
+      pyCall('check_for_updates');
+    }, 1200);
   });
 
   updateDiskTelemetry(modeStates.anime.dir);
@@ -2288,4 +2292,72 @@ window.updateRealSizeOnly = function(taskId, totalBytes) {
     sizeEl.innerText = formatBytes(totalBytes);
   }
   updateTotalQueueSize();
+};
+
+// ========================================================
+// SISTEMA DE ACTUALIZACIÓN FLUIDO (ESTILO DISCORD)
+// ========================================================
+let pendingUpdateUrl = null;
+
+window.onUpdateAvailable = function(info) {
+  pendingUpdateUrl = info.url;
+  
+  // Si no existe el contenedor del modal en el HTML, lo inyectamos dinámicamente
+  let updateModal = document.getElementById('aurion-update-modal');
+  if (!updateModal) {
+    updateModal = document.createElement('div');
+    updateModal.id = 'aurion-update-modal';
+    updateModal.style.cssText = `
+      position: fixed; inset: 0; z-index: 99999;
+      background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(12px);
+      display: flex; align-items: center; justify-content: center;
+    `;
+    updateModal.innerHTML = `
+      <div style="background: rgba(18, 24, 38, 0.85); border: 1px solid rgba(255,255,255,0.12); border-radius: 16px; padding: 28px; width: 420px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); text-align: center; font-family: inherit; color: #fff;">
+        <div style="font-size: 13px; font-weight: 800; letter-spacing: 2px; color: var(--color-accent-1, #00ffaa); margin-bottom: 8px;">ACTUALIZACIÓN DISPONIBLE</div>
+        <div style="font-size: 20px; font-weight: 800; margin-bottom: 8px;">Versión v${info.latest}</div>
+        <div style="font-size: 13px; color: #94a3b8; margin-bottom: 22px;">Aurion se reiniciará automáticamente tras la instalación.</div>
+        
+        <div id="upd-progress-wrap" style="display: none; margin-bottom: 18px;">
+          <div style="height: 6px; width: 100%; background: rgba(255,255,255,0.08); border-radius: 10px; overflow: hidden;">
+            <div id="upd-progress-bar" style="height: 100%; width: 0%; background: var(--color-accent-1, #00ffaa); transition: width 0.15s ease;"></div>
+          </div>
+          <div id="upd-progress-txt" style="font-size: 12px; color: #94a3b8; margin-top: 8px;">Descargando... 0%</div>
+        </div>
+
+        <div id="upd-buttons-row" style="display: flex; gap: 12px; justify-content: center;">
+          <button id="upd-btn-cancel" style="background: transparent; border: 1px solid rgba(255,255,255,0.15); color: #cbd5e1; border-radius: 8px; padding: 10px 18px; font-size: 12px; font-weight: 700; cursor: pointer;">MÁS TARDE</button>
+          <button id="upd-btn-confirm" style="background: var(--color-accent-1, #00ffaa); border: none; color: #000; border-radius: 8px; padding: 10px 22px; font-size: 12px; font-weight: 800; cursor: pointer;">ACTUALIZAR AHORA</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(updateModal);
+
+    document.getElementById('upd-btn-cancel').onclick = () => {
+      updateModal.style.display = 'none';
+    };
+
+    document.getElementById('upd-btn-confirm').onclick = () => {
+      document.getElementById('upd-buttons-row').style.display = 'none';
+      document.getElementById('upd-progress-wrap').style.display = 'block';
+      pyCall('start_auto_update', pendingUpdateUrl);
+    };
+  } else {
+    updateModal.style.display = 'flex';
+  }
+};
+
+window.onUpdateProgress = function(pct) {
+  const bar = document.getElementById('upd-progress-bar');
+  const txt = document.getElementById('upd-progress-txt');
+  if (bar) bar.style.width = pct + '%';
+  if (txt) txt.innerText = pct >= 100 ? 'Instalando y reiniciando...' : `Descargando actualización... ${pct}%`;
+};
+
+window.onUpdateError = function() {
+  const txt = document.getElementById('upd-progress-txt');
+  if (txt) {
+    txt.innerText = 'Error al actualizar. Inténtalo más tarde.';
+    txt.style.color = '#ff3366';
+  }
 };
