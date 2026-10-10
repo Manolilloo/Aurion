@@ -509,63 +509,64 @@ class AurionBridge:
         return opts
 
     def check_for_updates(self):
-        """Consulta la API de GitHub Releases y avisa si hay una versión superior."""
-        def check():
-            import re
-            api_url = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
-            ctx = ssl.create_default_context()
-            ctx.check_hostname = False
-            ctx.verify_mode = ssl.CERT_NONE
-            req = urllib.request.Request(
-                api_url,
-                headers={
-                    "User-Agent": "AurionApp",
-                    "Accept": "application/vnd.github.v3+json"
-                }
-            )
+        """Comprueba en GitHub Releases si hay una versión superior a la instalada."""
+        CURRENT_VERSION = "1.0.0"
+        REPO_NAME = "Manolilloo/Aurion"
+
+        def _worker():
             try:
-                with urllib.request.urlopen(req, context=ctx, timeout=8) as resp:
-                    if resp.status != 200:
+                import urllib.request
+                import json
+                import re
+
+                url = f"https://api.github.com/repos/{REPO_NAME}/releases/latest"
+                req = urllib.request.Request(
+                    url,
+                    headers={
+                        "User-Agent": "Aurion-Desktop-App",
+                        "Accept": "application/vnd.github.v3+json"
+                    }
+                )
+
+                with urllib.request.urlopen(req, timeout=10) as response:
+                    if response.status != 200:
                         return
-                    data = json.loads(resp.read().decode("utf-8"))
+                    data = json.loads(response.read().decode("utf-8"))
 
                 tag_name = data.get("tag_name", "").strip().lstrip("v")
                 if not tag_name:
                     return
 
-                def parse_semver(ver_str):
-                    parts = re.findall(r"\d+", str(ver_str))
-                    return tuple(int(p) for p in parts) if parts else (0,)
+                def parse_version_numbers(v_str):
+                    return [int(n) for n in re.findall(r"\d+", v_str)]
 
-                if parse_semver(tag_name) <= parse_semver(APP_VERSION):
-                    return
+                # Si la versión remota de GitHub es más reciente que la local
+                if parse_version_numbers(tag_name) > parse_version_numbers(CURRENT_VERSION):
+                    download_url = None
+                    for asset in data.get("assets", []):
+                        name = asset.get("name", "").lower()
+                        if name.endswith(".zip"):
+                            download_url = asset.get("browser_download_url")
+                            break
 
-                zip_url = ""
-                for asset in data.get("assets", []):
-                    name = asset.get("name", "").lower()
-                    if name.endswith(".zip"):
-                        zip_url = asset.get("browser_download_url", "")
-                        break
+                    if not download_url:
+                        download_url = data.get("zipball_url")
 
-                if not zip_url:
-                    zip_url = data.get("zipball_url", "")
+                    if download_url and self._window:
+                        payload = {
+                            "latest": tag_name,
+                            "version": tag_name,
+                            "url": download_url,
+                            "download_url": download_url,
+                            "body": data.get("body", "Nueva versión disponible.")
+                        }
+                        self._window.evaluate_js(f"window.onUpdateAvailable({json.dumps(payload)})")
 
-                payload = json.dumps({
-                    "current": APP_VERSION,
-                    "latest": tag_name,
-                    "version": tag_name,
-                    "url": zip_url,
-                    "download_url": zip_url,
-                    "body": data.get("body", "")
-                })
-
-                if self._window:
-                    self._window.evaluate_js(f"window.onUpdateAvailable && window.onUpdateAvailable({payload});")
             except Exception as e:
-                print(f"[Update Checker] Error al comprobar releases en GitHub: {e}")
+                print(f"[check_for_updates] No se pudo consultar GitHub: {e}")
 
-        threading.Thread(target=check, daemon=True).start()
-        return True
+        import threading
+        threading.Thread(target=_worker, daemon=True).start()
 
     def start_auto_update(self, download_url):
         """Actualización limpia con robocopy, detección dinámica de ruta y sin UAC."""

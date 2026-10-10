@@ -1438,19 +1438,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   window.addEventListener('pywebviewready', function() {
     pyCall('get_initial_state')?.then(applyLoadedConfig);
-    // Comprobar actualización en segundo plano
+    // Comprobación real de actualizaciones en producción
     setTimeout(() => {
       pyCall('check_for_updates');
-      // SIMULACIÓN DE PRUEBA LOCAL:
-      if (typeof window.onUpdateAvailable === 'function') {
-        window.onUpdateAvailable({
-          latest: '1.1.0',
-          version: '1.1.0',
-          url: 'mock_update',
-          body: 'Nueva versión con mejoras de rendimiento y animaciones fluidas.'
-        });
-      }
-    }, 1500);
+    }, 2000);
   });
 
   updateDiskTelemetry(modeStates.anime.dir);
