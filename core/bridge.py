@@ -514,11 +514,15 @@ class AurionBridge:
             import time
             time.sleep(2)
             if self._window:
-                # URL de prueba o enlace directo a un archivo ejecutable
+                # Usamos el instalador local recién compilado para verificar que no pide UAC
+                project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                local_setup = os.path.join(project_root, "Output", "AurionSetup.exe")
+                file_url = urllib.parse.urljoin("file:", urllib.request.pathname2url(local_setup)) if os.path.exists(local_setup) else "https://github.com/Manolilloo/Aurion/releases/download/v1.0.0/AurionSetup.exe"
+
                 fake_payload = json.dumps({
                     "current": "1.0.0",
                     "latest": "1.1.0",
-                    "url": "https://github.com/Manolilloo/Aurion/releases/download/v1.0.0/AurionSetup.exe"
+                    "url": file_url
                 })
                 self._window.evaluate_js(f"window.onUpdateAvailable && window.onUpdateAvailable({fake_payload});")
 
