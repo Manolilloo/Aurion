@@ -1995,6 +1995,9 @@ document.addEventListener('DOMContentLoaded', () => {
       } else if (placement === 'bottom-left') {
         top = rect.bottom + 16;
         left = Math.max(20, rect.left);
+      } else if (placement === 'bottom-center') {
+        top = rect.bottom + 18;
+        left = rect.left + rect.width / 2 - cardWidth / 2;
       } else {
         top = rect.bottom + 16;
         left = rect.left + rect.width / 2 - cardWidth / 2;
@@ -2652,6 +2655,43 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   window.addEventListener('keydown', (e) => {
+    // Atajos de teclado en el Tour Guiado (Anime y YouTube)
+    const isTourActive = document.body.classList.contains('tour-running-active');
+    if (isTourActive) {
+      const tourCard = document.getElementById('tour-card');
+      const isCardVisible = tourCard && tourCard.classList.contains('active');
+
+      if (isCardVisible) {
+        // ENTER -> Siguiente paso o Finalizar
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          e.stopPropagation();
+          const btnPrimary = tourCard.querySelector('.btn-tour-primary');
+          if (btnPrimary) {
+            btnPrimary.click();
+            return;
+          }
+        }
+        // DELETE / BACKSPACE -> Paso anterior
+        if (e.key === 'Delete' || e.key === 'Backspace') {
+          e.preventDefault();
+          e.stopPropagation();
+          const btnSecondary = tourCard.querySelector('.btn-tour-secondary');
+          if (btnSecondary && btnSecondary.textContent.includes('Anterior')) {
+            btnSecondary.click();
+            return;
+          }
+        }
+        // ESC -> Saltar tour
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          e.stopPropagation();
+          document.getElementById('tour-btn-skip')?.click();
+          return;
+        }
+      }
+    }
+
     // Si el asistente de extensión está abierto en modo guiado, BLOQUEAR TAB y ESPACIO por completo
     if (document.body.classList.contains('tour-extension-locked')) {
       if (e.key === 'Tab' || e.code === 'Space' || e.key === ' ') {
@@ -2690,52 +2730,58 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // ========================================================
-  // GUÍA TURÍSTICO CINEMÁTICO DEDICADO A YOUTUBE CON DEMOS EN BUCLE
+  // TOUR DE YOUTUBE 100% AISLADO (SANDBOX PARALELO INDESTRUCTIBLE)
   // ========================================================
   let currentYtTourStep = 0;
-  let ytTourSnapshot = null;
   let ytTourDemoIntervals = [];
 
   const ytTourSteps = [
     {
+      id: 'yt_search_switch',
+      target: '#yt-tour-mode-switch',
+      title: '1. Filtro de Búsqueda: Vídeos o Listas',
+      desc: 'Alterna con un solo clic si quieres explorar vídeos sueltos o listas de reproducción completas listas para descargar.',
+      placement: 'bottom-center'
+    },
+    {
       id: 'yt_search',
-      target: '#yt-hero-wrapper',
-      title: '1. Invocación y Búsqueda en Vivo',
+      target: '#yt-tour-hero-wrapper',
+      title: '2. Invocación y Búsqueda en Vivo',
       desc: 'Escribe el nombre de un creador, canción o pega el enlace completo. Los vídeos aparecen de inmediato con miniaturas, duración y autor.',
       placement: 'bottom-center'
     },
     {
       id: 'yt_channel_btn',
-      target: '.yt-video-card:first-child .yt-video-channel-btn, #yt-results-dock',
-      title: '2. Perfiles y Catálogos de Creadores',
+      target: '#yt-tour-channel-btn-target',
+      title: '3. Perfiles y Catálogos de Creadores',
       desc: 'Cada tarjeta cuenta con el botón directo de su autor. Al pulsarlo accedes a su perfil con su banner oficial, estadísticas y todo su catálogo subido.',
-      placement: 'left-center'
+      placement: 'bottom-center'
     },
     {
       id: 'yt_format_options',
-      target: '#yt-format-chips',
-      title: '3. Formato: Vídeo (MP4) o Audio (MP3)',
+      target: '#yt-tour-format-block',
+      title: '4. Formato: Vídeo (MP4) o Audio (MP3)',
       desc: 'Elige si prefieres extraer el vídeo completo o solo la pista de sonido en MP3 lista para tu móvil u otro dispositivo.',
       placement: 'left-center'
     },
     {
       id: 'yt_resolutions',
-      target: '#yt-res-group',
-      title: '4. Selector Táctil de Calidad',
+      target: '#yt-tour-res-block',
+      title: '5. Selector Táctil de Calidad',
       desc: 'Configura desde 144p hasta 4K Ultra HD. Puedes pulsar cualquier opción o arrastrar el selector con amortiguación elástica.',
       placement: 'left-center'
     },
     {
       id: 'yt_dest_folder',
-      target: '#yt-stage .settings-area > div:first-child, #yt-card-open-folder',
-      title: '5. Carpeta Local y Apertura Automática',
+      target: '#yt-tour-dest-block',
+      title: '6. Carpeta Local y Apertura Automática',
       desc: 'Elige dónde guardar los archivos en tu PC. Si activas la opción, la carpeta se abrirá automáticamente en Windows al terminar.',
       placement: 'left-center'
     },
     {
       id: 'yt_download_trigger',
-      target: '#yt-split-cluster',
-      title: '6. Extracción y Cancelación Segura',
+      target: '#yt-tour-download-block',
+      title: '7. Extracción y Cancelación Segura',
       desc: 'Inicia la descarga con un clic. Durante el proceso, el botón se divide para que puedas cancelar o pausar al instante sin bloqueos.',
       placement: 'left-center'
     }
@@ -2744,214 +2790,56 @@ document.addEventListener('DOMContentLoaded', () => {
   function stopAllYtTourDemos() {
     ytTourDemoIntervals.forEach(i => clearInterval(i));
     ytTourDemoIntervals = [];
-
-    // Restaurar inmediatamente el directorio real que el usuario tenía antes del tour demo
-    const ytDirInput = document.getElementById('yt-cfg-dir');
-    if (ytDirInput) {
-      ytDirInput.value = (ytTourSnapshot && ytTourSnapshot.dir !== undefined) ? ytTourSnapshot.dir : (modeStates.youtube.dir || '');
-    }
-
-    // Fijar de vuelta en MP4 si venía de la animación
-    const fChips = document.getElementById('yt-format-chips');
-    const videoBtn = fChips?.querySelector('[data-format="video"]');
-    if (videoBtn && !videoBtn.classList.contains('active')) {
-      videoBtn.click();
-    }
-
-    document.querySelectorAll('.tour-sub-dimmed, .tour-channel-pulse, .tour-demo-anim').forEach(el => {
-      el.classList.remove('tour-sub-dimmed', 'tour-channel-pulse', 'tour-demo-anim');
-    });
-
-    const ytSplit = document.getElementById('yt-split-cluster');
-    if (ytSplit) ytSplit.classList.remove('is-split');
-    const ytBtnTxt = document.getElementById('yt-btn-txt');
-    if (ytBtnTxt) ytBtnTxt.innerText = 'DESCARGAR VÍDEO';
-
-    const pBox = document.getElementById('yt-dl-progress-box');
-    if (pBox && !window.__isActualYtDownloading) pBox.style.display = 'none';
-  }
-
-  function applyYtSelectiveBlur(activeEls, stepId) {
-    document.body.classList.add('tour-running-active');
-    const firstTarget = activeEls[0];
-    const sidebar = document.getElementById('yt-sidebar-box');
-    const isInsideSidebar = sidebar && firstTarget && sidebar.contains(firstTarget);
-
-    if (firstTarget && tourBackdrop) {
-      const rect = firstTarget.getBoundingClientRect();
-      let centerX = rect.left + rect.width / 2;
-      let centerY = rect.top + rect.height / 2;
-      let dynamicRadius = Math.max(220, Math.max(rect.width, rect.height) * 0.75);
-
-      if (stepId === 'yt_search') {
-        dynamicRadius = Math.max(480, rect.width * 0.55);
-      } else if (stepId === 'yt_channel_btn') {
-        dynamicRadius = 380;
-      }
-
-      tourBackdrop.style.setProperty('--spot-x', `${centerX}px`);
-      tourBackdrop.style.setProperty('--spot-y', `${centerY}px`);
-      tourBackdrop.style.setProperty('--spot-r', `${dynamicRadius}px`);
-    }
-
-    if (sidebar) {
-      const sidebarItems = [
-        sidebar.querySelector('.yt-preview-card'),
-        document.getElementById('yt-format-chips')?.closest('div'),
-        document.getElementById('yt-res-group'),
-        document.getElementById('yt-card-open-folder'),
-        sidebar.querySelector('#yt-cfg-dir')?.closest('div'),
-        sidebar.querySelector('.mag-wrapper'),
-        sidebar.querySelector('.yt-telemetry-box')
-      ].filter(Boolean);
-
-      sidebarItems.forEach(item => {
-        const isChildActive = activeEls.some(t => item === t || item.contains(t) || t.contains(item));
-        if (isInsideSidebar) {
-          if (!isChildActive) {
-            item.classList.add('tour-sub-dimmed');
-            item.classList.remove('tour-highlighted-element');
-          } else {
-            item.classList.remove('tour-sub-dimmed');
-            item.classList.add('tour-highlighted-element');
-          }
-        } else {
-          item.classList.remove('tour-sub-dimmed');
-        }
-      });
-    }
-
-    const searchCol = document.querySelector('.yt-search-col');
-    if (searchCol && sidebar) {
-      if (isInsideSidebar) {
-        searchCol.classList.add('tour-blurred-zone');
-        sidebar.classList.remove('tour-blurred-zone');
-      } else {
-        searchCol.classList.remove('tour-blurred-zone');
-        if (stepId === 'yt_search' || stepId === 'yt_channel_btn') {
-          sidebar.classList.add('tour-blurred-zone');
-        }
-      }
-    }
   }
 
   function startYtStepInteractiveDemo(stepId) {
-    if (stepId === 'yt_search') {
-      const ytInput = document.getElementById('yt-search-input');
-      const hero = document.getElementById('yt-hero-wrapper');
-      if (ytInput) {
-        ytInput.value = '';
-        const demoText = 'DaniRep';
-        let idx = 0;
-        const typeInterval = setInterval(() => {
-          if (idx <= demoText.length) {
-            ytInput.value = demoText.substring(0, idx);
-            idx++;
-          } else {
-            clearInterval(typeInterval);
-            if (hero) hero.classList.add('is-searched');
-            triggerYoutubeSearch();
-          }
-        }, 85);
-        ytTourDemoIntervals.push(typeInterval);
-      }
+    if (stepId === 'yt_search_switch') {
+      const sSwitch = document.getElementById('yt-tour-mode-switch');
+      const bVid = document.getElementById('yt-tour-chip-video');
+      const bPl = document.getElementById('yt-tour-chip-playlist');
+      let isPl = false;
+      const loop = setInterval(() => {
+        isPl = !isPl;
+        bVid?.classList.toggle('active', !isPl);
+        bPl?.classList.toggle('active', isPl);
+        if (sSwitch) updateChipGlider(sSwitch, isPl ? bPl : bVid);
+      }, 950);
+      ytTourDemoIntervals.push(loop);
     } else if (stepId === 'yt_channel_btn') {
-      // Destacar en bucle continuo el botón de canal del primer vídeo
-      const firstChannelBtn = document.querySelector('.yt-video-card .yt-video-channel-btn');
-      if (firstChannelBtn) {
-        firstChannelBtn.classList.add('tour-channel-pulse');
-      }
+      const chBtn = document.getElementById('yt-tour-channel-btn-target');
+      chBtn?.classList.add('tour-channel-pulse');
     } else if (stepId === 'yt_format_options') {
-      // Bucle continuo alternando entre VÍDEO y AUDIO
-      const fChips = document.getElementById('yt-format-chips');
-      const btns = fChips?.querySelectorAll('.chip-btn');
-      let curFmt = 0;
-      const fmtInterval = setInterval(() => {
-        if (btns && btns.length) {
-          curFmt = (curFmt + 1) % btns.length;
-          btns[curFmt].click();
+      const fBox = document.getElementById('yt-tour-format-chips');
+      const btns = fBox?.querySelectorAll('.chip-btn');
+      let cur = 0;
+      const loop = setInterval(() => {
+        if (btns && btns.length >= 2) {
+          cur = (cur + 1) % 2;
+          btns.forEach((b, i) => b.classList.toggle('active', i === cur));
+          updateChipGlider(fBox, btns[cur]);
         }
-      }, 1200);
-      ytTourDemoIntervals.push(fmtInterval);
+      }, 1000);
+      ytTourDemoIntervals.push(loop);
     } else if (stepId === 'yt_resolutions') {
-      // Fijar de vuelta en MP4 para que la selección de calidades sea coherente
-      const fChips = document.getElementById('yt-format-chips');
-      const videoBtn = fChips?.querySelector('[data-format="video"]');
-      if (videoBtn && !videoBtn.classList.contains('active')) {
-        videoBtn.click();
-      }
-
-      // Bucle continuo oscilando entre las calidades con física gelatina
-      const rChips = document.getElementById('yt-res-chips');
-      const btns = rChips?.querySelectorAll('.chip-btn');
-      let resIdx = 6; // 1080p
-      let forward = true;
-      const resInterval = setInterval(() => {
+      const rBox = document.getElementById('yt-tour-res-chips');
+      const btns = rBox?.querySelectorAll('.chip-btn');
+      let cur = 1;
+      const loop = setInterval(() => {
         if (btns && btns.length) {
-          if (forward) {
-            resIdx++;
-            if (resIdx >= btns.length - 1) forward = false;
-          } else {
-            resIdx--;
-            if (resIdx <= 4) forward = true;
-          }
-          btns[resIdx]?.click();
+          cur = (cur + 1) % btns.length;
+          btns.forEach((b, i) => b.classList.toggle('active', i === cur));
+          updateChipGlider(rBox, btns[cur]);
         }
       }, 850);
-      ytTourDemoIntervals.push(resInterval);
-    } else if (stepId === 'yt_dest_folder') {
-      // Animación en bucle de la ruta de destino escribiéndose y borrándose
-      const dirInput = document.getElementById('yt-cfg-dir');
-      const btnBrowse = document.getElementById('yt-btn-browse');
-      const openToggle = document.getElementById('yt-cfg-open-folder');
-      const demoPath = 'D:\\YouTube\\Aurion Videos';
-      let charIdx = 0;
-      let isDeleting = false;
-      if (dirInput) dirInput.value = '';
-
-      const typeLoop = setInterval(() => {
-        if (!dirInput) return;
-        if (!isDeleting) {
-          charIdx += 2;
-          dirInput.value = demoPath.substring(0, Math.min(demoPath.length, charIdx));
-          if (charIdx >= demoPath.length + 8) isDeleting = true;
-        } else {
-          charIdx -= 2;
-          dirInput.value = demoPath.substring(0, Math.max(0, charIdx));
-          if (charIdx <= 0) isDeleting = false;
-        }
-      }, 70);
-
-      const toggleInterval = setInterval(() => {
-        if (openToggle) openToggle.checked = !openToggle.checked;
-        if (btnBrowse) {
-          btnBrowse.style.transform = 'scale(0.92)';
-          setTimeout(() => { if (btnBrowse) btnBrowse.style.transform = ''; }, 160);
-        }
-      }, 1100);
-
-      ytTourDemoIntervals.push(typeLoop, toggleInterval);
+      ytTourDemoIntervals.push(loop);
     } else if (stepId === 'yt_download_trigger') {
-      // Bucle continuo de descarga simulada y división elástica
-      const ytSplit = document.getElementById('yt-split-cluster');
-      const ytTxt = document.getElementById('yt-btn-txt');
-      const pBox = document.getElementById('yt-dl-progress-box');
-      const pBar = document.getElementById('yt-dl-bar');
-      const pStatus = document.getElementById('yt-dl-status');
-      const pSpeed = document.getElementById('yt-dl-speed');
-
-      if (ytSplit) ytSplit.classList.add('is-split');
-      if (ytTxt) ytTxt.innerText = 'DESCARGANDO...';
-      if (pBox) pBox.style.display = 'flex';
-
-      let simPct = 0;
-      const dlLoop = setInterval(() => {
-        simPct = (simPct + 3.2) % 100;
-        if (pBar) pBar.style.width = `${simPct.toFixed(1)}%`;
-        if (pStatus) pStatus.innerText = simPct >= 95 ? 'Completando...' : 'Descargando...';
-        if (pSpeed) pSpeed.innerText = `${simPct.toFixed(0)}% • 22.8 MB/s`;
-      }, 70);
-      ytTourDemoIntervals.push(dlLoop);
+      const split = document.getElementById('yt-tour-split-cluster');
+      let active = false;
+      const loop = setInterval(() => {
+        active = !active;
+        split?.classList.toggle('is-split', active);
+      }, 1100);
+      ytTourDemoIntervals.push(loop);
     }
   }
 
@@ -2964,6 +2852,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    currentYtTourStep = stepIdx;
     const tBadge = document.getElementById('tour-step-badge');
     const tTitle = document.getElementById('tour-card-title');
     const tDesc = document.getElementById('tour-card-desc');
@@ -2971,50 +2860,35 @@ document.addEventListener('DOMContentLoaded', () => {
     const tBackdrop = document.getElementById('tour-backdrop');
     const tCard = document.getElementById('tour-card');
 
-    currentYtTourStep = stepIdx;
     if (tBadge) tBadge.textContent = `YOUTUBE • PASO ${stepIdx + 1} DE ${ytTourSteps.length}`;
     if (tTitle) tTitle.textContent = step.title;
     if (tDesc) tDesc.textContent = step.desc;
 
-    // Asegurar apertura del panel derecho para los pasos técnicos
-    if (['yt_format_options', 'yt_resolutions', 'yt_dest_folder', 'yt_download_trigger'].includes(step.id)) {
-      document.body.classList.add('yt-has-selection');
-      const sidebar = document.getElementById('yt-sidebar-box');
-      if (sidebar) sidebar.style.display = 'flex';
-      setTimeout(() => refreshAllGliders(), 80);
+    // Localizar elemento dentro del Sandbox
+    const targetEl = document.querySelector(step.target) || document.body;
+    targetEl.classList.add('tour-highlighted-element');
+
+    // Iluminar con spotlight
+    if (tBackdrop && targetEl !== document.body) {
+      const r = targetEl.getBoundingClientRect();
+      const cx = r.left + r.width / 2;
+      const cy = r.top + r.height / 2;
+      const rad = Math.max(240, Math.max(r.width, r.height) * 0.75);
+      tBackdrop.style.setProperty('--spot-x', `${cx}px`);
+      tBackdrop.style.setProperty('--spot-y', `${cy}px`);
+      tBackdrop.style.setProperty('--spot-r', `${rad}px`);
     }
 
-    let targetEls = [];
-    try {
-      targetEls = document.querySelectorAll(step.target);
-      targetEls.forEach(el => el.classList.add('tour-highlighted-element'));
-      applyYtSelectiveBlur(targetEls, step.id);
-    } catch (e) {
-      console.warn('[YtTour] Fallo localizando objetivo:', e);
-    }
-
-    const firstTarget = targetEls[0] || document.body;
-    try {
-      positionTourCard(firstTarget, step.placement);
-    } catch (e) {
-      console.warn('[YtTour] Fallo posicionando tarjeta:', e);
-    }
-
-    try {
-      startYtStepInteractiveDemo(step.id);
-    } catch (e) {
-      console.warn('[YtTour] Fallo en demo:', e);
-    }
+    positionTourCard(targetEl, step.placement);
+    startYtStepInteractiveDemo(step.id);
 
     if (tActions) {
       tActions.innerHTML = '';
-
       if (stepIdx > 0) {
         const btnPrev = document.createElement('button');
         btnPrev.className = 'btn-tour-secondary';
         btnPrev.textContent = 'Anterior';
         btnPrev.addEventListener('click', () => {
-          stopAllYtTourDemos();
           renderYtTourStep(stepIdx - 1);
         });
         tActions.appendChild(btnPrev);
@@ -3022,14 +2896,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const btnNext = document.createElement('button');
       btnNext.className = 'btn-tour-primary';
-      btnNext.textContent = stepIdx === ytTourSteps.length - 1 ? '¡A descargar! 🚀' : 'Siguiente ➔';
+      btnNext.textContent = stepIdx === ytTourSteps.length - 1 ? '¡Finalizar Tour! 🚀' : 'Siguiente ➔';
       btnNext.addEventListener('click', () => {
-        stopAllYtTourDemos();
-        if (stepIdx === ytTourSteps.length - 1) {
-          endYtTour();
-        } else {
-          renderYtTourStep(stepIdx + 1);
-        }
+        if (stepIdx === ytTourSteps.length - 1) endYtTour();
+        else renderYtTourStep(stepIdx + 1);
       });
       tActions.appendChild(btnNext);
     }
@@ -3045,46 +2915,29 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function startYtTour() {
-    const plView = document.getElementById('yt-playlist-view');
-    const chView = document.getElementById('yt-channel-view');
+    const liveStage = document.getElementById('yt-stage');
+    const sandboxStage = document.getElementById('yt-tour-stage');
 
-    ytTourSnapshot = {
-      hasSelection: document.body.classList.contains('yt-has-selection'),
-      selectedVideo: modeStates.youtube.selectedVideo,
-      query: document.getElementById('yt-search-input')?.value || '',
-      dir: document.getElementById('yt-cfg-dir')?.value || '',
-      searchType: currentYtSearchType || 'video',
-      inPlaylist: plView && plView.style.display === 'flex',
-      inChannel: chView && chView.style.display === 'flex'
-    };
+    // 1. Ocultar la cabina real intacta (cero mutaciones en tu sesión)
+    if (liveStage) liveStage.style.display = 'none';
 
-    // Ocultar cualquier vista secundaria y cerrar el panel lateral inmediatamente
-    if (plView) plView.style.display = 'none';
-    if (chView) chView.style.display = 'none';
-    document.body.classList.remove('yt-has-selection');
-    document.querySelectorAll('.yt-video-card, .yt-grid-video-card').forEach(c => c.classList.remove('selected', 'kb-focused'));
+    // 2. Encender el sandbox asegurando eventos y dimensiones
+    if (sandboxStage) {
+      sandboxStage.style.display = 'flex';
+      sandboxStage.style.pointerEvents = 'auto';
+      
+      // Sincronizar gliders del sandbox
+      const sw = document.getElementById('yt-tour-mode-switch');
+      const bVid = document.getElementById('yt-tour-chip-video');
+      if (sw && bVid) updateChipGlider(sw, bVid);
 
-    // Cambiar visual y funcionalmente el switch a VÍDEOS para el demo
-    currentYtSearchType = 'video';
-    const sSwitch = document.getElementById('yt-search-mode-switch');
-    if (sSwitch) {
-      sSwitch.querySelectorAll('.chip-btn').forEach(b => {
-        b.classList.toggle('active', b.getAttribute('data-search-mode') === 'video');
-      });
-      const activeBtn = sSwitch.querySelector('.chip-btn.active');
-      if (activeBtn) updateChipGlider(sSwitch, activeBtn);
-    }
+      const fChips = document.getElementById('yt-tour-format-chips');
+      const fActive = fChips?.querySelector('.chip-btn.active');
+      if (fChips && fActive) updateChipGlider(fChips, fActive);
 
-    const ytHero = document.getElementById('yt-hero-wrapper');
-    if (ytHero) {
-      ytHero.style.display = 'block';
-      ytHero.classList.remove('is-searched');
-    }
-
-    const ytDock = document.getElementById('yt-results-dock');
-    if (ytDock) {
-      ytDock.classList.remove('active');
-      ytDock.style.display = 'none';
+      const rChips = document.getElementById('yt-tour-res-chips');
+      const rActive = rChips?.querySelector('.chip-btn.active');
+      if (rChips && rActive) updateChipGlider(rChips, rActive);
     }
 
     const ytCard = document.getElementById('yt-welcome-card');
@@ -3092,7 +2945,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (ytCard) ytCard.style.display = 'none';
     if (ytBackdrop) ytBackdrop.classList.remove('active');
 
-    renderYtTourStep(0);
+    // Forzar cálculo de layout antes de colocar el spotlight
+    void document.body.offsetHeight;
+
+    setTimeout(() => {
+      renderYtTourStep(0);
+    }, 60);
   }
 
   function endYtTour() {
@@ -3112,93 +2970,83 @@ document.addEventListener('DOMContentLoaded', () => {
       tCard.style.pointerEvents = 'none';
     }
 
-    // Limpiar y replegar completamente el buscador al estado central en reposo
-    const ytInput = document.getElementById('yt-search-input');
-    const heroWrapper = document.getElementById('yt-hero-wrapper');
-    const resultsDock = document.getElementById('yt-results-dock');
-    const resultsList = document.getElementById('yt-results-list');
-    const clearBtn = document.getElementById('yt-clear-btn');
-    const channelView = document.getElementById('yt-channel-view');
+    // 1. Ocultar el sandbox
+    const sandboxStage = document.getElementById('yt-tour-stage');
+    if (sandboxStage) sandboxStage.style.display = 'none';
 
-    if (ytInput) {
-      ytInput.value = '';
-      ytInput.blur();
-    }
-    if (clearBtn) clearBtn.style.display = 'none';
+    // 2. Restaurar la cabina real
+    const liveStage = document.getElementById('yt-stage');
+    if (liveStage) liveStage.style.display = 'flex';
 
-    // Cerrar y vaciar la lista desplegable de vídeos
-    if (resultsDock) {
-      resultsDock.classList.remove('active');
-      resultsDock.style.display = 'none';
-    }
-    if (resultsList) resultsList.innerHTML = '';
-
-    // Bajar el buscador a su posición centrada original
-    if (heroWrapper) {
-      heroWrapper.classList.remove('is-searched');
-      heroWrapper.style.display = 'block';
-    }
-
-    // Restaurar directorio local y tipo de búsqueda previa
-    if (ytTourSnapshot) {
-      if (ytTourSnapshot.dir !== undefined) {
-        const dirInput = document.getElementById('yt-cfg-dir');
-        if (dirInput) dirInput.value = ytTourSnapshot.dir;
-      }
-      if (ytTourSnapshot.searchType) {
-        currentYtSearchType = ytTourSnapshot.searchType;
-        const sSwitch = document.getElementById('yt-search-mode-switch');
-        if (sSwitch) {
-          sSwitch.querySelectorAll('.chip-btn').forEach(b => {
-            b.classList.toggle('active', b.getAttribute('data-search-mode') === currentYtSearchType);
-          });
-          const activeBtn = sSwitch.querySelector('.chip-btn.active');
-          if (activeBtn) updateChipGlider(sSwitch, activeBtn);
-        }
-      }
-    }
-
-    // Si el tour se inició estando dentro de una Playlist, restaurar la vista
-    if (ytTourSnapshot && ytTourSnapshot.inPlaylist && currentPlaylistData) {
-      const plView = document.getElementById('yt-playlist-view');
-      if (plView) plView.style.display = 'flex';
-      if (heroWrapper) heroWrapper.style.display = 'none';
-      if (resultsDock) resultsDock.style.display = 'none';
-      document.body.classList.add('yt-has-selection');
-      updatePlaylistSelectionUI();
-      return;
-    }
-
-    // Ocultar la pantalla de canal si estuviera abierta
-    if (channelView) channelView.style.display = 'none';
-
-    // Cerrar el panel lateral derecho y deseleccionar cualquier vídeo simulado
-    document.body.classList.remove('yt-has-selection');
-    document.querySelectorAll('.yt-video-card, .yt-grid-video-card').forEach(c => c.classList.remove('selected', 'kb-focused'));
-    modeStates.youtube.selectedVideo = null;
+    setTimeout(() => {
+      refreshAllGliders();
+    }, 50);
   }
 
   // ========================================================
-  // INICIALIZACIÓN MÓDULO YOUTUBE
+  // INICIALIZACIÓN MÓDULO YOUTUBE RESTAURADO Y BLINDADO
   // ========================================================
   const ytSearchInput = document.getElementById('yt-search-input');
   const ytHeroWrapper = document.getElementById('yt-hero-wrapper');
   const ytResultsDock = document.getElementById('yt-results-dock');
   const ytResultsList = document.getElementById('yt-results-list');
   const ytClearBtn = document.getElementById('yt-clear-btn');
+  const ytSearchModeSwitch = document.getElementById('yt-search-mode-switch');
+  
   let ytDebounce = null;
+  let currentYtSearchType = 'video';
+  let currentYtSearchPage = 1;
+  let ytSearchSessionId = 0; // Previene colisiones al cambiar rápido entre Vídeos y Listas
 
+  // Interruptor VÍDEOS / LISTAS protegido contra condiciones de carrera
+  ytSearchModeSwitch?.querySelectorAll('.chip-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const mode = btn.getAttribute('data-search-mode') || 'video';
+      if (mode === currentYtSearchType) return;
+      if (typeof playSynth === 'function') playSynth('origami');
+
+      ytSearchModeSwitch.querySelectorAll('.chip-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      updateChipGlider(ytSearchModeSwitch, btn);
+
+      currentYtSearchType = mode;
+      currentYtSearchPage = 1;
+      ytSearchSessionId++; // Invalida cualquier respuesta de red previa
+
+      // Cerrar panel lateral al alternar
+      document.body.classList.remove('yt-has-selection');
+      document.querySelectorAll('.yt-video-card').forEach(c => c.classList.remove('selected', 'kb-focused'));
+      modeStates.youtube.selectedVideo = null;
+
+      if (ytSearchInput && ytSearchInput.value.trim().length >= 2) {
+        triggerYoutubeSearch();
+      }
+    });
+  });
+
+  // Renderizado dinámico de tarjetas en resultados
   function renderYtResults(items) {
-    if (!ytResultsList) return;
-    ytResultsList.innerHTML = '';
+    const resultsContainer = document.getElementById('yt-results-list');
+    const dockEl = document.getElementById('yt-results-dock');
+    const heroEl = document.getElementById('yt-hero-wrapper');
+    if (!resultsContainer) return;
+
+    if (heroEl) heroEl.classList.add('is-searched');
+    if (dockEl) {
+      dockEl.style.display = 'flex';
+      dockEl.style.opacity = '1';
+      dockEl.style.transform = 'translateY(0)';
+      dockEl.classList.add('active');
+    }
+    resultsContainer.innerHTML = '';
 
     if (!items || items.length === 0) {
-      ytResultsList.innerHTML = '<div style="text-align:center; padding:40px; color:#64748b; font-size:12px; font-weight:800;">NO SE ENCONTRARON RESULTADOS</div>';
+      resultsContainer.innerHTML = '<div style="text-align:center; padding:40px; color:#64748b; font-size:12px; font-weight:800;">NO SE ENCONTRARON RESULTADOS</div>';
       return;
     }
 
     items.forEach(item => {
-      // 1. Tarjeta destacada de Lista de Reproducción
+      // 1. Tarjeta de Playlist
       if (item.is_playlist) {
         const card = document.createElement('div');
         card.className = 'yt-video-card is-playlist-card';
@@ -3211,7 +3059,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="yt-video-details">
             <span class="yt-video-title" title="${item.title}">${item.title}</span>
             <div class="yt-video-channel">
-              <span style="color: #ffaa00; font-weight:800;">📁 Lista • ${item.uploader}</span>
+              <span style="color: var(--color-accent-1); font-weight:800;">📁 Lista • ${item.uploader}</span>
             </div>
           </div>
         `;
@@ -3219,11 +3067,11 @@ document.addEventListener('DOMContentLoaded', () => {
           if (typeof playSynth === 'function') playSynth('chord');
           openYtPlaylistView(item.url);
         });
-        ytResultsList.appendChild(card);
+        resultsContainer.appendChild(card);
         return;
       }
 
-      // 2. Tarjeta estándar de Vídeo suelto
+      // 2. Tarjeta de Vídeo Estándar
       const video = item;
       const card = document.createElement('div');
       card.className = 'yt-video-card';
@@ -3231,7 +3079,13 @@ document.addEventListener('DOMContentLoaded', () => {
         card.classList.add('selected');
       }
 
-      const channelTarget = video.channel_url || video.uploader;
+      // Extraer identificador de canal fiable limpiando colaboraciones compuestas
+      let rawChannel = video.channel_url || video.uploader || '';
+      if (!rawChannel.startsWith('http')) {
+        rawChannel = rawChannel.split(/ y | and | & /i)[0].trim();
+      }
+      const channelTarget = rawChannel;
+
       card.innerHTML = `
         <div class="yt-thumb-box">
           <img class="yt-thumb-img" src="${video.thumbnail}" alt="Thumbnail" loading="lazy">
@@ -3248,7 +3102,7 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
       `;
 
-      // Clic directo al canal sin propagar al vídeo
+      // Clic directo al canal
       const chBtn = card.querySelector('.yt-video-channel-btn');
       if (chBtn) {
         chBtn.addEventListener('click', (e) => {
@@ -3258,6 +3112,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
       }
 
+      // Clic para seleccionar el vídeo y abrir panel
       card.addEventListener('click', async () => {
         if (typeof playSynth === 'function') playSynth('click');
         document.querySelectorAll('.yt-video-card').forEach(c => c.classList.remove('selected', 'kb-focused'));
@@ -3323,11 +3178,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       });
 
-      ytResultsList.appendChild(card);
+      resultsContainer.appendChild(card);
     });
 
-    // Inyectar botón 'Cargar más' al final del scroll tanto para VÍDEOS como para LISTAS
-    if (items.length >= 8) {
+    // Inyectar botón "Cargar más" al final del scroll si hay bastantes elementos
+    const minThreshold = (currentYtSearchType === 'playlist') ? 4 : 8;
+    if (items.length >= minThreshold) {
       const isPlaylist = currentYtSearchType === 'playlist';
       const labelText = isPlaylist ? 'CARGAR MÁS LISTAS ▾' : 'CARGAR MÁS VÍDEOS ▾';
       const loadingText = isPlaylist ? 'CARGANDO MÁS LISTAS...' : 'CARGANDO MÁS VÍDEOS...';
@@ -3356,7 +3212,8 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.disabled = true;
 
         currentYtSearchPage++;
-        const nextResults = await pyCall('search_youtube', val, currentYtSearchType, currentYtSearchPage, 12);
+        const loadSize = (currentYtSearchType === 'playlist') ? 4 : 12;
+        const nextResults = await pyCall('search_youtube', val, currentYtSearchType, currentYtSearchPage, loadSize);
 
         if (spin) spin.style.display = 'none';
         btn.disabled = false;
@@ -3374,116 +3231,78 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       });
 
-      ytResultsList.appendChild(loadMoreRow);
+      resultsContainer.appendChild(loadMoreRow);
     }
   }
 
-  let currentYtSearchType = 'video';
-  let currentYtSearchPage = 1;
-
-  const ytSearchModeSwitch = document.getElementById('yt-search-mode-switch');
-  ytSearchModeSwitch?.querySelectorAll('.chip-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const mode = btn.getAttribute('data-search-mode') || 'video';
-      if (mode === currentYtSearchType) return;
-      if (typeof playSynth === 'function') playSynth('origami');
-
-      ytSearchModeSwitch.querySelectorAll('.chip-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      updateChipGlider(ytSearchModeSwitch, btn);
-
-      currentYtSearchType = mode;
-      currentYtSearchPage = 1;
-
-      // Si cambiamos entre modos, limpiar la selección
-      document.body.classList.remove('yt-has-selection');
-      document.querySelectorAll('.yt-video-card').forEach(c => c.classList.remove('selected', 'kb-focused'));
-      modeStates.youtube.selectedVideo = null;
-
-      if (ytSearchInput && ytSearchInput.value.trim().length >= 2) {
-        triggerYoutubeSearch();
-      }
-    });
-  });
-
+  // Motor de Búsqueda Reactivo con soporte de Enter y Debounce en vivo
   async function triggerYoutubeSearch() {
-    if (!ytSearchInput) return;
-    const val = ytSearchInput.value.trim();
-    if (ytClearBtn) ytClearBtn.style.display = val.length > 0 ? 'block' : 'none';
+    const inputEl = document.getElementById('yt-search-input');
+    const heroEl = document.getElementById('yt-hero-wrapper');
+    const dockEl = document.getElementById('yt-results-dock');
+    const listEl = document.getElementById('yt-results-list');
+    const clearEl = document.getElementById('yt-clear-btn');
+
+    if (!inputEl) return;
+    const val = inputEl.value.trim();
+    if (clearEl) clearEl.style.display = val.length > 0 ? 'block' : 'none';
 
     if (val.length < 2) {
-      if (ytHeroWrapper) ytHeroWrapper.classList.remove('is-searched');
-      if (ytResultsDock) {
-        ytResultsDock.classList.remove('active');
-        ytResultsDock.style.display = 'none';
+      if (heroEl) heroEl.classList.remove('is-searched');
+      if (dockEl) {
+        dockEl.classList.remove('active');
+        dockEl.style.display = 'none';
       }
       document.body.classList.remove('yt-has-selection');
       return;
     }
 
-    // Detección directa de URL de Lista de Reproducción
+    // Detección directa de URL completa de Playlist
     if (val.includes('list=') && (val.startsWith('http://') || val.startsWith('https://'))) {
-      if (ytHeroWrapper) ytHeroWrapper.classList.add('is-searched');
-      if (ytResultsDock) {
-        ytResultsDock.style.display = 'none';
-        ytResultsDock.classList.remove('active');
+      if (heroEl) heroEl.classList.add('is-searched');
+      if (dockEl) {
+        dockEl.style.display = 'none';
+        dockEl.classList.remove('active');
       }
       openYtPlaylistView(val);
       return;
     }
 
-    if (ytHeroWrapper) ytHeroWrapper.classList.add('is-searched');
-    if (ytResultsDock) {
-      ytResultsDock.style.display = 'flex';
-      setTimeout(() => ytResultsDock.classList.add('active'), 50);
+    // Elevar buscador y mostrar spinner
+    if (heroEl) heroEl.classList.add('is-searched');
+    if (dockEl) {
+      dockEl.style.display = 'flex';
+      dockEl.style.opacity = '1';
+      dockEl.style.transform = 'translateY(0)';
+      dockEl.classList.add('active');
     }
 
     currentYtSearchPage = 1;
+    const thisSessionId = ++ytSearchSessionId;
+    const requestedType = currentYtSearchType;
 
-    ytResultsList.innerHTML = `
-      <div class="yt-loading-box">
-        <div class="yt-orbital-spinner"></div>
-        <span class="yt-loading-txt">LOCALIZANDO TRANSMISIONES...</span>
-      </div>
-    `;
+    if (listEl) {
+      listEl.innerHTML = `
+        <div class="yt-loading-box">
+          <div class="yt-orbital-spinner"></div>
+          <span class="yt-loading-txt">LOCALIZANDO TRANSMISIONES...</span>
+        </div>
+      `;
+    }
 
-    const results = await pyCall('search_youtube', val, currentYtSearchType, 1, 12);
+    const pageSize = (requestedType === 'playlist') ? 4 : 12;
+    const results = await pyCall('search_youtube', val, requestedType, 1, pageSize);
+
+    // Descartar si el usuario cambió de pestaña mientras la petición estaba en vuelo
+    if (thisSessionId !== ytSearchSessionId || requestedType !== currentYtSearchType) {
+      return;
+    }
+
     modeStates.youtube.results = results || [];
-    renderYtResults(results);
+    renderYtResults(results || []);
   }
 
-  // Paginación continua bajo demanda para listas
-  btnLoadMorePl?.addEventListener('click', async () => {
-    const val = ytSearchInput?.value.trim();
-    if (!val || currentYtSearchType !== 'playlist') return;
-
-    if (typeof playSynth === 'function') playSynth('origami');
-    if (spinLoadMorePl) spinLoadMorePl.style.display = 'inline-block';
-    if (txtLoadMorePl) txtLoadMorePl.textContent = 'CARGANDO MÁS LISTAS...';
-    btnLoadMorePl.disabled = true;
-
-    currentPlaylistSearchPage++;
-    const nextResults = await pyCall('search_youtube', val, 'playlist', currentPlaylistSearchPage, 12);
-
-    if (spinLoadMorePl) spinLoadMorePl.style.display = 'none';
-    btnLoadMorePl.disabled = false;
-
-    if (nextResults && nextResults.length > 0) {
-      nextResults.forEach(item => {
-        if (!modeStates.youtube.results.some(r => r.id === item.id)) {
-          modeStates.youtube.results.push(item);
-        }
-      });
-      renderYtResults(modeStates.youtube.results);
-      if (txtLoadMorePl) txtLoadMorePl.textContent = 'CARGAR MÁS LISTAS ▾';
-    } else {
-      if (txtLoadMorePl) txtLoadMorePl.textContent = 'NO HAY MÁS LISTAS';
-      setTimeout(() => { if (txtLoadMorePl) txtLoadMorePl.textContent = 'CARGAR MÁS LISTAS ▾'; }, 2000);
-    }
-  });
-
   let activeYtNavIndex = -1;
-
   function updateYtKeyboardSelection(cards) {
     cards.forEach((c, idx) => {
       if (idx === activeYtNavIndex) {
@@ -3496,12 +3315,14 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   if (ytSearchInput) {
+    // 1. Escritura en tiempo real garantizada
     ytSearchInput.addEventListener('input', () => {
       activeYtNavIndex = -1;
       clearTimeout(ytDebounce);
-      ytDebounce = setTimeout(triggerYoutubeSearch, 400);
+      ytDebounce = setTimeout(triggerYoutubeSearch, 380);
     });
 
+    // 2. Ejecución inmediata al pulsar Enter
     ytSearchInput.addEventListener('keydown', (e) => {
       const cards = document.querySelectorAll('.yt-video-card');
 
@@ -3518,11 +3339,11 @@ document.addEventListener('DOMContentLoaded', () => {
           updateYtKeyboardSelection(cards);
         }
       } else if (e.key === 'Enter') {
+        e.preventDefault();
+        clearTimeout(ytDebounce);
         if (activeYtNavIndex >= 0 && cards[activeYtNavIndex]) {
-          e.preventDefault();
           cards[activeYtNavIndex].click();
         } else {
-          clearTimeout(ytDebounce);
           triggerYoutubeSearch();
         }
       } else if (e.key === 'Escape') {
@@ -3554,6 +3375,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.yt-video-card').forEach(c => c.classList.remove('selected', 'kb-focused'));
   });
 
+  // FORMATO: VÍDEO / AUDIO
   const ytFormatChips = document.getElementById('yt-format-chips');
   const ytResGroup = document.getElementById('yt-res-group');
   const ytBtnTxt = document.getElementById('yt-btn-txt');
@@ -3584,6 +3406,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  // SELECTOR ELÁSTICO Y ARRASTRE TÁCTIL DE CALIDADES
   const ytResChips = document.getElementById('yt-res-chips');
 
   function triggerJellyGlider(group, targetBtn, direction = 0) {
@@ -3696,11 +3519,13 @@ document.addEventListener('DOMContentLoaded', () => {
     ytResChips.addEventListener('pointercancel', endGliderDrag);
   }
 
+  // EXPLORADOR DE CARPETAS RESTAURADO
   const ytBtnBrowse = document.getElementById('yt-btn-browse');
   const ytCfgDir = document.getElementById('yt-cfg-dir');
   ytBtnBrowse?.addEventListener('click', async () => {
-    const selected = await pyCall('select_folder', ytCfgDir.value);
-    if (selected) {
+    if (typeof playSynth === 'function') playSynth('click');
+    const selected = await pyCall('select_folder', ytCfgDir?.value || '');
+    if (selected && ytCfgDir) {
       ytCfgDir.value = selected;
       modeStates.youtube.dir = selected;
       updateDiskTelemetry(selected);
@@ -3718,6 +3543,7 @@ document.addEventListener('DOMContentLoaded', () => {
     saveCurrentState();
   });
 
+  // TOGGLE: ABRIR CARPETA AL FINALIZAR
   const ytCardOpen = document.getElementById('yt-card-open-folder');
   const ytCfgOpen = document.getElementById('yt-cfg-open-folder');
   if (ytCardOpen && ytCfgOpen) {
@@ -3725,21 +3551,21 @@ document.addEventListener('DOMContentLoaded', () => {
       if (e.target !== ytCfgOpen) ytCfgOpen.checked = !ytCfgOpen.checked;
       if (typeof playSynth === 'function') playSynth('click');
       modeStates.youtube.openFolder = ytCfgOpen.checked;
+      saveCurrentState();
     });
   }
 
+  // BOTÓN DE DESCARGA MAESTRO DE YOUTUBE
   const ytBtnDownload = document.getElementById('yt-btn-download');
   ytBtnDownload?.addEventListener('click', (e) => {
     e.preventDefault();
-    const video = modeStates.youtube.selectedVideo;
-    if (!video) return;
 
     const targetDir = (ytCfgDir?.value || modeStates.youtube.dir || '').trim();
     if (!targetDir) {
       if (typeof playSynth === 'function') playSynth('click');
-      const ytBtnTxt = document.getElementById('yt-btn-txt');
-      const origTxt = ytBtnTxt ? ytBtnTxt.innerText : 'DESCARGAR VÍDEO';
-      if (ytBtnTxt) ytBtnTxt.innerText = 'SELECCIONA RUTA';
+      const ytTxtEl = document.getElementById('yt-btn-txt');
+      const origTxt = ytTxtEl ? ytTxtEl.innerText : 'DESCARGAR VÍDEO';
+      if (ytTxtEl) ytTxtEl.innerText = 'SELECCIONA RUTA';
       ytBtnDownload.classList.add('is-empty');
 
       if (ytCfgDir) {
@@ -3754,7 +3580,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       setTimeout(() => {
         ytBtnDownload.classList.remove('is-empty');
-        if (ytBtnTxt) ytBtnTxt.innerText = origTxt;
+        if (ytTxtEl) ytTxtEl.innerText = origTxt;
       }, 1400);
 
       document.getElementById('yt-btn-browse')?.click();
@@ -3777,7 +3603,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const quality = modeStates.youtube.res || '1080';
     const shouldOpen = ytCfgOpen ? ytCfgOpen.checked : true;
 
-    // Si estamos descargando una Playlist completa
+    // Si estamos descargando una Playlist activa
     if (currentPlaylistData && selectedPlaylistVideos.size > 0) {
       const selectedTasks = currentPlaylistData.videos
         .filter(v => selectedPlaylistVideos.has(v.id))
@@ -3811,6 +3637,10 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       return;
     }
+
+    // Si es un vídeo suelto
+    const video = modeStates.youtube.selectedVideo;
+    if (!video) return;
 
     const task = {
       id: 'task_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
@@ -3854,20 +3684,20 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // ========================================================
-  // CONTROLADOR Y NAVEGACIÓN DE LA PANTALLA DE CANAL DE YOUTUBE
+  // CONTROLADOR Y NAVEGACIÓN DE CANAL DE YOUTUBE
   // ========================================================
   const ytChannelView = document.getElementById('yt-channel-view');
   const ytChannelLoading = document.getElementById('yt-channel-loading');
   const ytChannelContent = document.getElementById('yt-channel-content');
   const btnChannelBack = document.getElementById('btn-channel-back');
-  const btnLoadMore = document.getElementById('btn-channel-load-more');
+  const btnLoadMoreChannel = document.getElementById('btn-channel-load-more');
   const sortChips = document.getElementById('yt-channel-sort-chips');
 
   let currentChannelTarget = '';
   let channelVideosList = [];
   let currentSortMode = 'recent';
   let nextStartIndex = 1;
-  const pageSize = 24;
+  const channelPageSize = 24;
 
   async function openYtChannelView(channelIdentifier, fallbackName = 'Canal') {
     if (!ytChannelView) return;
@@ -3878,57 +3708,43 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (ytHeroWrapper) ytHeroWrapper.style.display = 'none';
     if (ytResultsDock) ytResultsDock.style.display = 'none';
+    if (ytPlaylistView) ytPlaylistView.style.display = 'none';
 
     ytChannelView.style.display = 'flex';
     if (ytChannelLoading) ytChannelLoading.style.display = 'flex';
     if (ytChannelContent) ytChannelContent.style.display = 'none';
 
-    const data = await pyCall('get_channel_details', channelIdentifier, 1, pageSize);
-
+    const data = await pyCall('get_channel_details', channelIdentifier, 1, channelPageSize);
     if (ytChannelLoading) ytChannelLoading.style.display = 'none';
 
     if (!data) {
-      if (ytChannelContent) {
-        ytChannelContent.style.display = 'flex';
-      }
+      if (ytChannelContent) ytChannelContent.style.display = 'flex';
       return;
     }
 
     if (ytChannelContent) ytChannelContent.style.display = 'flex';
 
-    // Asignación segura de textos y enlaces multimedia
     const nameEl = document.getElementById('yt-channel-name');
     const bioEl = document.getElementById('yt-channel-bio');
     const avatarImg = document.getElementById('yt-channel-avatar-img');
     const bannerBox = document.getElementById('yt-channel-banner');
     const subsEl = document.getElementById('yt-channel-subs');
-    const heroCard = document.getElementById('yt-channel-hero');
 
-    if (heroCard) heroCard.style.display = 'flex';
     if (nameEl) nameEl.textContent = data.title || fallbackName;
     if (bioEl) bioEl.textContent = (data.description && data.description.trim()) ? data.description : 'Canal oficial de YouTube';
     if (subsEl) subsEl.textContent = data.subscribers || '--';
 
     if (avatarImg) {
-      const avatarSrc = (data.avatar && data.avatar.trim()) ? data.avatar : `https://ui-avatars.com/api/?name=${encodeURIComponent(data.title || 'YT')}&background=ff0055&color=fff&size=128`;
-      avatarImg.src = avatarSrc;
+      avatarImg.src = data.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(data.title || 'YT')}&background=ff0055&color=fff&size=128`;
       avatarImg.style.display = 'block';
-      avatarImg.onerror = () => {
-        avatarImg.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(data.title || 'YT')}&background=ff0055&color=fff&size=128`;
-      };
     }
 
     if (bannerBox) {
-      if (data.banner) {
-        bannerBox.style.backgroundImage = `url('${data.banner}')`;
-      } else {
-        bannerBox.style.backgroundImage = 'none';
-      }
+      bannerBox.style.backgroundImage = data.banner ? `url('${data.banner}')` : 'none';
     }
 
     channelVideosList = data.videos || [];
     nextStartIndex = channelVideosList.length + 1;
-
     renderChannelVideosGrid();
   }
 
@@ -3970,23 +3786,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.classList.add('yt-has-selection');
         saveCurrentState();
 
-        // Actualizar la posición de las pildoritas de formato y resolución al instante
-        setTimeout(() => {
-          const fChips = document.getElementById('yt-format-chips');
-          const rChips = document.getElementById('yt-res-chips');
-          if (fChips) {
-            const activeFmt = fChips.querySelector('.chip-btn.active') || fChips.querySelector('[data-format="video"]');
-            if (activeFmt) updateChipGlider(fChips, activeFmt);
-          }
-          if (rChips) {
-            const activeRes = rChips.querySelector('.chip-btn.active') || rChips.querySelector('[data-res="1080"]');
-            if (activeRes) updateChipGlider(rChips, activeRes);
-          }
-        }, 60);
-
-        setTimeout(() => {
-          refreshAllGliders();
-        }, 220);
+        setTimeout(() => refreshAllGliders(), 150);
 
         const pImg = document.getElementById('yt-preview-img');
         const pEmpty = document.getElementById('yt-preview-empty');
@@ -4004,64 +3804,24 @@ document.addEventListener('DOMContentLoaded', () => {
           btnDownload.style.pointerEvents = 'auto';
           btnDownload.style.opacity = '1';
         }
-
-        const bgVal = v.thumbnail ? `url('${v.thumbnail}')` : 'none';
-        const aL1 = document.getElementById('ambient-layer-1');
-        const aL2 = document.getElementById('ambient-layer-2');
-        if (aL1) aL1.style.backgroundImage = bgVal;
-        if (aL2) aL2.style.backgroundImage = bgVal;
       });
 
       grid.appendChild(card);
     });
   }
 
-  // Cambio de criterio: consulta a YouTube directamente el orden seleccionado
-  sortChips?.querySelectorAll('.chip-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const mode = btn.getAttribute('data-sort');
-      if (mode === currentSortMode) return;
-      if (typeof playSynth === 'function') playSynth('origami');
-
-      sortChips.querySelectorAll('.chip-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      currentSortMode = mode;
-
-      const grid = document.getElementById('yt-channel-videos-grid');
-      if (grid) {
-        grid.innerHTML = `
-          <div style="grid-column: 1/-1; display:flex; justify-content:center; padding:50px 0;">
-            <div class="yt-orbital-spinner"></div>
-          </div>
-        `;
-      }
-
-      channelVideosList = [];
-      nextStartIndex = 1;
-
-      const data = await pyCall('get_channel_details', currentChannelTarget, 1, pageSize, currentSortMode);
-      if (data && data.videos) {
-        channelVideosList = data.videos;
-        nextStartIndex = channelVideosList.length + 1;
-      }
-      renderChannelVideosGrid();
-    });
-  });
-
-  // Paginación continua con "Cargar más"
-  btnLoadMore?.addEventListener('click', async () => {
+  btnLoadMoreChannel?.addEventListener('click', async () => {
     if (!currentChannelTarget) return;
     const spin = document.getElementById('spin-load-more');
     const txt = document.getElementById('txt-load-more');
     if (spin) spin.style.display = 'inline-block';
     if (txt) txt.textContent = 'CARGANDO...';
-    btnLoadMore.disabled = true;
+    btnLoadMoreChannel.disabled = true;
 
-    const data = await pyCall('get_channel_details', currentChannelTarget, nextStartIndex, pageSize);
-
+    const data = await pyCall('get_channel_details', currentChannelTarget, nextStartIndex, channelPageSize);
     if (spin) spin.style.display = 'none';
     if (txt) txt.textContent = 'CARGAR MÁS VÍDEOS ▾';
-    btnLoadMore.disabled = false;
+    btnLoadMoreChannel.disabled = false;
 
     if (data && data.videos && data.videos.length > 0) {
       data.videos.forEach(nv => {
@@ -4071,9 +3831,6 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       nextStartIndex += data.videos.length;
       renderChannelVideosGrid();
-    } else {
-      if (txt) txt.textContent = 'NO HAY MÁS VÍDEOS';
-      setTimeout(() => { if (txt) txt.textContent = 'CARGAR MÁS VÍDEOS ▾'; }, 2000);
     }
   });
 
@@ -4092,6 +3849,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const ytPlaylistContent = document.getElementById('yt-playlist-content');
   const btnPlaylistBack = document.getElementById('btn-playlist-back');
   const btnPlaylistSelectAll = document.getElementById('btn-playlist-select-all');
+  const btnPlaylistTogglePanel = document.getElementById('btn-playlist-toggle-panel');
+
   let currentPlaylistData = null;
   let selectedPlaylistVideos = new Set();
 
@@ -4116,7 +3875,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     currentPlaylistData = data;
-    selectedPlaylistVideos = new Set(data.videos.map(v => v.id)); // Seleccionados por defecto
+    selectedPlaylistVideos = new Set(data.videos.map(v => v.id));
 
     if (ytPlaylistContent) ytPlaylistContent.style.display = 'flex';
 
@@ -4130,7 +3889,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (tCount) tCount.textContent = `${data.count} vídeos`;
     if (tImg && data.thumbnail) tImg.src = data.thumbnail;
 
-    // Extracción de paleta cromática de la miniatura de la lista para teñir la sección entera
+    // Extracción de paleta cromática de la lista
     if (data.thumbnail) {
       const bgVal = `url('${data.thumbnail}')`;
       const aL1 = document.getElementById('ambient-layer-1');
@@ -4150,7 +3909,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderPlaylistVideosGrid();
     updatePlaylistSelectionUI();
 
-    // Activar panel lateral adaptado a la Playlist
+    // Abrir panel lateral adaptado a la Playlist
     document.body.classList.add('yt-has-selection');
     const pTitle = document.getElementById('yt-prev-title');
     const pChannel = document.getElementById('yt-prev-channel');
@@ -4216,7 +3975,6 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
           selectedPlaylistVideos.add(v.id);
         }
-        // Asegurar apertura del panel de opciones si estaba cerrado
         document.body.classList.add('yt-has-selection');
         renderPlaylistVideosGrid();
         updatePlaylistSelectionUI();
@@ -4226,19 +3984,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // BOTÓN PARA MOSTRAR / OCULTAR PANEL LATERAL EN LA LISTA
-  document.getElementById('btn-playlist-toggle-panel')?.addEventListener('click', () => {
-    if (typeof playSynth === 'function') playSynth('click');
-    document.body.classList.toggle('yt-has-selection');
-    setTimeout(refreshAllGliders, 100);
-  });
-
   btnPlaylistSelectAll?.addEventListener('click', () => {
     if (!currentPlaylistData || !currentPlaylistData.videos) return;
     if (typeof playSynth === 'function') playSynth('origami');
 
-    const totalVideos = currentPlaylistData.videos.length;
-    // Si ya están todos seleccionados (o casi todos), desmarcar absolutamente todos
     if (selectedPlaylistVideos.size > 0) {
       selectedPlaylistVideos.clear();
       btnPlaylistSelectAll.textContent = '✔ SELECCIONAR TODOS';
@@ -4250,6 +3999,12 @@ document.addEventListener('DOMContentLoaded', () => {
     updatePlaylistSelectionUI();
   });
 
+  btnPlaylistTogglePanel?.addEventListener('click', () => {
+    if (typeof playSynth === 'function') playSynth('click');
+    document.body.classList.toggle('yt-has-selection');
+    setTimeout(refreshAllGliders, 100);
+  });
+
   btnPlaylistBack?.addEventListener('click', () => {
     if (typeof playSynth === 'function') playSynth('click');
     if (ytPlaylistView) ytPlaylistView.style.display = 'none';
@@ -4257,7 +4012,6 @@ document.addEventListener('DOMContentLoaded', () => {
       ytHeroWrapper.style.display = 'block';
       ytHeroWrapper.classList.add('is-searched');
     }
-    // Restaurar los resultados de búsqueda intactos inmediatamente
     if (ytResultsDock) {
       ytResultsDock.style.display = 'flex';
       ytResultsDock.classList.add('active');

@@ -560,6 +560,100 @@
     </div>
   </div>
 
+  <!-- ========================================================
+       ESCENARIO FANTASMA AISLADO DEL TOUR DE YOUTUBE (SANDBOX)
+       ======================================================== -->
+  <div class="cockpit yt-cockpit" id="yt-tour-stage" style="display: none; pointer-events: none;">
+    <div class="yt-search-col">
+      <div class="yt-hero-wrapper is-searched" id="yt-tour-hero-wrapper">
+        <div class="yt-search-row-container">
+          <div class="yt-search-input-box" id="yt-tour-input-box">
+            <svg class="yt-search-ico" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="text" class="search-input yt-input" id="yt-tour-search-input" value="DaniRep" readonly>
+          </div>
+
+          <div class="chip-group yt-search-mode-switch" id="yt-tour-mode-switch">
+            <div class="chip-glider"></div>
+            <button class="chip-btn active" id="yt-tour-chip-video">VÍDEOS</button>
+            <button class="chip-btn" id="yt-tour-chip-playlist">LISTAS</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="yt-results-dock active" id="yt-tour-results-dock" style="display: flex;">
+        <div class="yt-results-scroll">
+          <div class="yt-video-card" id="yt-tour-card-1">
+            <div class="yt-thumb-box">
+              <img class="yt-thumb-img" src="https://i.ytimg.com/vi/w4Z0n-g1cW4/hqdefault.jpg" alt="Thumbnail">
+              <span class="yt-duration-badge">28:14</span>
+            </div>
+            <div class="yt-video-details">
+              <span class="yt-video-title">GTA V ONLINE: CARRERAS ÉPICAS Y PARKOUR IMPOSIBLE! - DANIREP</span>
+              <div class="yt-video-channel">
+                <button class="yt-video-channel-btn" id="yt-tour-channel-btn-target">
+                  <span class="yt-channel-btn-icon">📺</span>
+                  <span>DaniRep | +6 Vídeos Diarios De GTA 5 Online!</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="glass-box yt-sidebar-box" id="yt-tour-sidebar" style="display: flex;">
+      <div class="glass-inner">
+        <div class="box-header"><span>PANEL YOUTUBE</span></div>
+        <div class="yt-preview-card">
+          <div class="yt-preview-media">
+            <img src="https://i.ytimg.com/vi/w4Z0n-g1cW4/hqdefault.jpg" style="display: block; width: 100%; border-radius: 12px;">
+          </div>
+          <div class="yt-preview-meta">
+            <div class="yt-prev-title" style="font-size: 11px; font-weight: 800;">GTA V ONLINE: CARRERAS ÉPICAS!</div>
+            <div class="yt-prev-channel" style="font-size: 10px; color: var(--color-accent-1);">DaniRep</div>
+          </div>
+        </div>
+
+        <div class="settings-area" style="margin-top: 15px;">
+          <div id="yt-tour-dest-block">
+            <label class="section-label">DESTINO LOCAL</label>
+            <input type="text" class="search-input" value="D:\YouTube\Aurion Videos" readonly style="font-size: 11px;">
+          </div>
+
+          <div id="yt-tour-format-block">
+            <label class="section-label">FORMATO DE SALIDA</label>
+            <div class="chip-group" id="yt-tour-format-chips">
+              <div class="chip-glider"></div>
+              <button class="chip-btn active">VÍDEO (MP4)</button>
+              <button class="chip-btn">AUDIO (MP3)</button>
+            </div>
+          </div>
+
+          <div id="yt-tour-res-block">
+            <label class="section-label">CALIDAD MÁXIMA</label>
+            <div class="chip-group yt-chips-resolutions" id="yt-tour-res-chips">
+              <div class="chip-glider"></div>
+              <button class="chip-btn">720p</button>
+              <button class="chip-btn active">1080p</button>
+              <button class="chip-btn">4K</button>
+            </div>
+          </div>
+
+          <div class="mag-wrapper" id="yt-tour-download-block" style="margin-top: 14px;">
+            <div class="split-cluster" id="yt-tour-split-cluster">
+              <button class="btn-god btn-split-main">
+                <span class="btn-god-txt">DESCARGAR VÍDEO</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- MODAL HUD INTELIGENTE -->
   <div class="modal-backdrop" id="match-modal-backdrop">
     <div class="modal-glass-card" id="match-modal-card">
