@@ -463,8 +463,12 @@ class AurionBridge:
                     raw_entries = info_playlists.get('entries', []) or []
                     targets = [('playlist', e) for e in raw_entries if e]
                 else:
-                    info_videos = ydl.extract_info(f"ytsearch25:{query}", download=False) or {}
-                    raw_entries = info_videos.get('entries', []) or []
+                    # Búsqueda paginada exclusiva de vídeos
+                    search_limit = page * page_size
+                    info_videos = ydl.extract_info(f"ytsearch{search_limit}:{query}", download=False) or {}
+                    all_entries = info_videos.get('entries', []) or []
+                    # Devolver solo la porción de la página actual
+                    raw_entries = all_entries[start_idx - 1:end_idx]
                     targets = [('video', e) for e in raw_entries if e]
 
                 for item_type, entry in targets:

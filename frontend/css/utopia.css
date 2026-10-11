@@ -6444,3 +6444,58 @@ body.tour-running-active .tour-blurred-zone {
   width: 100% !important;
   flex-shrink: 0 !important;
 }
+
+/* =========================================================
+   ESCALADO EXPANSIVO PARA VENTANA MAXIMIZADA (YOUTUBE)
+   ========================================================= */
+
+body.is-maximized .yt-video-card {
+  padding: 16px 18px !important;
+  gap: 20px !important;
+  border-radius: 22px !important;
+}
+
+body.is-maximized .yt-thumb-box {
+  width: 210px !important;
+  border-radius: 16px !important;
+}
+
+body.is-maximized .yt-video-title {
+  font-size: 15.5px !important;
+  line-height: 1.4 !important;
+}
+
+body.is-maximized .yt-video-channel {
+  font-size: 12.5px !important;
+}
+
+body.is-maximized .yt-playlist-item-row {
+  padding: 14px 20px !important;
+  gap: 20px !important;
+  border-radius: 18px !important;
+}
+
+body.is-maximized .yt-row-index {
+  font-size: 16px !important;
+  width: 36px !important;
+}
+
+body.is-maximized .yt-row-thumb-box {
+  width: 140px !important;
+  border-radius: 12px !important;
+}
+
+body.is-maximized .yt-row-title {
+  font-size: 14.5px !important;
+}
+
+body.is-maximized .yt-row-meta {
+  font-size: 11.5px !important;
+  gap: 16px !important;
+}
+
+body.is-maximized .yt-row-check-badge {
+  font-size: 11.5px !important;
+  padding: 6px 14px !important;
+  border-radius: 10px !important;
+}

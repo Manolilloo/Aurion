@@ -3326,32 +3326,37 @@ document.addEventListener('DOMContentLoaded', () => {
       ytResultsList.appendChild(card);
     });
 
-    // Inyectar el botón 'Cargar más' solo si estamos en LISTAS y al final del scroll
-    if (currentYtSearchType === 'playlist' && items.length >= 8) {
+    // Inyectar botón 'Cargar más' al final del scroll tanto para VÍDEOS como para LISTAS
+    if (items.length >= 8) {
+      const isPlaylist = currentYtSearchType === 'playlist';
+      const labelText = isPlaylist ? 'CARGAR MÁS LISTAS ▾' : 'CARGAR MÁS VÍDEOS ▾';
+      const loadingText = isPlaylist ? 'CARGANDO MÁS LISTAS...' : 'CARGANDO MÁS VÍDEOS...';
+      const emptyText = isPlaylist ? 'NO HAY MÁS LISTAS' : 'NO HAY MÁS VÍDEOS';
+
       const loadMoreRow = document.createElement('div');
       loadMoreRow.className = 'yt-load-more-playlists-box';
       loadMoreRow.id = 'yt-load-more-box';
       loadMoreRow.innerHTML = `
-        <button class="btn-channel-load-more" id="btn-load-more-playlists">
-          <span class="btn-load-more-spinner" id="spin-load-more-playlists" style="display: none;"></span>
-          <span id="txt-load-more-playlists">CARGAR MÁS LISTAS ▾</span>
+        <button class="btn-channel-load-more" id="btn-load-more-general">
+          <span class="btn-load-more-spinner" id="spin-load-more-general" style="display: none;"></span>
+          <span id="txt-load-more-general">${labelText}</span>
         </button>
       `;
 
-      loadMoreRow.querySelector('#btn-load-more-playlists')?.addEventListener('click', async (e) => {
+      loadMoreRow.querySelector('#btn-load-more-general')?.addEventListener('click', async (e) => {
         const btn = e.currentTarget;
-        const spin = btn.querySelector('#spin-load-more-playlists');
-        const txt = btn.querySelector('#txt-load-more-playlists');
+        const spin = btn.querySelector('#spin-load-more-general');
+        const txt = btn.querySelector('#txt-load-more-general');
         const val = ytSearchInput?.value.trim();
-        if (!val || currentYtSearchType !== 'playlist') return;
+        if (!val) return;
 
         if (typeof playSynth === 'function') playSynth('origami');
         if (spin) spin.style.display = 'inline-block';
-        if (txt) txt.textContent = 'CARGANDO MÁS LISTAS...';
+        if (txt) txt.textContent = loadingText;
         btn.disabled = true;
 
-        currentPlaylistSearchPage++;
-        const nextResults = await pyCall('search_youtube', val, 'playlist', currentPlaylistSearchPage, 12);
+        currentYtSearchPage++;
+        const nextResults = await pyCall('search_youtube', val, currentYtSearchType, currentYtSearchPage, 12);
 
         if (spin) spin.style.display = 'none';
         btn.disabled = false;
@@ -3364,8 +3369,8 @@ document.addEventListener('DOMContentLoaded', () => {
           });
           renderYtResults(modeStates.youtube.results);
         } else {
-          if (txt) txt.textContent = 'NO HAY MÁS LISTAS';
-          setTimeout(() => { if (txt) txt.textContent = 'CARGAR MÁS LISTAS ▾'; }, 2000);
+          if (txt) txt.textContent = emptyText;
+          setTimeout(() => { if (txt) txt.textContent = labelText; }, 2000);
         }
       });
 
@@ -3374,11 +3379,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   let currentYtSearchType = 'video';
-  let currentPlaylistSearchPage = 1;
-  const loadMoreBox = document.getElementById('yt-load-more-box');
-  const btnLoadMorePl = document.getElementById('btn-load-more-playlists');
-  const spinLoadMorePl = document.getElementById('spin-load-more-playlists');
-  const txtLoadMorePl = document.getElementById('txt-load-more-playlists');
+  let currentYtSearchPage = 1;
 
   const ytSearchModeSwitch = document.getElementById('yt-search-mode-switch');
   ytSearchModeSwitch?.querySelectorAll('.chip-btn').forEach(btn => {
@@ -3392,9 +3393,9 @@ document.addEventListener('DOMContentLoaded', () => {
       updateChipGlider(ytSearchModeSwitch, btn);
 
       currentYtSearchType = mode;
-      currentPlaylistSearchPage = 1;
+      currentYtSearchPage = 1;
 
-      // Si cambiamos entre modos, limpiar la selección y cualquier botón residual
+      // Si cambiamos entre modos, limpiar la selección
       document.body.classList.remove('yt-has-selection');
       document.querySelectorAll('.yt-video-card').forEach(c => c.classList.remove('selected', 'kb-focused'));
       modeStates.youtube.selectedVideo = null;
@@ -3416,7 +3417,6 @@ document.addEventListener('DOMContentLoaded', () => {
         ytResultsDock.classList.remove('active');
         ytResultsDock.style.display = 'none';
       }
-      if (loadMoreBox) loadMoreBox.style.display = 'none';
       document.body.classList.remove('yt-has-selection');
       return;
     }
@@ -3438,8 +3438,7 @@ document.addEventListener('DOMContentLoaded', () => {
       setTimeout(() => ytResultsDock.classList.add('active'), 50);
     }
 
-    currentPlaylistSearchPage = 1;
-    if (loadMoreBox) loadMoreBox.style.display = 'none';
+    currentYtSearchPage = 1;
 
     ytResultsList.innerHTML = `
       <div class="yt-loading-box">
@@ -3451,12 +3450,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const results = await pyCall('search_youtube', val, currentYtSearchType, 1, 12);
     modeStates.youtube.results = results || [];
     renderYtResults(results);
-
-    // Si estamos buscando listas y obtuvimos resultados, mostrar botón de cargar más
-    if (currentYtSearchType === 'playlist' && results && results.length >= 8 && loadMoreBox) {
-      loadMoreBox.style.display = 'flex';
-      if (txtLoadMorePl) txtLoadMorePl.textContent = 'CARGAR MÁS LISTAS ▾';
-    }
   }
 
   // Paginación continua bajo demanda para listas

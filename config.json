@@ -33,9 +33,9 @@
     "open_folder": true
   },
   "youtube": {
-    "dir": "",
+    "dir": "C:\\Users\\mdema\\Downloads\\yt-videos-prueba",
     "format": "video",
-    "res": "1080",
+    "res": "max",
     "open_folder": true
   }
 }
