@@ -892,11 +892,22 @@ class AurionBridge:
     
 
     def get_yt_download_options(self, output_path: str, is_audio_only: bool = False, quality: str = "1080"):
-        """Genera las opciones de yt-dlp optimizadas para YouTube."""
+        """Genera las opciones de yt-dlp optimizadas para YouTube con bypass de 403 y auto-retry."""
         opts = {
             'outtmpl': os.path.join(output_path, '%(title)s.%(ext)s'),
             'quiet': True,
             'no_warnings': True,
+            'retries': 10,
+            'fragment_retries': 15,
+            'skip_unavailable_fragments': False,
+            'keep_fragments': False,
+            'buffersize': 1024 * 64,
+            'http_chunk_size': 10485760,  # 10MB chunks para evitar throttling de Google Video
+            'extractor_args': {
+                'youtube': {
+                    'player_client': ['web', 'android']
+                }
+            }
         }
         
         if is_audio_only:

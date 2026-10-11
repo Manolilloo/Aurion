@@ -433,9 +433,51 @@ window.initYoutubeModule = function() {
     });
   });
 
-  // SELECTOR DE RESOLUCIONES
+  // CHECKBOX ABRIR CARPETA AL COMPLETAR (Conexión precisa)
+  const ytCfgOpenFolder = document.getElementById('yt-cfg-open-folder');
+  const ytCardOpenFolder = document.getElementById('yt-card-open-folder');
+
+  if (ytCfgOpenFolder) {
+    // Si en modeStates ya está guardado false explícito, respetarlo
+    if (window.modeStates?.youtube && typeof window.modeStates.youtube.open_folder === 'boolean') {
+      ytCfgOpenFolder.checked = window.modeStates.youtube.open_folder;
+    }
+
+    const toggleOpenFolder = (forcedVal = null) => {
+      const nextVal = (forcedVal !== null) ? forcedVal : ytCfgOpenFolder.checked;
+      ytCfgOpenFolder.checked = nextVal;
+
+      if (window.modeStates && window.modeStates.youtube) {
+        window.modeStates.youtube.open_folder = nextVal;
+      }
+      if (typeof window.playSynth === 'function') {
+        window.playSynth('click');
+      }
+      if (typeof window.saveCurrentState === 'function') {
+        window.saveCurrentState();
+      }
+    };
+
+    ytCfgOpenFolder.addEventListener('change', (e) => {
+      e.stopPropagation();
+      toggleOpenFolder(e.target.checked);
+    });
+
+    // Permitir hacer clic también en la tarjeta entera o en el switch
+    if (ytCardOpenFolder) {
+      ytCardOpenFolder.style.cursor = 'pointer';
+      ytCardOpenFolder.addEventListener('click', (e) => {
+        // Si el clic fue directo en el input, ya se encarga el evento change
+        if (e.target === ytCfgOpenFolder) return;
+        e.preventDefault();
+        toggleOpenFolder(!ytCfgOpenFolder.checked);
+      });
+    }
+  }
+
+  // SELECTOR DE RESOLUCIONES Y ARRASTRE FLUIDO EN TIEMPO REAL (60/165 FPS)
   const ytResChips = document.getElementById('yt-res-chips');
-  function triggerJellyGlider(group, targetBtn, direction = 0) {
+  function snapGliderToBtn(group, targetBtn, withJelly = false, direction = 0) {
     if (!group || !targetBtn) return;
     const glider = group.querySelector('.chip-glider');
     group.querySelectorAll('.chip-btn').forEach(b => b.classList.remove('active'));
@@ -445,16 +487,15 @@ window.initYoutubeModule = function() {
     const width = targetBtn.offsetWidth;
 
     if (glider) {
-      glider.classList.remove('is-dragging', 'jelly-stretch-right', 'jelly-stretch-left');
-      glider.style.setProperty('--glider-x', `${leftOffset}px`);
+      glider.style.transition = 'transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1), width 0.25s ease';
       glider.style.width = `${width}px`;
       glider.style.transform = `translateX(${leftOffset}px)`;
 
-      if (direction !== 0) {
+      if (withJelly && direction !== 0) {
+        glider.classList.remove('jelly-stretch-right', 'jelly-stretch-left');
         glider.classList.add(direction > 0 ? 'jelly-stretch-right' : 'jelly-stretch-left');
         setTimeout(() => {
           glider.classList.remove('jelly-stretch-right', 'jelly-stretch-left');
-          glider.style.transform = `translateX(${leftOffset}px)`;
         }, 220);
       }
     }
@@ -466,14 +507,87 @@ window.initYoutubeModule = function() {
   }
 
   if (ytResChips) {
+    let isDragging = false;
+    let startMouseX = 0;
+    let initialGliderLeft = 0;
+    const gliderEl = ytResChips.querySelector('.chip-glider');
+
     ytResChips.querySelectorAll('.chip-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', (e) => {
+        if (isDragging) return;
         const currentActive = ytResChips.querySelector('.chip-btn.active');
         const dir = currentActive ? (btn.offsetLeft - currentActive.offsetLeft) : 0;
         if (typeof window.playSynth === 'function') window.playSynth('origami');
-        triggerJellyGlider(ytResChips, btn, dir);
+        snapGliderToBtn(ytResChips, btn, true, dir);
       });
     });
+
+    const startDrag = (e) => {
+      const activeBtn = ytResChips.querySelector('.chip-btn.active') || ytResChips.querySelector('.chip-btn');
+      if (!activeBtn || !gliderEl) return;
+
+      isDragging = true;
+      startMouseX = e.clientX || (e.touches && e.touches[0].clientX) || 0;
+      initialGliderLeft = activeBtn.offsetLeft;
+
+      // Desactivar transiciones durante el arrastre manual para que siga el cursor 1:1
+      gliderEl.style.transition = 'none';
+      gliderEl.classList.add('is-dragging');
+    };
+
+    const moveDrag = (e) => {
+      if (!isDragging || !gliderEl) return;
+      const currentMouseX = e.clientX || (e.touches && e.touches[0].clientX) || 0;
+      const deltaX = currentMouseX - startMouseX;
+      
+      const minLeft = 0;
+      const maxLeft = ytResChips.offsetWidth - gliderEl.offsetWidth;
+      let newLeft = initialGliderLeft + deltaX;
+
+      // Efecto elástico en los extremos
+      if (newLeft < minLeft) newLeft = minLeft - Math.pow(minLeft - newLeft, 0.7);
+      if (newLeft > maxLeft) newLeft = maxLeft + Math.pow(newLeft - maxLeft, 0.7);
+
+      gliderEl.style.transform = `translateX(${newLeft}px)`;
+
+      // Iluminar dinámicamente el botón por el que va pasando
+      const buttons = Array.from(ytResChips.querySelectorAll('.chip-btn'));
+      const gliderCenter = newLeft + (gliderEl.offsetWidth / 2);
+      let closestBtn = buttons[0];
+      let minDistance = Infinity;
+
+      buttons.forEach(btn => {
+        const btnCenter = btn.offsetLeft + (btn.offsetWidth / 2);
+        const dist = Math.abs(gliderCenter - btnCenter);
+        if (dist < minDistance) {
+          minDistance = dist;
+          closestBtn = btn;
+        }
+      });
+
+      buttons.forEach(b => b.classList.toggle('active', b === closestBtn));
+    };
+
+    const stopDrag = () => {
+      if (!isDragging) return;
+      isDragging = false;
+      if (gliderEl) gliderEl.classList.remove('is-dragging');
+
+      // Al soltar el ratón, encajar de forma magnética en el botón más cercano
+      const currentActive = ytResChips.querySelector('.chip-btn.active') || ytResChips.querySelector('.chip-btn');
+      if (currentActive) {
+        if (typeof window.playSynth === 'function') window.playSynth('origami');
+        snapGliderToBtn(ytResChips, currentActive, false);
+      }
+    };
+
+    ytResChips.addEventListener('mousedown', startDrag);
+    window.addEventListener('mousemove', moveDrag);
+    window.addEventListener('mouseup', stopDrag);
+
+    ytResChips.addEventListener('touchstart', startDrag, { passive: true });
+    window.addEventListener('touchmove', moveDrag, { passive: true });
+    window.addEventListener('touchend', stopDrag);
   }
 
   // BOTÓN DE DESCARGA MAESTRO

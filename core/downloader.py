@@ -271,6 +271,12 @@ class AurionDownloader:
         if not url:
             return
 
+        # Si la extensión interceptó una sub-playlist degradada (f1/v1), apuntamos al master para desbloquear la máxima resolución
+        if any(srv in url.lower() for srv in ["filelions", "streamwish", "vidhide"]):
+            if "index-f" in url.lower():
+                import re
+                url = re.sub(r'index-f\d+-[^\.]+\.m3u8', 'master.m3u8', url)
+
         with self.lock:
             if task_id in self.cancelled_tasks:
                 return
@@ -289,13 +295,22 @@ class AurionDownloader:
         elif is_yt:
             fmt_choice = "mp4"
             q_str = str(quality).lower().strip()
-            if q_str == "max":
+            if q_str in ["max", "máx"]:
                 format_selector = "bestvideo+bestaudio/best"
             elif q_str == "min":
                 format_selector = "worstvideo+worstaudio/worst"
             else:
-                q_num = int(quality) if str(quality).isdigit() else 1080
-                format_selector = f"bestvideo[height<={q_num}]+bestaudio/best[height<={q_num}]/best"
+                if q_str == "4k":
+                    h = 2160
+                elif q_str == "2k":
+                    h = 1440
+                elif q_str.endswith("p") and q_str[:-1].isdigit():
+                    h = int(q_str[:-1])
+                elif q_str.isdigit():
+                    h = int(q_str)
+                else:
+                    h = 1080
+                format_selector = f"bestvideo[height<={h}]+bestaudio/best[height<={h}]/best"
         else:
             fmt_choice = str(config.get("fmt", "mp4")).replace(".", "").lower().strip()
             if fmt_choice not in ["mp4", "mkv"]:
@@ -373,20 +388,6 @@ class AurionDownloader:
                             f"window.updateDownloadProgress && window.updateDownloadProgress('{task_id}', 99, 'Procesando', 'Ensamblando archivo final...');"
                         )
 
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
-            'Referer': referer if referer and referer != "://" else 'https://animeflv.net/',
-            'Origin': origin_domain if origin_domain and origin_domain != "://" else 'https://animeflv.net',
-            'Accept': '*/*',
-            'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
-            'Sec-Ch-Ua': '"Chromium";v="128", "Not;A=Brand";v="24", "Google Chrome";v="128"',
-            'Sec-Ch-Ua-Mobile': '?0',
-            'Sec-Ch-Ua-Platform': '"Windows"',
-            'Sec-Fetch-Dest': 'empty',
-            'Sec-Fetch-Mode': 'cors',
-            'Sec-Fetch-Site': 'cross-site'
-        }
-
         postprocessors_list = []
         if is_yt and is_audio:
             postprocessors_list.append({
@@ -408,42 +409,53 @@ class AurionDownloader:
             'nocheckcertificate': True,
             'quiet': True,
             'no_warnings': True,
-            'http_headers': headers,
-            'retries': 15,
-            'fragment_retries': 15,
+            'retries': 20,
+            'fragment_retries': 20,
             'skip_unavailable_fragments': True,
-            'socket_timeout': 10,
-            'retry_sleep_functions': {'http': lambda n: 0.2, 'fragment': lambda n: 0.2},
+            'socket_timeout': 15,
+            'retry_sleep_functions': {'http': lambda n: 0.5, 'fragment': lambda n: 0.5},
             'hls_use_mpegts': True,
             'fixup': 'warn',
-            'buffersize': 1024 * 1024 * 16,
-            'concurrent_fragment_downloads': min(16, threads_count),
             'postprocessors': postprocessors_list,
             'ffmpeg_location': os.path.dirname(self.ffmpeg_path) if self.ffmpeg_path else None
         }
 
         if is_yt:
             ydl_opts.update({
-                'concurrent_fragment_downloads': 8,
-                'buffersize': 1024 * 1024 * 8,
+                'concurrent_fragment_downloads': 1,
+                'http_chunk_size': 10485760,
+                'buffersize': 1024 * 1024 * 4,
+                'merge_output_format': 'mp4' if not is_audio else None,
             })
-        elif self.has_aria2 and not is_m3u8:
-            ydl_opts['external_downloader'] = self.aria2_path
-            ydl_opts['external_downloader_args'] = {
-                'aria2c': [
-                    f'-s{threads_count}',
-                    f'-x16',
-                    f'-j{threads_count}',
-                    '-k1M',
-                    '--file-allocation=none',
-                    '--summary-interval=0',
-                    '--optimize-concurrent-downloads=true',
-                    '--max-connection-per-server=16',
-                    '--min-split-size=1M',
-                    f'--header=Referer: {referer}',
-                    f'--header=Origin: {origin_domain}'
-                ]
+        else:
+            # Headers específicos para servidores de streaming de anime/películas
+            ydl_opts['http_headers'] = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+                'Referer': referer if referer and referer != "://" else 'https://animeflv.net/',
+                'Origin': origin_domain if origin_domain and origin_domain != "://" else 'https://animeflv.net',
+                'Accept': '*/*',
+                'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8'
             }
+            ydl_opts['buffersize'] = 1024 * 1024 * 16
+            ydl_opts['concurrent_fragment_downloads'] = min(16, threads_count)
+
+            if self.has_aria2 and not is_m3u8:
+                ydl_opts['external_downloader'] = self.aria2_path
+                ydl_opts['external_downloader_args'] = {
+                    'aria2c': [
+                        f'-s{threads_count}',
+                        f'-x16',
+                        f'-j{threads_count}',
+                        '-k1M',
+                        '--file-allocation=none',
+                        '--summary-interval=0',
+                        '--optimize-concurrent-downloads=true',
+                        '--max-connection-per-server=16',
+                        '--min-split-size=1M',
+                        f'--header=Referer: {referer}',
+                        f'--header=Origin: {origin_domain}'
+                    ]
+                }
 
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -455,13 +467,28 @@ class AurionDownloader:
                 acodec = info.get('acodec', 'N/A')
                 fps = info.get('fps', 'N/A')
 
+                # Si yt-dlp devolvió N/A en un stream HLS, leer el archivo ensamblado con ffprobe
+                final_res_label = f"{height}p" if height != 'N/A' else None
+                if not final_res_label or height == 'N/A':
+                    clean_name_check = "".join(c for c in title if c not in r'\/:*?"<>|').strip() or "video"
+                    target_file = os.path.join(dest_folder, f"{clean_name_check}.{fmt_choice}")
+                    if os.path.exists(target_file):
+                        probe_res = self._probe_resolution_ffprobe(target_file, {})
+                        if probe_res:
+                            final_res_label = probe_res
+
                 print(f"\n=======================================================")
                 print(f"[Core Telemetría] {title}")
                 print(f"   -> Archivo generado: {title}.{fmt_choice}")
-                print(f"   -> Resolución: {width}x{height} ({height}p)")
+                print(f"   -> Resolución Real: {width}x{height} ({final_res_label or 'N/A'})")
                 print(f"   -> FPS: {fps} | Códec Vídeo: {vcodec} | Audio: {acodec}")
                 print(f"   -> Hilos de fragmentos usados: {threads_count}")
                 print(f"=======================================================\n")
+
+                if final_res_label and self.bridge and self.bridge._window:
+                    self.bridge._window.evaluate_js(
+                        f"window.updateTaskMetadata && window.updateTaskMetadata('{task_id}', null, '{final_res_label}');"
+                    )
 
             generated_files = [f for f in os.listdir(task_temp_dir) if not f.endswith('.part') and not f.startswith('.')]
             clean_file_name = "".join(c for c in title if c not in r'\/:*?"<>|').strip() or "video"

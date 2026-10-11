@@ -1,19 +1,19 @@
 {
   "active_mode": "anime",
   "anime": {
-    "dir": "",
+    "dir": "J:\\ANIME\\animes",
     "season": 1,
-    "start_ep": 1,
+    "start_ep": 3,
     "save_cover": true,
     "res": "max",
     "fmt": "mkv",
     "threads": "32",
     "simul": "20",
-    "active_title": "Otome Kaijuu Caram\u00e9liser",
-    "active_tags": "TERMINADO \u2022 \u2605 7.5",
-    "active_bg": "url('https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx204466-vXMvIs4VOoQd.png')",
-    "accent1": "rgb(202, 73, 92)",
-    "accent2": "rgb(238, 122, 194)",
+    "active_title": "Dark Summoner to Dekiteiru",
+    "active_tags": "EN EMISI\u00d3N \u2022 \u2605 6.8",
+    "active_bg": "url('https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx208025-JKvqWNr8rz8l.jpg')",
+    "accent1": "rgb(246, 206, 232)",
+    "accent2": "rgb(43, 52, 122)",
     "open_folder": true
   },
   "movie": {
@@ -35,7 +35,7 @@
   "youtube": {
     "dir": "C:\\Users\\mdema\\Downloads\\yt-videos-prueba",
     "format": "video",
-    "res": "1080",
+    "res": "max",
     "open_folder": true
   }
 }
