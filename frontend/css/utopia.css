@@ -6573,3 +6573,29 @@ body.is-maximized .yt-row-check-badge {
   cursor: pointer;
   transition: all 0.2s ease;
 }
+
+/* Desbloquear interacción del ratón en controles superiores */
+#btn-extension-helper,
+#btn-extension-helper *,
+#win-help,
+#win-help *,
+.nav-right-cluster,
+.window-controls-box {
+  -webkit-app-region: no-drag !important;
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+/* Asegura que el botón reciba clics sin ser bloqueado por la barra de arrastre */
+#btn-extension-helper {
+  -webkit-app-region: no-drag !important;
+  app-region: no-drag !important;
+  pointer-events: all !important;
+  cursor: pointer !important;
+  position: relative !important;
+  z-index: 9999 !important;
+}
+
+#btn-extension-helper * {
+  pointer-events: none !important; /* El clic siempre lo recibe el botón, no los SVG/iconos internos */
+}

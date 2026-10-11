@@ -78,6 +78,21 @@ function pyCall(func, ...args) {
 
 // Justo aquí debajo, fuera de la función:
 window.pyCall = pyCall;
+
+window.openExtensionModal = function(e) {
+  if (e) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+  if (typeof playSynth === 'function') playSynth('click');
+  if (typeof window.initAndOpenExtensionHelper === 'function') {
+    window.initAndOpenExtensionHelper();
+  } else {
+    const modal = document.getElementById('ext-modal-overlay');
+    if (modal) modal.classList.add('active');
+  }
+};
+
 window.updateChipGlider = updateChipGlider;
 window.refreshAllGliders = refreshAllGliders;
 window.saveCurrentState = saveCurrentState;
@@ -2347,7 +2362,7 @@ window.onUpdateError = function() {
   if (actions) actions.style.display = 'flex';
 };
 
-document.addEventListener('DOMContentLoaded', () => {
+  // Listeners del modal de actualizaciones
   const btnNow = document.getElementById('btn-update-now');
   const btnLater = document.getElementById('btn-update-later');
   const badgeBtn = document.getElementById('btn-update-badge');
@@ -2383,8 +2398,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // --- ASISTENTE DE EXTENSIÓN FLUIDO PASO A PASO ---
-  const btnExtHelper = document.getElementById('btn-extension-helper');
-  const extModalOverlay = document.getElementById('ext-modal-overlay');
   const btnExtClose = document.getElementById('ext-modal-close');
   const btnExtDone = document.getElementById('btn-ext-done');
   const extActionsBox = document.getElementById('ext-modal-actions-box');
@@ -2410,13 +2423,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function checkStepsCompletion() {
     if (isStep1Done && isStep2Done && isStep3Done) {
-      if (extActionsBox) {
-        extActionsBox.classList.remove('is-hidden');
-      }
+      if (extActionsBox) extActionsBox.classList.remove('is-hidden');
     } else {
-      if (extActionsBox) {
-        extActionsBox.classList.add('is-hidden');
-      }
+      if (extActionsBox) extActionsBox.classList.add('is-hidden');
     }
   }
 
@@ -2441,7 +2450,6 @@ document.addEventListener('DOMContentLoaded', () => {
     checkStepsCompletion();
   }
 
-  // Comprueba qué navegadores están realmente instalados y apaga los inexistentes
   async function checkAndApplyBrowserAvailability() {
     try {
       const installedMap = await pyCall('get_installed_browsers');
@@ -2472,155 +2480,186 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  if (btnExtHelper && extModalOverlay) {
-    btnExtHelper.addEventListener('click', () => {
-      if (typeof playSynth === 'function') playSynth('click');
+  window.initAndOpenExtensionHelper = function() {
+    isStep1Done = false;
+    isStep2Done = false;
+    isStep3Done = false;
+    if (btnActionStep1) {
+      btnActionStep1.classList.remove('is-completed');
+      btnActionStep1.innerHTML = '<span>Copiar y abrir ventana ➔</span>';
+    }
+    if (btnActionStep2) {
+      btnActionStep2.classList.remove('is-completed');
+      btnActionStep2.innerHTML = '<span>Hecho, siguiente paso ➔</span>';
+    }
+    if (step3SwapBox) {
+      step3SwapBox.classList.remove('folder-opened');
+    }
+    checkStepsCompletion();
+    activateStep(1);
+
+    const modal = document.getElementById('ext-modal-overlay');
+    if (modal) {
+      modal.classList.add('active');
+      modal.style.display = 'flex';
+    }
+    checkAndApplyBrowserAvailability();
+  };
+
+  // Selector dinámico de navegador
+  browserChips.forEach(chip => {
+    chip.addEventListener('click', () => {
+      if (chip.classList.contains('is-disabled')) return;
+      if (typeof playSynth === 'function') playSynth('origami');
+      browserChips.forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+
+      selectedBrowserKey = chip.getAttribute('data-browser') || 'brave';
+      selectedBrowserUrl = chip.getAttribute('data-url') || 'brave://extensions';
+
+      if (mockUrlText) {
+        mockUrlText.style.animation = 'none';
+        mockUrlText.textContent = selectedBrowserUrl;
+        void mockUrlText.offsetWidth;
+        mockUrlText.style.animation = 'mockTypePaste 3.6s steps(18, end) infinite';
+      }
+
       isStep1Done = false;
       isStep2Done = false;
       isStep3Done = false;
-      checkStepsCompletion();
+      if (btnActionStep1) {
+        btnActionStep1.classList.remove('is-completed');
+        btnActionStep1.innerHTML = '<span>Copiar y abrir ventana ➔</span>';
+      }
+      if (btnActionStep2) {
+        btnActionStep2.classList.remove('is-completed');
+        btnActionStep2.innerHTML = '<span>Hecho, siguiente paso ➔</span>';
+      }
+      if (step3SwapBox) {
+        step3SwapBox.classList.remove('folder-opened');
+      }
       activateStep(1);
-      extModalOverlay.classList.add('active');
-      checkAndApplyBrowserAvailability();
     });
+  });
 
-    // Control dinámico de selección de navegador con reset de pasos
-    browserChips.forEach(chip => {
-      chip.addEventListener('click', () => {
-        if (chip.classList.contains('is-disabled')) return;
-        if (typeof playSynth === 'function') playSynth('origami');
-        browserChips.forEach(c => c.classList.remove('active'));
-        chip.classList.add('active');
+  // Paso 1: Copiar URL y lanzar el navegador seleccionado
+  btnActionStep1?.addEventListener('click', () => {
+    if (typeof playSynth === 'function') playSynth('chord');
+    pyCall('launch_browser_for_extension', selectedBrowserUrl, selectedBrowserKey);
+    btnActionStep1.classList.add('is-completed');
+    btnActionStep1.innerHTML = '✔ Navegador abierto';
+    isStep1Done = true;
+    activateStep(2);
+  });
 
-        selectedBrowserKey = chip.getAttribute('data-browser') || 'brave';
-        selectedBrowserUrl = chip.getAttribute('data-url') || 'brave://extensions';
+  // Paso 2: Confirmar interruptor de desarrollador
+  btnActionStep2?.addEventListener('click', () => {
+    if (!isStep1Done) return;
+    if (typeof playSynth === 'function') playSynth('click');
+    btnActionStep2.classList.add('is-completed');
+    btnActionStep2.innerHTML = '✔ Modo activado';
+    isStep2Done = true;
+    activateStep(3);
+  });
 
-        if (mockUrlText) {
-          mockUrlText.style.animation = 'none';
-          mockUrlText.textContent = selectedBrowserUrl;
-          void mockUrlText.offsetWidth;
-          mockUrlText.style.animation = 'mockTypePaste 3.6s steps(18, end) infinite';
-        }
-
-        // Si el usuario cambia de navegador tras haber abierto uno, resetear al Paso 1
-        isStep1Done = false;
-        isStep2Done = false;
-        isStep3Done = false;
-        if (btnActionStep1) {
-          btnActionStep1.classList.remove('is-completed');
-          btnActionStep1.innerHTML = '<span>Copiar y abrir ventana ➔</span>';
-        }
-        if (btnActionStep2) {
-          btnActionStep2.classList.remove('is-completed');
-          btnActionStep2.innerHTML = '<span>Hecho, siguiente paso ➔</span>';
-        }
-        if (step3SwapBox) {
-          step3SwapBox.classList.remove('folder-opened');
-        }
-        activateStep(1);
-      });
-    });
-
-    // Paso 1: Copiar URL y lanzar el navegador seleccionado
-    btnActionStep1?.addEventListener('click', () => {
-      if (typeof playSynth === 'function') playSynth('chord');
-      pyCall('launch_browser_for_extension', selectedBrowserUrl, selectedBrowserKey);
-      btnActionStep1.classList.add('is-completed');
-      btnActionStep1.innerHTML = '✔ Navegador abierto';
-      isStep1Done = true;
-      activateStep(2);
-    });
-
-    // Paso 2: Confirmar interruptor de desarrollador (bloqueado si el Paso 1 no está hecho)
-    btnActionStep2?.addEventListener('click', () => {
-      if (!isStep1Done) return;
-      if (typeof playSynth === 'function') playSynth('click');
-      btnActionStep2.classList.add('is-completed');
-      btnActionStep2.innerHTML = '✔ Modo activado';
-      isStep2Done = true;
-      activateStep(3);
-    });
-
-    // Paso 3: Abrir carpeta para arrastrar (bloqueado si Paso 1 y Paso 2 no están hechos)
-    btnActionStep3?.addEventListener('click', (e) => {
+  // Paso 3: Abrir carpeta para arrastrar (protegido contra doble apertura)
+  let isOpeningFolder = false;
+  function triggerOpenExtensionFolder(e) {
+    if (e) {
+      e.preventDefault();
       e.stopPropagation();
+      e.stopImmediatePropagation();
+    }
+    if (isOpeningFolder) return;
+    isOpeningFolder = true;
+    setTimeout(() => { isOpeningFolder = false; }, 800);
+
+    if (typeof playSynth === 'function') playSynth('chord');
+    try { pyCall('open_extension_folder'); } catch (err) { console.error(err); }
+  }
+
+  if (btnActionStep3) {
+    btnActionStep3.onclick = (e) => {
       if (!isStep1Done || !isStep2Done) return;
-      if (typeof playSynth === 'function') playSynth('chord');
-      try { pyCall('open_extension_folder'); } catch (err) { console.error(err); }
+      triggerOpenExtensionFolder(e);
       isStep3Done = true;
       if (step3SwapBox) {
         step3SwapBox.classList.add('folder-opened');
       }
       checkStepsCompletion();
-    });
+    };
+  }
 
-    // Botón dedicado para volver a abrir la carpeta en cualquier momento
-    btnReopenFolder?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (typeof playSynth === 'function') playSynth('click');
-      try { pyCall('open_extension_folder'); } catch (err) { console.error(err); }
+  // Botón dedicado para volver a abrir la carpeta en cualquier momento
+  if (btnReopenFolder) {
+    btnReopenFolder.onclick = (e) => {
+      triggerOpenExtensionFolder(e);
       btnReopenFolder.classList.remove('pulse-receive');
       void btnReopenFolder.offsetWidth;
       btnReopenFolder.classList.add('pulse-receive');
-    });
-
-    const closeExtModal = () => {
-      if (typeof playSynth === 'function') playSynth('click');
-      extModalOverlay.classList.remove('active');
-      document.body.classList.remove('tour-extension-locked');
-
-      setTimeout(() => {
-        if (btnActionStep1) {
-          btnActionStep1.classList.remove('is-completed');
-          btnActionStep1.innerHTML = '<span>Copiar y abrir ventana ➔</span>';
-        }
-        if (btnActionStep2) {
-          btnActionStep2.classList.remove('is-completed');
-          btnActionStep2.innerHTML = '<span>Hecho, siguiente paso ➔</span>';
-        }
-        if (step3SwapBox) {
-          step3SwapBox.classList.remove('folder-opened');
-        }
-        isStep1Done = false;
-        isStep2Done = false;
-        isStep3Done = false;
-        checkStepsCompletion();
-        activateStep(1);
-
-        // Restaurar estado visual del launcher central
-        const launcherCenter = document.getElementById('tour-launcher-center');
-        if (launcherCenter && (!modeStates[currentMode].bg || modeStates[currentMode].bg === 'none')) {
-          launcherCenter.classList.remove('is-hidden');
-          launcherCenter.style.display = 'flex';
-        }
-
-        if (isTourOpenFromGuided) {
-          isTourOpenFromGuided = false;
-          renderTourStep(1);
-        }
-      }, 200);
     };
+  }
 
-    if (btnExtClose) btnExtClose.addEventListener('click', closeExtModal);
-    if (btnExtDone) {
-      btnExtDone.addEventListener('click', () => {
-        localStorage.setItem('aurion_extension_configured', 'true');
-        closeExtModal();
-      });
-    }
+  const closeExtModal = () => {
+    if (typeof playSynth === 'function') playSynth('click');
+    const modal = document.getElementById('ext-modal-overlay');
+    if (modal) modal.classList.remove('active');
+    document.body.classList.remove('tour-extension-locked');
 
-    extModalOverlay.addEventListener('click', (e) => {
-      if (e.target === extModalOverlay) closeExtModal();
-    });
-
-    window.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && extModalOverlay.classList.contains('active')) {
-        closeExtModal();
+    setTimeout(() => {
+      if (btnActionStep1) {
+        btnActionStep1.classList.remove('is-completed');
+        btnActionStep1.innerHTML = '<span>Copiar y abrir ventana ➔</span>';
       }
+      if (btnActionStep2) {
+        btnActionStep2.classList.remove('is-completed');
+        btnActionStep2.innerHTML = '<span>Hecho, siguiente paso ➔</span>';
+      }
+      if (step3SwapBox) {
+        step3SwapBox.classList.remove('folder-opened');
+      }
+      isStep1Done = false;
+      isStep2Done = false;
+      isStep3Done = false;
+      checkStepsCompletion();
+      activateStep(1);
+
+      const launcherCenter = document.getElementById('tour-launcher-center');
+      if (launcherCenter && (!modeStates[currentMode].bg || modeStates[currentMode].bg === 'none')) {
+        launcherCenter.classList.remove('is-hidden');
+        launcherCenter.style.display = 'flex';
+      }
+
+      if (isTourOpenFromGuided) {
+        isTourOpenFromGuided = false;
+        renderTourStep(1);
+      }
+    }, 200);
+  };
+
+  if (btnExtClose) btnExtClose.addEventListener('click', closeExtModal);
+  if (btnExtDone) {
+    btnExtDone.addEventListener('click', () => {
+      localStorage.setItem('aurion_extension_configured', 'true');
+      closeExtModal();
     });
   }
 
- // Inicializar eventos de cierre del modal de YouTube
+  const modalOverlay = document.getElementById('ext-modal-overlay');
+  if (modalOverlay) {
+    modalOverlay.addEventListener('click', (e) => {
+      if (e.target === modalOverlay) closeExtModal();
+    });
+  }
+
+  window.addEventListener('keydown', (e) => {
+    const modal = document.getElementById('ext-modal-overlay');
+    if (e.key === 'Escape' && modal?.classList.contains('active')) {
+      closeExtModal();
+    }
+  });
+
+  // Inicializar eventos de cierre del modal de YouTube
   if (typeof window.initYtTourEvents === 'function') {
     window.initYtTourEvents();
   }
@@ -2629,4 +2668,4 @@ document.addEventListener('DOMContentLoaded', () => {
   if (typeof window.initYoutubeModule === 'function') {
     window.initYoutubeModule();
   }
-});})
+});

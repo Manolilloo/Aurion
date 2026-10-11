@@ -3,7 +3,7 @@
   "anime": {
     "dir": "J:\\ANIME\\animes",
     "season": 1,
-    "start_ep": 3,
+    "start_ep": 1,
     "save_cover": true,
     "res": "max",
     "fmt": "mkv",
@@ -17,7 +17,7 @@
     "open_folder": true
   },
   "movie": {
-    "dir": "",
+    "dir": "J:\\ANIME\\animes",
     "season": 1,
     "start_ep": 1,
     "save_cover": true,
