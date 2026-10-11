@@ -6499,3 +6499,77 @@ body.is-maximized .yt-row-check-badge {
   padding: 6px 14px !important;
   border-radius: 10px !important;
 }
+
+/* ========================================================
+   MODAL HUD FLOTANTE: GUÍA TOUR YOUTUBE
+   ======================================================== */
+.yt-tour-modal-backdrop {
+  z-index: 99999;
+}
+
+.yt-tour-card-hud {
+  max-width: 520px;
+  width: 90%;
+  padding: 24px;
+  background: rgba(18, 18, 24, 0.88);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7), 0 0 40px var(--color-glow);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  animation: modalScaleUp 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.yt-tour-interactive-stage {
+  width: 100%;
+  min-height: 140px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.yt-tour-text-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.yt-tour-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: 0.5px;
+}
+
+.yt-tour-desc {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: #94a3b8;
+}
+
+.yt-tour-actions-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.yt-tour-actions-row button {
+  padding: 8px 18px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
