@@ -1,7 +1,3 @@
-// ========================================================
-// AURION // GESTOR DE ESTADO DUAL Y CONTROL MULTIMEDIA
-// ========================================================
-
 let currentMode = 'anime';
 const downloadQueue = [];
 
@@ -18,7 +14,7 @@ const portalData = {
   ]
 };
 
-const modeStates = {
+const modeStates = window.modeStates = {
   anime: {
     query: '',
     prefix: '',
@@ -68,6 +64,7 @@ const modeStates = {
   }
 };
 
+
 function pyCall(func, ...args) {
   try {
     if (window.pywebview && window.pywebview.api && window.pywebview.api[func]) {
@@ -78,6 +75,13 @@ function pyCall(func, ...args) {
   }
   return null;
 }
+
+// Justo aquí debajo, fuera de la función:
+window.pyCall = pyCall;
+window.updateChipGlider = updateChipGlider;
+window.refreshAllGliders = refreshAllGliders;
+window.saveCurrentState = saveCurrentState;
+window.applyDynamicPalette = applyDynamicPalette;
 
 function openPortalUrl(url) {
   if (window.pywebview && window.pywebview.api && window.pywebview.api.open_external_browser) {
@@ -1688,100 +1692,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let tourDemoIntervals = [];
   let tourSnapshot = null;
 
-  const tourSteps = [
-    {
-      id: 'extension',
-      target: '#btn-extension-helper',
-      title: '1. Extensión del Navegador',
-      desc: 'Es fundamental configurarla para capturar vídeos y enlaces con 1 solo clic.',
-      isExtensionStep: true,
-      placement: 'bottom-center'
-    },
-    {
-      id: 'modes',
-      target: '#btn-switch-mode',
-      title: '2. Selector de Modos',
-      desc: 'Alterna entre ANIME, CINE y YOUTUBE con opciones y colores adaptados (Atajo: TAB).',
-      placement: 'bottom-center'
-    },
-    {
-      id: 'sites',
-      target: '#sites-dock',
-      title: '3. Sitios Recomendados',
-      desc: 'Accesos directos a portales óptimos para ver y capturar contenido sin publicidad molesta.',
-      placement: 'bottom-left'
-    },
-    {
-      id: 'dest_dir',
-      target: '#block-dest-dir',
-      title: '4. Destino Local',
-      desc: 'Elige la carpeta o disco de tu PC donde se guardarán todos los archivos extraídos.',
-      placement: 'left-center'
-    },
-    {
-      id: 'season_group',
-      target: '#block-season-group',
-      title: '5. Temporada y Temporada Única',
-      desc: 'Ajusta el número de temporada o activa Temporada Única para series de una sola entrega.',
-      placement: 'left-center'
-    },
-    {
-      id: 'toggles_group',
-      target: '#block-toggles-group',
-      title: '6. Portada y Apertura Automática',
-      desc: 'Guarda folder.jpg en alta resolución para Plex/Kodi y abre la carpeta al terminar la descarga.',
-      placement: 'left-center'
-    },
-    {
-      id: 'container_fmt',
-      target: '#block-container-fmt',
-      title: '7. Formato Contenedor',
-      desc: 'Selecciona si deseas empaquetar el vídeo en formato .MKV o .MP4.',
-      placement: 'left-center'
-    },
-    {
-      id: 'threads_simul',
-      target: '#block-threads-simul',
-      title: '8. Hilos y Paralelas',
-      desc: 'Acelera la descarga configurando múltiples conexiones simultáneas en paralelo.',
-      placement: 'left-center'
-    },
-    {
-      id: 'telemetry',
-      target: '#block-telemetry',
-      title: '9. Espacio en Disco',
-      desc: 'Telemetría continua del espacio disponible en tu disco para evitar quedarte sin almacenamiento.',
-      placement: 'left-center'
-    },
-    {
-      id: 'workspace_center',
-      target: '.search-container, #main-poster',
-      title: '10. Búsqueda y Carátula Parallax',
-      desc: 'Busca con autocompletado en AniList/IMDb. Al seleccionar un título, la portada y paleta se sincronizan.',
-      placement: 'left-docked'
-    },
-    {
-      id: 'master_extraction',
-      target: '#mag-wrap, .glass-box:first-child, .workspace-card',
-      title: '11. Botón Maestro de Extracción',
-      desc: 'Inicia la descarga con un clic o pulsando Espacio. Se divide elásticamente para permitir cancelar en vivo.',
-      placement: 'master-docked-left'
-    },
-    {
-      id: 'pipeline',
-      target: '.glass-box:first-child',
-      title: '12. Pipeline en Ejecución',
-      desc: 'Monitorea el progreso, la velocidad y la resolución de tus episodios en paralelo sin bloqueos.',
-      placement: 'center-modal'
-    },
-    {
-      id: 'top_right',
-      target: '.nav-right-cluster',
-      title: '13. Controles y Asistencia',
-      desc: 'Vuelve a abrir este tour cuando quieras o revisa si hay actualizaciones automáticas.',
-      placement: 'bottom-right'
-    }
-  ];
+  let activeTourSteps = animeTourSteps;
 
   const tourBackdrop = document.getElementById('tour-backdrop');
   const tourCard = document.getElementById('tour-card');
@@ -1793,19 +1704,26 @@ document.addEventListener('DOMContentLoaded', () => {
   const virtualCursor = document.getElementById('tour-virtual-cursor');
 
   function stopAllTourDemos() {
-    tourDemoIntervals.forEach(i => clearInterval(i));
+    tourDemoIntervals.forEach(i => {
+      clearInterval(i);
+      clearTimeout(i);
+    });
     tourDemoIntervals = [];
 
     window.__isTourDemoActive = false;
     window.__isTourDemoSearching = false;
+
+    // Reactivar eventos de ratón en el botón maestro inmediatamente
+    const bMasterEl = document.getElementById('btn-master');
+    if (bMasterEl) bMasterEl.style.pointerEvents = 'auto';
 
     // Limpieza de las descargas simuladas del tour
     document.querySelectorAll('.pipeline-card[id^="tour-mock-task-"]').forEach(el => el.remove());
     if (window.__tourMockRunning) {
       window.__tourMockRunning = false;
       renderFullQueue(currentMode);
-      const currentQueue = modeStates[currentMode].queue || [];
-      const hasRunning = currentQueue.some(t => t.status !== 'Completado' && t.status !== 'Cancelado' && t.status !== 'Error');
+      const curQ = modeStates[currentMode]?.queue || [];
+      const hasRunning = curQ.some(t => t.status !== 'Completado' && t.status !== 'Cancelado' && t.status !== 'Error');
       setMasterDownloadState(hasRunning);
     }
 
@@ -1964,7 +1882,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let top = 100;
     let left = 100;
 
-    if (placement === 'master-docked-left') {
+    if (placement === 'search-docked-left') {
+      top = Math.max(120, window.innerHeight / 2 - cardHeight / 2);
+      left = 40; // Se queda pegado a la izquierda, dejando el póster central 100% visible
+    } else if (placement === 'master-docked-left') {
       // Ubica la ventana abajo del todo, alineada en vertical con el botón y a su izquierda
       const magWrap = document.getElementById('mag-wrap');
       if (magWrap) {
@@ -2140,7 +2061,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (sInput && mainPoster) {
         sInput.readOnly = true;
         sInput.value = '';
-        const demoQuery = 'One Piece';
+        const isMovie = (currentMode === 'movie');
+        const demoQuery = isMovie ? 'Spider-Man: Brand New Day' : 'One Piece';
         let charIdx = 0;
 
         const typeInterval = setInterval(() => {
@@ -2150,37 +2072,33 @@ document.addEventListener('DOMContentLoaded', () => {
           } else {
             clearInterval(typeInterval);
 
-            // Búsqueda real a través del backend de Python
             (async () => {
-              let realList = await pyCall('search_media', currentMode, 'One Piece');
+              let realList = await pyCall('search_media', currentMode, demoQuery);
 
-              // Fallback de alta fidelidad si no hubiera conexión a internet inmediata
               if (!realList || realList.length === 0) {
-                realList = [
-                  {
-                    title: 'One Piece',
-                    image: 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/nx21-t4mDgIxGQycS.jpg',
-                    meta: 'EN EMISIÓN • ★ 8.8',
-                    color: '#e45044'
-                  },
-                  {
-                    title: 'One Piece: Fan Letter',
-                    image: 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx163270-YgPq1T2G254w.jpg',
-                    meta: 'ESPECIAL • ★ 9.1',
-                    color: '#f1a83b'
-                  },
-                  {
-                    title: 'One Piece Film Red',
-                    image: 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx141159-Qk05H1WjPz9P.jpg',
-                    meta: 'PELÍCULA • ★ 7.8',
-                    color: '#c2185b'
-                  }
-                ];
+                if (isMovie) {
+                  realList = [
+                    {
+                      title: 'Spider-Man: Brand New Day',
+                      image: 'https://image.tmdb.org/t/p/w780/mKOBBv4n75j32P9H4h8Jk2eN7yq.jpg',
+                      meta: 'PELÍCULA • MARVEL • 2026',
+                      color: '#e50914'
+                    }
+                  ];
+                } else {
+                  realList = [
+                    {
+                      title: 'One Piece',
+                      image: 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/nx21-t4mDgIxGQycS.jpg',
+                      meta: 'EN EMISIÓN • ★ 8.8',
+                      color: '#e45044'
+                    }
+                  ];
+                }
               }
 
-              if (!suggestions || currentTourStep !== 9) return;
+              if (!suggestions) return;
 
-              // Renderizado con la misma estructura y componentes exactos del buscador manual
               suggestions.innerHTML = '';
               realList.slice(0, 4).forEach((item, idx) => {
                 const div = document.createElement('div');
@@ -2197,13 +2115,10 @@ document.addEventListener('DOMContentLoaded', () => {
               });
               suggestions.classList.add('active');
 
-              // Selección automática del primer resultado tras unos instantes para apreciarlo
               setTimeout(async () => {
-                if (currentTourStep !== 9) return;
                 const chosen = realList[0];
                 if (!chosen) return;
 
-                // Feedback visual de click/selección en la sugerencia
                 const firstSugg = document.getElementById('tour-sugg-0');
                 if (firstSugg) {
                   firstSugg.style.background = 'rgba(255, 255, 255, 0.16)';
@@ -2212,7 +2127,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (typeof playSynth === 'function') playSynth('click');
 
                 setTimeout(async () => {
-                  if (currentTourStep !== 9) return;
                   suggestions.classList.remove('active');
                   suggestions.innerHTML = '';
                   sInput.value = chosen.title;
@@ -2220,27 +2134,20 @@ document.addEventListener('DOMContentLoaded', () => {
                   if (tourLauncher) tourLauncher.style.display = 'none';
                   if (posterInfo) posterInfo.style.display = 'block';
 
-                  // Aplicación completa y funcional de póster, título y tags
                   updatePoster(chosen.image, chosen.title, chosen.meta);
                   setUnifiedTitle(chosen.title);
 
-                  // Extracción y aplicación de la paleta dinámica real a toda la interfaz
                   if (chosen.image && window.pywebview && window.pywebview.api && window.pywebview.api.get_dominant_colors) {
                     const pal = await pyCall('get_dominant_colors', chosen.image);
                     if (pal && pal.accent1) {
                       applyDynamicPalette(pal.accent1, pal.accent2 || '#ffaa00');
-                    } else if (chosen.color) {
-                      applyDynamicPalette(chosen.color, '#ff9900');
                     } else {
-                      applyDynamicPalette('rgb(255, 60, 60)', 'rgb(255, 175, 0)');
+                      applyDynamicPalette(chosen.color || '#ff3366', '#ffaa00');
                     }
-                  } else if (chosen.color) {
-                    applyDynamicPalette(chosen.color, '#ffaa00');
                   } else {
-                    applyDynamicPalette('rgb(255, 60, 60)', 'rgb(255, 175, 0)');
+                    applyDynamicPalette(chosen.color || '#ff3366', '#ffaa00');
                   }
 
-                  // Efecto Parallax tridimensional fluido sobre la portada real
                   let deg = 0;
                   const parallaxInterval = setInterval(() => {
                     deg = (deg + 2.4) % 360;
@@ -2249,11 +2156,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     mainPoster.style.transform = `rotateX(${tiltX}deg) rotateY(${tiltY}deg) scale(1.035)`;
                   }, 30);
                   tourDemoIntervals.push(parallaxInterval);
-                }, 550);
-              }, 850);
+                }, 500);
+              }, 700);
             })();
           }
-        }, 65);
+        }, 55);
         tourDemoIntervals.push(typeInterval);
       }
     } else if (stepId === 'master_extraction' || stepId === 'pipeline') {
@@ -2267,16 +2174,20 @@ document.addEventListener('DOMContentLoaded', () => {
       if (mTxt) mTxt.innerText = 'DESCARGANDO...';
       if (bMaster) bMaster.style.pointerEvents = 'none';
 
-      const mockEpisodes = [
-        { id: 'tour-mock-task-1', title: 'One Piece - Ep 1080', res: '1080p', size: '1,42 GB', initialProg: 12, speed: '14.2 MB/s' },
-        { id: 'tour-mock-task-2', title: 'One Piece - Ep 1081', res: '1080p', size: '1,38 GB', initialProg: 6, speed: '11.8 MB/s' },
-        { id: 'tour-mock-task-3', title: 'One Piece - Ep 1082', res: '1080p', size: '1,45 GB', initialProg: 0, speed: 'Conectando...' }
-      ];
+      const isMovie = (currentMode === 'movie');
+      const mockTasks = isMovie
+        ? [
+            { id: 'tour-mock-task-1', title: 'Spider-Man: Brand New Day (2026)', res: '1080p Web-DL', size: '4,28 GB', initialProg: 18, speed: '24.6 MB/s' }
+          ]
+        : [
+            { id: 'tour-mock-task-1', title: 'One Piece - Ep 1080', res: '1080p', size: '1,42 GB', initialProg: 12, speed: '14.2 MB/s' },
+            { id: 'tour-mock-task-2', title: 'One Piece - Ep 1081', res: '1080p', size: '1,38 GB', initialProg: 6, speed: '11.8 MB/s' },
+            { id: 'tour-mock-task-3', title: 'One Piece - Ep 1082', res: '1080p', size: '1,45 GB', initialProg: 0, speed: 'Conectando...' }
+          ];
 
-      // Si ya existen en pantalla durante la transición del paso 12 al 13, no recrear desde cero
       if (!document.getElementById('tour-mock-task-1') && queueList) {
         queueList.innerHTML = '';
-        mockEpisodes.forEach((task, idx) => {
+        mockTasks.forEach((task, idx) => {
           setTimeout(() => {
             if (!window.__tourMockRunning || !queueList) return;
             const card = document.createElement('div');
@@ -2301,33 +2212,33 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
             queueList.appendChild(card);
             if (typeof playSynth === 'function') playSynth('click');
-          }, idx * 340);
+          }, idx * 280);
         });
       }
 
-      // Ciclo fluido de avance de descargas en bucle (bajo coste de CPU)
       let simTick = 0;
       const progressLoop = setInterval(() => {
         simTick += 1.8;
-        const p1 = (15 + simTick * 1.5) % 100;
-        const p2 = (8 + simTick * 1.1) % 100;
-        const p3 = (simTick * 0.8) % 100;
-
+        const p1 = (18 + simTick * 1.4) % 100;
         const f1 = document.getElementById('mock-prog-tour-mock-task-1');
-        const f2 = document.getElementById('mock-prog-tour-mock-task-2');
-        const f3 = document.getElementById('mock-prog-tour-mock-task-3');
+        const s1 = document.getElementById('mock-status-tour-mock-task-1');
 
         if (f1) f1.style.width = `${p1.toFixed(1)}%`;
-        if (f2) f2.style.width = `${p2.toFixed(1)}%`;
-        if (f3) f3.style.width = `${p3.toFixed(1)}%`;
+        if (s1) s1.innerText = p1 >= 98 ? 'Completando película...' : (isMovie ? '26.4 MB/s' : '16.4 MB/s');
 
-        const s1 = document.getElementById('mock-status-tour-mock-task-1');
-        const s2 = document.getElementById('mock-status-tour-mock-task-2');
-        const s3 = document.getElementById('mock-status-tour-mock-task-3');
+        if (!isMovie) {
+          const p2 = (8 + simTick * 1.1) % 100;
+          const p3 = (simTick * 0.8) % 100;
+          const f2 = document.getElementById('mock-prog-tour-mock-task-2');
+          const f3 = document.getElementById('mock-prog-tour-mock-task-3');
+          const s2 = document.getElementById('mock-status-tour-mock-task-2');
+          const s3 = document.getElementById('mock-status-tour-mock-task-3');
 
-        if (s1) s1.innerText = p1 >= 98 ? 'Completando...' : '16.4 MB/s';
-        if (s2) s2.innerText = p2 >= 98 ? 'Completando...' : '12.8 MB/s';
-        if (s3) s3.innerText = p3 >= 98 ? 'Completando...' : (p3 > 5 ? '8.9 MB/s' : 'Iniciando...');
+          if (f2) f2.style.width = `${p2.toFixed(1)}%`;
+          if (f3) f3.style.width = `${p3.toFixed(1)}%`;
+          if (s2) s2.innerText = p2 >= 98 ? 'Completando...' : '12.8 MB/s';
+          if (s3) s3.innerText = p3 >= 98 ? 'Completando...' : (p3 > 5 ? '8.9 MB/s' : 'Iniciando...');
+        }
       }, 70);
       tourDemoIntervals.push(progressLoop);
     }
@@ -2335,14 +2246,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function renderTourStep(stepIdx) {
     clearTourHighlights();
-    const step = tourSteps[stepIdx];
+    const step = activeTourSteps[stepIdx];
     if (!step) {
       endTour(true);
       return;
     }
 
     currentTourStep = stepIdx;
-    if (tourBadge) tourBadge.textContent = `PASO ${stepIdx + 1} DE ${tourSteps.length}`;
+    if (tourBadge) tourBadge.textContent = `PASO ${stepIdx + 1} DE ${activeTourSteps.length}`;
     if (tourTitle) tourTitle.textContent = step.title;
     if (tourDesc) tourDesc.textContent = step.desc;
 
@@ -2409,10 +2320,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const btnNext = document.createElement('button');
         btnNext.className = 'btn-tour-primary';
-        btnNext.textContent = stepIdx === tourSteps.length - 1 ? '¡Finalizar Tour! 🎉' : 'Siguiente ➔';
-        btnNext.addEventListener('click', () => {
+        btnNext.style.pointerEvents = 'auto';
+        btnNext.style.cursor = 'pointer';
+        const isLastStep = (stepIdx >= activeTourSteps.length - 1);
+        btnNext.textContent = isLastStep ? '¡Finalizar Tour! 🎉' : 'Siguiente ➔';
+
+        btnNext.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
           stopAllTourDemos();
-          if (stepIdx === tourSteps.length - 1) {
+          if (stepIdx >= activeTourSteps.length - 1) {
             endTour(true);
           } else {
             renderTourStep(stepIdx + 1);
@@ -2429,11 +2346,15 @@ document.addEventListener('DOMContentLoaded', () => {
     if (tourCard) {
       tourCard.classList.add('active');
       tourCard.style.pointerEvents = 'auto';
+      tourCard.style.zIndex = '9999999';
     }
   }
 
   function startTour(fromCenter = false) {
     isTourStartedFromCenter = fromCenter;
+
+    // Seleccionar los pasos según si estamos en Cine o Anime
+    activeTourSteps = (currentMode === 'movie') ? (window.cinemaTourSteps || cinemaTourSteps) : (window.animeTourSteps || animeTourSteps);
 
     // Asegurar que si venimos de YouTube, la interfaz de Anime/Cine esté visible
     if (currentMode === 'youtube') {
@@ -2749,1317 +2670,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
   });
-
-  // ========================================================
-  // TOUR DE YOUTUBE: MODAL HUD FLOTANTE CON DEMOS INTEGRADAS
-  // ========================================================
-  let currentYtTourStep = 0;
-  let ytTourDemoInterval = null;
-
-  const ytModalSteps = [
-    {
-      title: '1. Filtro: Vídeos o Listas de Reproducción',
-      desc: 'Alterna con un clic si deseas buscar piezas individuales o álbumes y listas enteras listas para descargar por bloques.',
-      renderDemo: (container) => {
-        container.innerHTML = `
-          <div class="chip-group" style="position: relative; width: 220px;">
-            <div class="chip-glider" id="yt-demo-glider" style="width: 50%; transform: translateX(0px);"></div>
-            <button class="chip-btn active" id="yt-demo-btn-v" style="flex: 1;">VÍDEOS</button>
-            <button class="chip-btn" id="yt-demo-btn-p" style="flex: 1;">LISTAS</button>
-          </div>
-        `;
-        const glider = container.querySelector('#yt-demo-glider');
-        const btnV = container.querySelector('#yt-demo-btn-v');
-        const btnP = container.querySelector('#yt-demo-btn-p');
-        let isPl = false;
-        ytTourDemoInterval = setInterval(() => {
-          isPl = !isPl;
-          btnV.classList.toggle('active', !isPl);
-          btnP.classList.toggle('active', isPl);
-          if (glider) glider.style.transform = isPl ? 'translateX(100%)' : 'translateX(0%)';
-        }, 1100);
-      }
-    },
-    {
-      title: '2. Invocación Instantánea y Enlaces Directos',
-      desc: 'Teclea el nombre del vídeo, creador o pega cualquier URL completa de YouTube. Los vídeos aparecen de inmediato con su miniatura, duración y autor.',
-      renderDemo: (container) => {
-        container.innerHTML = `
-          <div class="yt-video-card" style="pointer-events: none; width: 100%; margin: 0;">
-            <div class="yt-thumb-box">
-              <img class="yt-thumb-img" src="https://i.ytimg.com/vi/D_T7Ocz9RWA/mqdefault.jpg" alt="Thumbnail">
-              <span class="yt-duration-badge">28:14</span>
-            </div>
-            <div class="yt-video-details">
-              <span class="yt-video-title">GTA V ONLINE: CARRERAS ÉPICAS Y PARKOUR IMPOSIBLE! - DANIREP</span>
-              <div class="yt-video-channel">
-                <button class="yt-video-channel-btn">
-                  <span class="yt-channel-btn-icon">📺</span>
-                  <span>DaniRep | +6 Vídeos Diarios De GTA 5 Online!</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        `;
-      }
-    },
-    {
-      title: '3. Acceso a Canales y Creadores',
-      desc: 'Cada tarjeta dispone de un acceso directo al creador. Al pulsarlo se despliega su cabecera panorámica, avatar oficial y todo su catálogo subido.',
-      renderDemo: (container) => {
-        container.innerHTML = `
-          <button class="yt-video-channel-btn tour-channel-pulse" style="padding: 10px 20px; font-size: 12px; pointer-events: none;">
-            <span class="yt-channel-btn-icon">📺</span>
-            <span>DaniRep | +6 Vídeos Diarios De GTA 5 Online!</span>
-          </button>
-        `;
-      }
-    },
-    {
-      title: '4. Formatos y Calidad Máxima',
-      desc: 'Elige entre VÍDEO (MP4) o AUDIO puro (MP3). El selector elástico permite fijar calidades desde MIN hasta 4K Ultra HD.',
-      renderDemo: (container) => {
-        container.innerHTML = `
-          <div style="display: flex; flex-direction: column; gap: 14px; align-items: center; width: 100%;">
-            <!-- GRUPO FORMATO -->
-            <div class="chip-group" id="demo-fmt-group" style="position: relative; width: 230px;">
-              <div class="chip-glider" style="transition: transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1), width 0.22s ease;"></div>
-              <button class="chip-btn active" data-val="video" style="flex: 1;">VÍDEO (MP4)</button>
-              <button class="chip-btn" data-val="audio" style="flex: 1;">AUDIO (MP3)</button>
-            </div>
-
-            <!-- GRUPO RESOLUCIONES -->
-            <div class="chip-group yt-chips-resolutions" id="demo-res-group" style="position: relative; width: 310px;">
-              <div class="chip-glider" style="transition: transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1), width 0.22s ease;"></div>
-              <button class="chip-btn">720p</button>
-              <button class="chip-btn active">1080p</button>
-              <button class="chip-btn">2K</button>
-              <button class="chip-btn">4K</button>
-            </div>
-          </div>
-        `;
-
-        const fmtGroup = container.querySelector('#demo-fmt-group');
-        const resGroup = container.querySelector('#demo-res-group');
-        const fmtBtns = fmtGroup?.querySelectorAll('.chip-btn');
-        const resBtns = resGroup?.querySelectorAll('.chip-btn');
-
-        // Inicializar gliders en su posición inicial
-        requestAnimationFrame(() => {
-          if (fmtGroup && fmtBtns) updateChipGlider(fmtGroup, fmtGroup.querySelector('.chip-btn.active'));
-          if (resGroup && resBtns) updateChipGlider(resGroup, resGroup.querySelector('.chip-btn.active'));
-        });
-
-        // 1. Animación del selector de formato (ritmo de 1150ms)
-        let fmtIdx = 0;
-        const fmtTimer = setInterval(() => {
-          if (!fmtBtns || !fmtGroup) return;
-          fmtIdx = (fmtIdx + 1) % fmtBtns.length;
-          fmtBtns.forEach((b, i) => b.classList.toggle('active', i === fmtIdx));
-          updateChipGlider(fmtGroup, fmtBtns[fmtIdx]);
-        }, 1150);
-
-        // 2. Animación rápida del selector de calidades (ritmo asíncrono de 720ms)
-        let resIdx = 1;
-        let resForward = true;
-        const resTimer = setInterval(() => {
-          if (!resBtns || !resGroup) return;
-          if (resForward) {
-            resIdx++;
-            if (resIdx >= resBtns.length - 1) resForward = false;
-          } else {
-            resIdx--;
-            if (resIdx <= 0) resForward = true;
-          }
-          resBtns.forEach((b, i) => b.classList.toggle('active', i === resIdx));
-          updateChipGlider(resGroup, resBtns[resIdx]);
-        }, 720);
-
-        // Almacenar ambos intervalos en un array para limpiarlos al cambiar de paso
-        ytTourDemoInterval = [fmtTimer, resTimer];
-      }
-    },
-    {
-      title: '5. Descarga Paralela y Cancelación en Vivo',
-      desc: 'Inicia la extracción al instante. El botón maestro se divide durante el proceso para cancelar o pausar en cualquier momento sin bloqueos.',
-      renderDemo: (container) => {
-        container.innerHTML = `
-          <div class="split-cluster" id="yt-demo-split" style="width: 280px; pointer-events: none;">
-            <button class="btn-god btn-split-main" style="flex: 1;">
-              <span class="btn-god-txt" id="yt-demo-btn-txt">DESCARGAR VÍDEO</span>
-            </button>
-            <button class="btn-split-cancel">
-              <span>⏹ CANCELAR</span>
-            </button>
-          </div>
-        `;
-        const cluster = container.querySelector('#yt-demo-split');
-        const txt = container.querySelector('#yt-demo-btn-txt');
-        let isDownloading = false;
-
-        ytTourDemoInterval = setInterval(() => {
-          isDownloading = !isDownloading;
-          if (isDownloading) {
-            cluster?.classList.add('is-split');
-            if (txt) txt.innerText = 'DESCARGANDO...';
-          } else {
-            cluster?.classList.remove('is-split');
-            if (txt) txt.innerText = 'DESCARGAR VÍDEO';
-          }
-        }, 1200);
-      }
-    }
-  ];
-
-  function stopYtTourDemo() {
-    if (Array.isArray(ytTourDemoInterval)) {
-      ytTourDemoInterval.forEach(id => clearInterval(id));
-      ytTourDemoInterval = null;
-    } else if (ytTourDemoInterval) {
-      clearInterval(ytTourDemoInterval);
-      ytTourDemoInterval = null;
-    }
-  }
-
-  function renderYtModalStep(stepIdx) {
-    stopYtTourDemo();
-    const step = ytModalSteps[stepIdx];
-    if (!step) {
-      closeYtTourModal();
-      return;
-    }
-
-    currentYtTourStep = stepIdx;
-    const badge = document.getElementById('yt-tour-step-badge');
-    const title = document.getElementById('yt-tour-title');
-    const desc = document.getElementById('yt-tour-desc');
-    const stage = document.getElementById('yt-tour-interactive-stage');
-    const actionsRow = document.getElementById('yt-tour-actions-row');
-
-    if (badge) badge.textContent = `YOUTUBE • PASO ${stepIdx + 1} DE ${ytModalSteps.length}`;
-    if (title) title.textContent = step.title;
-    if (desc) desc.textContent = step.desc;
-
-    if (stage) {
-      stage.innerHTML = '';
-      step.renderDemo(stage);
-    }
-
-    if (actionsRow) {
-      actionsRow.innerHTML = '';
-
-      if (stepIdx > 0) {
-        const btnPrev = document.createElement('button');
-        btnPrev.className = 'btn-neu';
-        btnPrev.textContent = 'Anterior';
-        btnPrev.addEventListener('click', () => {
-          if (typeof playSynth === 'function') playSynth('click');
-          renderYtModalStep(stepIdx - 1);
-        });
-        actionsRow.appendChild(btnPrev);
-      }
-
-      const btnNext = document.createElement('button');
-      btnNext.className = 'btn-neu';
-      btnNext.style.background = 'var(--color-accent-1)';
-      btnNext.style.color = '#000';
-      btnNext.style.fontWeight = '800';
-      btnNext.textContent = (stepIdx === ytModalSteps.length - 1) ? '¡A descargar! 🚀' : 'Siguiente ➔';
-      btnNext.addEventListener('click', () => {
-        if (typeof playSynth === 'function') playSynth('origami');
-        if (stepIdx === ytModalSteps.length - 1) {
-          closeYtTourModal();
-        } else {
-          renderYtModalStep(stepIdx + 1);
-        }
-      });
-      actionsRow.appendChild(btnNext);
-    }
-  }
-
-  function openYtTourModal() {
-    const backdrop = document.getElementById('yt-tour-modal-backdrop');
-    if (!backdrop) return;
-    document.body.classList.add('tour-running-active');
-    backdrop.classList.add('active');
-    renderYtModalStep(0);
-  }
-
-  function closeYtTourModal() {
-    stopYtTourDemo();
-    document.body.classList.remove('tour-running-active');
-    const backdrop = document.getElementById('yt-tour-modal-backdrop');
-    if (backdrop) backdrop.classList.remove('active');
-  }
-
-  // Conexión del botón de cierre y backdrop
-  document.getElementById('yt-tour-btn-close')?.addEventListener('click', closeYtTourModal);
-  document.getElementById('yt-tour-modal-backdrop')?.addEventListener('click', (e) => {
-    if (e.target.id === 'yt-tour-modal-backdrop') closeYtTourModal();
-  });
-
-  // ========================================================
-  // INICIALIZACIÓN MÓDULO YOUTUBE RESTAURADO Y BLINDADO
-  // ========================================================
-  const ytSearchInput = document.getElementById('yt-search-input');
-  const ytHeroWrapper = document.getElementById('yt-hero-wrapper');
-  const ytResultsDock = document.getElementById('yt-results-dock');
-  const ytResultsList = document.getElementById('yt-results-list');
-  const ytClearBtn = document.getElementById('yt-clear-btn');
-  const ytSearchModeSwitch = document.getElementById('yt-search-mode-switch');
-  
-  let ytDebounce = null;
-  let currentYtSearchType = 'video';
-  let currentYtSearchPage = 1;
-  let ytSearchSessionId = 0; // Previene colisiones al cambiar rápido entre Vídeos y Listas
-
-  // Interruptor VÍDEOS / LISTAS protegido contra condiciones de carrera
-  ytSearchModeSwitch?.querySelectorAll('.chip-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const mode = btn.getAttribute('data-search-mode') || 'video';
-      if (mode === currentYtSearchType) return;
-      if (typeof playSynth === 'function') playSynth('origami');
-
-      ytSearchModeSwitch.querySelectorAll('.chip-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      updateChipGlider(ytSearchModeSwitch, btn);
-
-      currentYtSearchType = mode;
-      currentYtSearchPage = 1;
-      ytSearchSessionId++; // Invalida cualquier respuesta de red previa
-
-      // Cerrar panel lateral al alternar
-      document.body.classList.remove('yt-has-selection');
-      document.querySelectorAll('.yt-video-card').forEach(c => c.classList.remove('selected', 'kb-focused'));
-      modeStates.youtube.selectedVideo = null;
-
-      if (ytSearchInput && ytSearchInput.value.trim().length >= 2) {
-        triggerYoutubeSearch();
-      }
-    });
-  });
-
-  // Renderizado dinámico de tarjetas en resultados
-  function renderYtResults(items) {
-    const resultsContainer = document.getElementById('yt-results-list');
-    const dockEl = document.getElementById('yt-results-dock');
-    const heroEl = document.getElementById('yt-hero-wrapper');
-    if (!resultsContainer) return;
-
-    if (heroEl) heroEl.classList.add('is-searched');
-    if (dockEl) {
-      dockEl.style.display = 'flex';
-      dockEl.style.opacity = '1';
-      dockEl.style.transform = 'translateY(0)';
-      dockEl.classList.add('active');
-    }
-    resultsContainer.innerHTML = '';
-
-    if (!items || items.length === 0) {
-      resultsContainer.innerHTML = '<div style="text-align:center; padding:40px; color:#64748b; font-size:12px; font-weight:800;">NO SE ENCONTRARON RESULTADOS</div>';
-      return;
-    }
-
-    items.forEach(item => {
-      // 1. Tarjeta de Playlist
-      if (item.is_playlist) {
-        const card = document.createElement('div');
-        card.className = 'yt-video-card is-playlist-card';
-        card.innerHTML = `
-          <div class="yt-thumb-box">
-            <span class="yt-playlist-badge">PLAYLIST</span>
-            <img class="yt-thumb-img" src="${item.thumbnail}" alt="Thumbnail" loading="lazy">
-            <span class="yt-duration-badge">${item.item_count ? item.item_count + ' vídeos' : 'LISTA'}</span>
-          </div>
-          <div class="yt-video-details">
-            <span class="yt-video-title" title="${item.title}">${item.title}</span>
-            <div class="yt-video-channel">
-              <span style="color: var(--color-accent-1); font-weight:800;">📁 Lista • ${item.uploader}</span>
-            </div>
-          </div>
-        `;
-        card.addEventListener('click', () => {
-          if (typeof playSynth === 'function') playSynth('chord');
-          openYtPlaylistView(item.url);
-        });
-        resultsContainer.appendChild(card);
-        return;
-      }
-
-      // 2. Tarjeta de Vídeo Estándar
-      const video = item;
-      const card = document.createElement('div');
-      card.className = 'yt-video-card';
-      if (modeStates.youtube.selectedVideo && modeStates.youtube.selectedVideo.id === video.id) {
-        card.classList.add('selected');
-      }
-
-      // Extraer identificador de canal fiable limpiando colaboraciones compuestas
-      let rawChannel = video.channel_url || video.uploader || '';
-      if (!rawChannel.startsWith('http')) {
-        rawChannel = rawChannel.split(/ y | and | & /i)[0].trim();
-      }
-      const channelTarget = rawChannel;
-
-      card.innerHTML = `
-        <div class="yt-thumb-box">
-          <img class="yt-thumb-img" src="${video.thumbnail}" alt="Thumbnail" loading="lazy">
-          <span class="yt-duration-badge">${video.duration}</span>
-        </div>
-        <div class="yt-video-details">
-          <span class="yt-video-title" title="${video.title}">${video.title}</span>
-          <div class="yt-video-channel">
-            <button class="yt-video-channel-btn" data-channel="${channelTarget}" title="Ver canal completo">
-              <span class="yt-channel-btn-icon">📺</span>
-              <span>${video.uploader}</span>
-            </button>
-          </div>
-        </div>
-      `;
-
-      // Clic directo al canal
-      const chBtn = card.querySelector('.yt-video-channel-btn');
-      if (chBtn) {
-        chBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          if (typeof playSynth === 'function') playSynth('click');
-          openYtChannelView(channelTarget, video.uploader);
-        });
-      }
-
-      // Clic para seleccionar el vídeo y abrir panel
-      card.addEventListener('click', async () => {
-        if (typeof playSynth === 'function') playSynth('click');
-        document.querySelectorAll('.yt-video-card').forEach(c => c.classList.remove('selected', 'kb-focused'));
-        card.classList.add('selected');
-
-        const pBox = document.getElementById('yt-dl-progress-box');
-        const pBar = document.getElementById('yt-dl-bar');
-        const pStatus = document.getElementById('yt-dl-status');
-        const pSpeed = document.getElementById('yt-dl-speed');
-        if (pBox) pBox.style.display = 'none';
-        if (pBar) pBar.style.width = '0%';
-        if (pStatus) pStatus.innerText = 'Iniciando...';
-        if (pSpeed) pSpeed.innerText = '0% • 0 KB/s';
-
-        if (typeof window.setYtDownloadState === 'function') {
-          window.setYtDownloadState(false);
-        }
-
-        modeStates.youtube.selectedVideo = video;
-        document.body.classList.add('yt-has-selection');
-        saveCurrentState();
-
-        setTimeout(() => {
-          refreshAllGliders();
-        }, 150);
-
-        const pImg = document.getElementById('yt-preview-img');
-        const pEmpty = document.getElementById('yt-preview-empty');
-        const pTitle = document.getElementById('yt-prev-title');
-        const pChannel = document.getElementById('yt-prev-channel');
-        const btnDownload = document.getElementById('yt-btn-download');
-
-        if (pImg) {
-          pImg.src = video.thumbnail;
-          pImg.style.display = 'block';
-        }
-        if (pEmpty) pEmpty.style.display = 'none';
-        if (pTitle) pTitle.innerText = video.title;
-        if (pChannel) pChannel.innerText = video.uploader;
-
-        if (btnDownload) {
-          btnDownload.disabled = false;
-          btnDownload.removeAttribute('disabled');
-          btnDownload.style.pointerEvents = 'auto';
-          btnDownload.style.opacity = '1';
-        }
-
-        const bgVal = video.thumbnail ? `url('${video.thumbnail}')` : 'none';
-        const aL1 = document.getElementById('ambient-layer-1');
-        const aL2 = document.getElementById('ambient-layer-2');
-        if (aL1) aL1.style.backgroundImage = bgVal;
-        if (aL2) aL2.style.backgroundImage = bgVal;
-
-        if (video.thumbnail && window.pywebview && window.pywebview.api && window.pywebview.api.get_dominant_colors) {
-          const pal = await pyCall('get_dominant_colors', video.thumbnail);
-          if (pal && pal.accent1) {
-            const acc1 = pal.accent1;
-            const acc2 = pal.accent2 || '#ff5500';
-            modeStates.youtube.accent1 = acc1;
-            modeStates.youtube.accent2 = acc2;
-            applyDynamicPalette(acc1, acc2);
-          }
-        }
-      });
-
-      resultsContainer.appendChild(card);
-    });
-
-    // Inyectar botón "Cargar más" al final del scroll si hay bastantes elementos
-    const minThreshold = (currentYtSearchType === 'playlist') ? 4 : 8;
-    if (items.length >= minThreshold) {
-      const isPlaylist = currentYtSearchType === 'playlist';
-      const labelText = isPlaylist ? 'CARGAR MÁS LISTAS ▾' : 'CARGAR MÁS VÍDEOS ▾';
-      const loadingText = isPlaylist ? 'CARGANDO MÁS LISTAS...' : 'CARGANDO MÁS VÍDEOS...';
-      const emptyText = isPlaylist ? 'NO HAY MÁS LISTAS' : 'NO HAY MÁS VÍDEOS';
-
-      const loadMoreRow = document.createElement('div');
-      loadMoreRow.className = 'yt-load-more-playlists-box';
-      loadMoreRow.id = 'yt-load-more-box';
-      loadMoreRow.innerHTML = `
-        <button class="btn-channel-load-more" id="btn-load-more-general">
-          <span class="btn-load-more-spinner" id="spin-load-more-general" style="display: none;"></span>
-          <span id="txt-load-more-general">${labelText}</span>
-        </button>
-      `;
-
-      loadMoreRow.querySelector('#btn-load-more-general')?.addEventListener('click', async (e) => {
-        const btn = e.currentTarget;
-        const spin = btn.querySelector('#spin-load-more-general');
-        const txt = btn.querySelector('#txt-load-more-general');
-        const val = ytSearchInput?.value.trim();
-        if (!val) return;
-
-        if (typeof playSynth === 'function') playSynth('origami');
-        if (spin) spin.style.display = 'inline-block';
-        if (txt) txt.textContent = loadingText;
-        btn.disabled = true;
-
-        currentYtSearchPage++;
-        const loadSize = (currentYtSearchType === 'playlist') ? 4 : 12;
-        const nextResults = await pyCall('search_youtube', val, currentYtSearchType, currentYtSearchPage, loadSize);
-
-        if (spin) spin.style.display = 'none';
-        btn.disabled = false;
-
-        if (nextResults && nextResults.length > 0) {
-          nextResults.forEach(item => {
-            if (!modeStates.youtube.results.some(r => r.id === item.id)) {
-              modeStates.youtube.results.push(item);
-            }
-          });
-          renderYtResults(modeStates.youtube.results);
-        } else {
-          if (txt) txt.textContent = emptyText;
-          setTimeout(() => { if (txt) txt.textContent = labelText; }, 2000);
-        }
-      });
-
-      resultsContainer.appendChild(loadMoreRow);
-    }
-  }
-
-  // Motor de Búsqueda Reactivo con soporte de Enter y Debounce en vivo
-  async function triggerYoutubeSearch() {
-    const inputEl = document.getElementById('yt-search-input');
-    const heroEl = document.getElementById('yt-hero-wrapper');
-    const dockEl = document.getElementById('yt-results-dock');
-    const listEl = document.getElementById('yt-results-list');
-    const clearEl = document.getElementById('yt-clear-btn');
-
-    if (!inputEl) return;
-    const val = inputEl.value.trim();
-    if (clearEl) clearEl.style.display = val.length > 0 ? 'block' : 'none';
-
-    if (val.length < 2) {
-      if (heroEl) heroEl.classList.remove('is-searched');
-      if (dockEl) {
-        dockEl.classList.remove('active');
-        dockEl.style.display = 'none';
-      }
-      document.body.classList.remove('yt-has-selection');
-      return;
-    }
-
-    // Detección directa de URL completa de Playlist
-    if (val.includes('list=') && (val.startsWith('http://') || val.startsWith('https://'))) {
-      if (heroEl) heroEl.classList.add('is-searched');
-      if (dockEl) {
-        dockEl.style.display = 'none';
-        dockEl.classList.remove('active');
-      }
-      openYtPlaylistView(val);
-      return;
-    }
-
-    // Elevar buscador y mostrar spinner
-    if (heroEl) heroEl.classList.add('is-searched');
-    if (dockEl) {
-      dockEl.style.display = 'flex';
-      dockEl.style.opacity = '1';
-      dockEl.style.transform = 'translateY(0)';
-      dockEl.classList.add('active');
-    }
-
-    currentYtSearchPage = 1;
-    const thisSessionId = ++ytSearchSessionId;
-    const requestedType = currentYtSearchType;
-
-    if (listEl) {
-      listEl.innerHTML = `
-        <div class="yt-loading-box">
-          <div class="yt-orbital-spinner"></div>
-          <span class="yt-loading-txt">LOCALIZANDO TRANSMISIONES...</span>
-        </div>
-      `;
-    }
-
-    const pageSize = (requestedType === 'playlist') ? 4 : 12;
-    const results = await pyCall('search_youtube', val, requestedType, 1, pageSize);
-
-    // Descartar si el usuario cambió de pestaña mientras la petición estaba en vuelo
-    if (thisSessionId !== ytSearchSessionId || requestedType !== currentYtSearchType) {
-      return;
-    }
-
-    modeStates.youtube.results = results || [];
-    renderYtResults(results || []);
-  }
-
-  let activeYtNavIndex = -1;
-  function updateYtKeyboardSelection(cards) {
-    cards.forEach((c, idx) => {
-      if (idx === activeYtNavIndex) {
-        c.classList.add('kb-focused');
-        c.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-      } else {
-        c.classList.remove('kb-focused');
-      }
-    });
-  }
-
-  if (ytSearchInput) {
-    // 1. Escritura en tiempo real garantizada
-    ytSearchInput.addEventListener('input', () => {
-      activeYtNavIndex = -1;
-      clearTimeout(ytDebounce);
-      ytDebounce = setTimeout(triggerYoutubeSearch, 380);
-    });
-
-    // 2. Ejecución inmediata al pulsar Enter
-    ytSearchInput.addEventListener('keydown', (e) => {
-      const cards = document.querySelectorAll('.yt-video-card');
-
-      if (e.key === 'ArrowDown') {
-        if (cards.length > 0) {
-          e.preventDefault();
-          activeYtNavIndex = (activeYtNavIndex + 1) % cards.length;
-          updateYtKeyboardSelection(cards);
-        }
-      } else if (e.key === 'ArrowUp') {
-        if (cards.length > 0) {
-          e.preventDefault();
-          activeYtNavIndex = (activeYtNavIndex - 1 + cards.length) % cards.length;
-          updateYtKeyboardSelection(cards);
-        }
-      } else if (e.key === 'Enter') {
-        e.preventDefault();
-        clearTimeout(ytDebounce);
-        if (activeYtNavIndex >= 0 && cards[activeYtNavIndex]) {
-          cards[activeYtNavIndex].click();
-        } else {
-          triggerYoutubeSearch();
-        }
-      } else if (e.key === 'Escape') {
-        ytClearBtn?.click();
-      }
-    });
-  }
-
-  ytClearBtn?.addEventListener('click', () => {
-    if (ytSearchInput) {
-      ytSearchInput.value = '';
-      activeYtNavIndex = -1;
-      if (ytHeroWrapper) ytHeroWrapper.classList.remove('is-searched');
-      if (ytResultsDock) {
-        ytResultsDock.classList.remove('active');
-        ytResultsDock.style.display = 'none';
-      }
-      document.body.classList.remove('yt-has-selection');
-      ytClearBtn.style.display = 'none';
-      ytSearchInput.focus();
-    }
-  });
-
-  const ytBtnClosePanel = document.getElementById('yt-btn-close-panel');
-  ytBtnClosePanel?.addEventListener('click', (e) => {
-    e.stopPropagation();
-    if (typeof playSynth === 'function') playSynth('click');
-    document.body.classList.remove('yt-has-selection');
-    document.querySelectorAll('.yt-video-card').forEach(c => c.classList.remove('selected', 'kb-focused'));
-  });
-
-  // FORMATO: VÍDEO / AUDIO
-  const ytFormatChips = document.getElementById('yt-format-chips');
-  const ytResGroup = document.getElementById('yt-res-group');
-  const ytBtnTxt = document.getElementById('yt-btn-txt');
-
-  ytFormatChips?.querySelectorAll('.chip-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      ytFormatChips.querySelectorAll('.chip-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      updateChipGlider(ytFormatChips, btn);
-
-      const isAudio = btn.getAttribute('data-format') === 'audio';
-      modeStates.youtube.format = isAudio ? 'audio' : 'video';
-      if (ytResGroup) {
-        ytResGroup.style.display = isAudio ? 'none' : 'block';
-        if (!isAudio) {
-          requestAnimationFrame(() => {
-            const rChips = document.getElementById('yt-res-chips');
-            const activeRes = rChips?.querySelector('.chip-btn.active') || rChips?.querySelector(`[data-res="${modeStates.youtube.res}"]`);
-            if (activeRes && rChips) {
-              activeRes.classList.add('active');
-              updateChipGlider(rChips, activeRes);
-            }
-          });
-        }
-      }
-      if (ytBtnTxt) ytBtnTxt.innerText = isAudio ? 'DESCARGAR AUDIO (MP3)' : 'DESCARGAR VÍDEO';
-      saveCurrentState();
-    });
-  });
-
-  // SELECTOR ELÁSTICO Y ARRASTRE TÁCTIL DE CALIDADES
-  const ytResChips = document.getElementById('yt-res-chips');
-
-  function triggerJellyGlider(group, targetBtn, direction = 0) {
-    if (!group || !targetBtn) return;
-    const glider = group.querySelector('.chip-glider');
-    group.querySelectorAll('.chip-btn').forEach(b => b.classList.remove('active'));
-    targetBtn.classList.add('active');
-
-    const leftOffset = targetBtn.offsetLeft;
-    const width = targetBtn.offsetWidth;
-
-    if (glider) {
-      glider.classList.remove('is-dragging', 'jelly-stretch-right', 'jelly-stretch-left');
-      glider.style.setProperty('--glider-x', `${leftOffset}px`);
-      glider.style.width = `${width}px`;
-      glider.style.transform = `translateX(${leftOffset}px)`;
-
-      if (direction !== 0) {
-        glider.classList.add(direction > 0 ? 'jelly-stretch-right' : 'jelly-stretch-left');
-        setTimeout(() => {
-          glider.classList.remove('jelly-stretch-right', 'jelly-stretch-left');
-          glider.style.transform = `translateX(${leftOffset}px)`;
-        }, 220);
-      }
-    }
-
-    modeStates.youtube.res = targetBtn.getAttribute('data-res');
-    saveCurrentState();
-  }
-
-  if (ytResChips) {
-    let isDragging = false;
-    let dragThreshold = false;
-    let startX = 0;
-    let lastActiveBtn = ytResChips.querySelector('.chip-btn.active');
-
-    ytResChips.querySelectorAll('.chip-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        if (dragThreshold) return;
-        const currentActive = ytResChips.querySelector('.chip-btn.active');
-        const dir = currentActive ? (btn.offsetLeft - currentActive.offsetLeft) : 0;
-        if (typeof playSynth === 'function') playSynth('origami');
-        triggerJellyGlider(ytResChips, btn, dir);
-      });
-    });
-
-    ytResChips.addEventListener('pointerdown', (e) => {
-      isDragging = true;
-      dragThreshold = false;
-      startX = e.clientX;
-      ytResChips.classList.add('is-grabbing');
-      try { ytResChips.setPointerCapture(e.pointerId); } catch(err) {}
-
-      const glider = ytResChips.querySelector('.chip-glider');
-      if (glider) glider.classList.add('is-dragging');
-    });
-
-    ytResChips.addEventListener('pointermove', (e) => {
-      if (!isDragging) return;
-      if (Math.abs(e.clientX - startX) > 4) {
-        dragThreshold = true;
-      }
-
-      const glider = ytResChips.querySelector('.chip-glider');
-      const rect = ytResChips.getBoundingClientRect();
-      const relativeX = e.clientX - rect.left;
-
-      const buttons = Array.from(ytResChips.querySelectorAll('.chip-btn'));
-      const closestBtn = buttons.reduce((closest, btn) => {
-        const bRect = btn.getBoundingClientRect();
-        const center = (bRect.left - rect.left) + bRect.width / 2;
-        const dist = Math.abs(relativeX - center);
-        return dist < closest.dist ? { btn, dist } : closest;
-      }, { btn: buttons[0], dist: Infinity }).btn;
-
-      if (glider && closestBtn) {
-        const targetX = Math.max(2, Math.min(rect.width - closestBtn.offsetWidth - 2, relativeX - closestBtn.offsetWidth / 2));
-        glider.style.transform = `translateX(${targetX}px)`;
-        glider.style.width = `${closestBtn.offsetWidth}px`;
-      }
-
-      if (closestBtn && closestBtn !== lastActiveBtn) {
-        buttons.forEach(b => b.classList.remove('active'));
-        closestBtn.classList.add('active');
-        if (typeof playSynth === 'function') playSynth('click');
-        lastActiveBtn = closestBtn;
-      }
-    });
-
-    const endGliderDrag = (e) => {
-      if (!isDragging) return;
-      isDragging = false;
-      ytResChips.classList.remove('is-grabbing');
-
-      try { ytResChips.releasePointerCapture(e.pointerId); } catch(err) {}
-
-      const glider = ytResChips.querySelector('.chip-glider');
-      if (glider) glider.classList.remove('is-dragging');
-
-      const target = lastActiveBtn || ytResChips.querySelector('.chip-btn.active') || ytResChips.querySelector('.chip-btn');
-      if (target) {
-        const currentActive = ytResChips.querySelector('.chip-btn.active');
-        const dir = currentActive ? (target.offsetLeft - currentActive.offsetLeft) : 1;
-        triggerJellyGlider(ytResChips, target, dir || 1);
-      }
-      setTimeout(() => { dragThreshold = false; }, 50);
-    };
-
-    ytResChips.addEventListener('pointerup', endGliderDrag);
-    ytResChips.addEventListener('pointercancel', endGliderDrag);
-  }
-
-  // EXPLORADOR DE CARPETAS RESTAURADO
-  const ytBtnBrowse = document.getElementById('yt-btn-browse');
-  const ytCfgDir = document.getElementById('yt-cfg-dir');
-  ytBtnBrowse?.addEventListener('click', async () => {
-    if (typeof playSynth === 'function') playSynth('click');
-    const selected = await pyCall('select_folder', ytCfgDir?.value || '');
-    if (selected && ytCfgDir) {
-      ytCfgDir.value = selected;
-      modeStates.youtube.dir = selected;
-      updateDiskTelemetry(selected);
-      saveCurrentState();
-    }
-  });
-
-  ytCfgDir?.addEventListener('change', () => {
-    modeStates.youtube.dir = ytCfgDir.value;
-    updateDiskTelemetry(ytCfgDir.value);
-    saveCurrentState();
-  });
-  ytCfgDir?.addEventListener('input', () => {
-    modeStates.youtube.dir = ytCfgDir.value;
-    saveCurrentState();
-  });
-
-  // TOGGLE: ABRIR CARPETA AL FINALIZAR
-  const ytCardOpen = document.getElementById('yt-card-open-folder');
-  const ytCfgOpen = document.getElementById('yt-cfg-open-folder');
-  if (ytCardOpen && ytCfgOpen) {
-    ytCardOpen.addEventListener('click', (e) => {
-      if (e.target !== ytCfgOpen) ytCfgOpen.checked = !ytCfgOpen.checked;
-      if (typeof playSynth === 'function') playSynth('click');
-      modeStates.youtube.openFolder = ytCfgOpen.checked;
-      saveCurrentState();
-    });
-  }
-
-  // BOTÓN DE DESCARGA MAESTRO DE YOUTUBE
-  const ytBtnDownload = document.getElementById('yt-btn-download');
-  ytBtnDownload?.addEventListener('click', (e) => {
-    e.preventDefault();
-
-    const targetDir = (ytCfgDir?.value || modeStates.youtube.dir || '').trim();
-    if (!targetDir) {
-      if (typeof playSynth === 'function') playSynth('click');
-      const ytTxtEl = document.getElementById('yt-btn-txt');
-      const origTxt = ytTxtEl ? ytTxtEl.innerText : 'DESCARGAR VÍDEO';
-      if (ytTxtEl) ytTxtEl.innerText = 'SELECCIONA RUTA';
-      ytBtnDownload.classList.add('is-empty');
-
-      if (ytCfgDir) {
-        ytCfgDir.focus();
-        ytCfgDir.style.borderColor = '#ff0055';
-        ytCfgDir.style.boxShadow = '0 0 16px rgba(255, 0, 85, 0.4)';
-        setTimeout(() => {
-          ytCfgDir.style.borderColor = '';
-          ytCfgDir.style.boxShadow = '';
-        }, 2000);
-      }
-
-      setTimeout(() => {
-        ytBtnDownload.classList.remove('is-empty');
-        if (ytTxtEl) ytTxtEl.innerText = origTxt;
-      }, 1400);
-
-      document.getElementById('yt-btn-browse')?.click();
-      return;
-    }
-
-    if (typeof playSynth === 'function') playSynth('chord');
-
-    const pBox = document.getElementById('yt-dl-progress-box');
-    const pBar = document.getElementById('yt-dl-bar');
-    const pStatus = document.getElementById('yt-dl-status');
-    const pSpeed = document.getElementById('yt-dl-speed');
-
-    if (pBox) pBox.style.display = 'flex';
-    if (pBar) pBar.style.width = '0%';
-    if (pStatus) pStatus.innerText = 'Descargando...';
-    if (pSpeed) pSpeed.innerText = '0%';
-
-    const isAudioOnly = modeStates.youtube.format === 'audio';
-    const quality = modeStates.youtube.res || '1080';
-    const shouldOpen = ytCfgOpen ? ytCfgOpen.checked : true;
-
-    // Si estamos descargando una Playlist activa
-    if (currentPlaylistData && selectedPlaylistVideos.size > 0) {
-      const selectedTasks = currentPlaylistData.videos
-        .filter(v => selectedPlaylistVideos.has(v.id))
-        .map((v, idx) => ({
-          id: 'task_pl_' + Date.now() + '_' + idx,
-          title: v.title + (isAudioOnly ? ' [MP3]' : ''),
-          url: v.url,
-          pageUrl: v.url,
-          status: 'En cola',
-          resolution: isAudioOnly ? 'MP3' : `${quality}p`,
-          bytes: 0,
-          progress: 0,
-          speed: '0 KB/s'
-        }));
-
-      setYtDownloadState(true);
-
-      pyCall('start_downloads', {
-        tasks: selectedTasks,
-        config: {
-          dir: targetDir,
-          is_youtube: true,
-          is_playlist: true,
-          playlist_title: currentPlaylistData.title,
-          create_playlist_subfolder: true,
-          is_audio_only: isAudioOnly,
-          quality: quality,
-          title: currentPlaylistData.title,
-          open_folder: shouldOpen
-        }
-      });
-      return;
-    }
-
-    // Si es un vídeo suelto
-    const video = modeStates.youtube.selectedVideo;
-    if (!video) return;
-
-    const task = {
-      id: 'task_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
-      title: video.title + (isAudioOnly ? ' [MP3]' : ''),
-      url: video.url,
-      pageUrl: video.url,
-      status: 'En cola',
-      resolution: isAudioOnly ? 'MP3' : `${quality}p`,
-      bytes: 0,
-      progress: 0,
-      speed: '0 KB/s'
-    };
-
-    setYtDownloadState(true);
-
-    pyCall('start_downloads', {
-      tasks: [task],
-      config: {
-        dir: targetDir,
-        is_youtube: true,
-        is_audio_only: isAudioOnly,
-        quality: quality,
-        title: video.title,
-        open_folder: shouldOpen
-      }
-    });
-  });
-
-  const ytBtnCancel = document.getElementById('yt-btn-cancel');
-  ytBtnCancel?.addEventListener('click', () => {
-    if (typeof playSynth === 'function') playSynth('origami');
-    const pBox = document.getElementById('yt-dl-progress-box');
-    const pStatus = document.getElementById('yt-dl-status');
-
-    pyCall('cancel_download_task', 'youtube_active');
-
-    if (pStatus) pStatus.innerText = 'Cancelado';
-    if (pBox) pBox.style.display = 'none';
-
-    setYtDownloadState(false);
-  });
-
-  // ========================================================
-  // CONTROLADOR Y NAVEGACIÓN DE CANAL DE YOUTUBE
-  // ========================================================
-  const ytChannelView = document.getElementById('yt-channel-view');
-  const ytChannelLoading = document.getElementById('yt-channel-loading');
-  const ytChannelContent = document.getElementById('yt-channel-content');
-  const btnChannelBack = document.getElementById('btn-channel-back');
-  const btnLoadMoreChannel = document.getElementById('btn-channel-load-more');
-  const sortChips = document.getElementById('yt-channel-sort-chips');
-
-  let currentChannelTarget = '';
-  let channelVideosList = [];
-  let currentSortMode = 'recent';
-  let nextStartIndex = 1;
-  const channelPageSize = 24;
-
-  async function openYtChannelView(channelIdentifier, fallbackName = 'Canal') {
-    if (!ytChannelView) return;
-
-    currentChannelTarget = channelIdentifier;
-    channelVideosList = [];
-    nextStartIndex = 1;
-
-    if (ytHeroWrapper) ytHeroWrapper.style.display = 'none';
-    if (ytResultsDock) ytResultsDock.style.display = 'none';
-    if (ytPlaylistView) ytPlaylistView.style.display = 'none';
-
-    ytChannelView.style.display = 'flex';
-    if (ytChannelLoading) ytChannelLoading.style.display = 'flex';
-    if (ytChannelContent) ytChannelContent.style.display = 'none';
-
-    const data = await pyCall('get_channel_details', channelIdentifier, 1, channelPageSize);
-    if (ytChannelLoading) ytChannelLoading.style.display = 'none';
-
-    if (!data) {
-      if (ytChannelContent) ytChannelContent.style.display = 'flex';
-      return;
-    }
-
-    if (ytChannelContent) ytChannelContent.style.display = 'flex';
-
-    const nameEl = document.getElementById('yt-channel-name');
-    const bioEl = document.getElementById('yt-channel-bio');
-    const avatarImg = document.getElementById('yt-channel-avatar-img');
-    const bannerBox = document.getElementById('yt-channel-banner');
-    const subsEl = document.getElementById('yt-channel-subs');
-
-    if (nameEl) nameEl.textContent = data.title || fallbackName;
-    if (bioEl) bioEl.textContent = (data.description && data.description.trim()) ? data.description : 'Canal oficial de YouTube';
-    if (subsEl) subsEl.textContent = data.subscribers || '--';
-
-    if (avatarImg) {
-      avatarImg.src = data.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(data.title || 'YT')}&background=ff0055&color=fff&size=128`;
-      avatarImg.style.display = 'block';
-    }
-
-    if (bannerBox) {
-      bannerBox.style.backgroundImage = data.banner ? `url('${data.banner}')` : 'none';
-    }
-
-    channelVideosList = data.videos || [];
-    nextStartIndex = channelVideosList.length + 1;
-    renderChannelVideosGrid();
-  }
-
-  function renderChannelVideosGrid() {
-    const grid = document.getElementById('yt-channel-videos-grid');
-    if (!grid) return;
-    grid.innerHTML = '';
-
-    if (!channelVideosList || channelVideosList.length === 0) {
-      grid.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:40px; color:#64748b; font-size:12px; font-weight:800;">NO SE ENCONTRARON VÍDEOS PÚBLICOS</div>';
-      return;
-    }
-
-    channelVideosList.forEach(v => {
-      const card = document.createElement('div');
-      card.className = 'yt-grid-video-card';
-      if (modeStates.youtube.selectedVideo && modeStates.youtube.selectedVideo.id === v.id) {
-        card.classList.add('selected');
-      }
-
-      card.innerHTML = `
-        <div class="yt-grid-thumb-box">
-          <img class="yt-grid-thumb-img" src="${v.thumbnail}" alt="Thumbnail" loading="lazy">
-          <span class="yt-duration-badge">${v.duration}</span>
-        </div>
-        <span class="yt-grid-video-title" title="${v.title}">${v.title}</span>
-        <div class="yt-grid-video-meta">
-          <span>${v.views} vistas</span>
-          <span>Descargar ➔</span>
-        </div>
-      `;
-
-      card.addEventListener('click', async () => {
-        if (typeof playSynth === 'function') playSynth('click');
-        document.querySelectorAll('.yt-grid-video-card, .yt-video-card').forEach(c => c.classList.remove('selected', 'kb-focused'));
-        card.classList.add('selected');
-
-        modeStates.youtube.selectedVideo = v;
-        document.body.classList.add('yt-has-selection');
-        saveCurrentState();
-
-        setTimeout(() => refreshAllGliders(), 150);
-
-        const pImg = document.getElementById('yt-preview-img');
-        const pEmpty = document.getElementById('yt-preview-empty');
-        const pTitle = document.getElementById('yt-prev-title');
-        const pChannel = document.getElementById('yt-prev-channel');
-        const btnDownload = document.getElementById('yt-btn-download');
-
-        if (pImg) { pImg.src = v.thumbnail; pImg.style.display = 'block'; }
-        if (pEmpty) pEmpty.style.display = 'none';
-        if (pTitle) pTitle.innerText = v.title;
-        if (pChannel) pChannel.innerText = v.uploader;
-        if (btnDownload) {
-          btnDownload.disabled = false;
-          btnDownload.removeAttribute('disabled');
-          btnDownload.style.pointerEvents = 'auto';
-          btnDownload.style.opacity = '1';
-        }
-
-        // Fondos ambientales sincronizados con la miniatura
-        const bgVal = v.thumbnail ? `url('${v.thumbnail}')` : 'none';
-        const aL1 = document.getElementById('ambient-layer-1');
-        const aL2 = document.getElementById('ambient-layer-2');
-        if (aL1) aL1.style.backgroundImage = bgVal;
-        if (aL2) aL2.style.backgroundImage = bgVal;
-
-        // Extracción y aplicación de la paleta dinámica de colores
-        if (v.thumbnail && window.pywebview && window.pywebview.api && window.pywebview.api.get_dominant_colors) {
-          pyCall('get_dominant_colors', v.thumbnail).then(pal => {
-            if (pal && pal.accent1) {
-              const acc1 = pal.accent1;
-              const acc2 = pal.accent2 || '#ff5500';
-              modeStates.youtube.accent1 = acc1;
-              modeStates.youtube.accent2 = acc2;
-              applyDynamicPalette(acc1, acc2);
-            }
-          });
-        }
-      });
-
-      grid.appendChild(card);
-    });
-  }
-
-  btnLoadMoreChannel?.addEventListener('click', async () => {
-    if (!currentChannelTarget) return;
-    const spin = document.getElementById('spin-load-more');
-    const txt = document.getElementById('txt-load-more');
-    if (spin) spin.style.display = 'inline-block';
-    if (txt) txt.textContent = 'CARGANDO...';
-    btnLoadMoreChannel.disabled = true;
-
-    const data = await pyCall('get_channel_details', currentChannelTarget, nextStartIndex, channelPageSize);
-    if (spin) spin.style.display = 'none';
-    if (txt) txt.textContent = 'CARGAR MÁS VÍDEOS ▾';
-    btnLoadMoreChannel.disabled = false;
-
-    if (data && data.videos && data.videos.length > 0) {
-      data.videos.forEach(nv => {
-        if (!channelVideosList.some(ev => ev.id === nv.id)) {
-          channelVideosList.push(nv);
-        }
-      });
-      nextStartIndex += data.videos.length;
-      renderChannelVideosGrid();
-    }
-  });
-
-  btnChannelBack?.addEventListener('click', () => {
-    if (typeof playSynth === 'function') playSynth('click');
-    if (ytChannelView) ytChannelView.style.display = 'none';
-    if (ytHeroWrapper) ytHeroWrapper.style.display = 'block';
-    if (ytResultsDock) ytResultsDock.style.display = 'flex';
-  });
-
-  // ========================================================
-  // CONTROLADOR Y GESTIÓN DE LISTAS DE REPRODUCCIÓN (PLAYLISTS)
-  // ========================================================
-  const ytPlaylistView = document.getElementById('yt-playlist-view');
-  const ytPlaylistLoading = document.getElementById('yt-playlist-loading');
-  const ytPlaylistContent = document.getElementById('yt-playlist-content');
-  const btnPlaylistBack = document.getElementById('btn-playlist-back');
-  const btnPlaylistSelectAll = document.getElementById('btn-playlist-select-all');
-  const btnPlaylistTogglePanel = document.getElementById('btn-playlist-toggle-panel');
-
-  let currentPlaylistData = null;
-  let selectedPlaylistVideos = new Set();
-
-  async function openYtPlaylistView(playlistUrl) {
-    if (!ytPlaylistView) return;
-
-    if (ytHeroWrapper) ytHeroWrapper.style.display = 'none';
-    if (ytResultsDock) ytResultsDock.style.display = 'none';
-    if (ytChannelView) ytChannelView.style.display = 'none';
-
-    ytPlaylistView.style.display = 'flex';
-    if (ytPlaylistLoading) ytPlaylistLoading.style.display = 'flex';
-    if (ytPlaylistContent) ytPlaylistContent.style.display = 'none';
-
-    const data = await pyCall('get_playlist_details', playlistUrl);
-    if (ytPlaylistLoading) ytPlaylistLoading.style.display = 'none';
-
-    if (!data || !data.videos || data.videos.length === 0) {
-      alert('No se pudieron extraer vídeos de la lista de reproducción proporcionada.');
-      btnPlaylistBack?.click();
-      return;
-    }
-
-    currentPlaylistData = data;
-    selectedPlaylistVideos = new Set(data.videos.map(v => v.id));
-
-    if (ytPlaylistContent) ytPlaylistContent.style.display = 'flex';
-
-    const tTitle = document.getElementById('yt-playlist-title');
-    const tUploader = document.getElementById('yt-playlist-uploader');
-    const tCount = document.getElementById('yt-playlist-count');
-    const tImg = document.getElementById('yt-playlist-thumb-img');
-
-    if (tTitle) tTitle.textContent = data.title;
-    if (tUploader) tUploader.textContent = data.uploader;
-    if (tCount) tCount.textContent = `${data.count} vídeos`;
-    if (tImg && data.thumbnail) tImg.src = data.thumbnail;
-
-    // Extracción de paleta cromática de la lista
-    if (data.thumbnail) {
-      const bgVal = `url('${data.thumbnail}')`;
-      const aL1 = document.getElementById('ambient-layer-1');
-      const aL2 = document.getElementById('ambient-layer-2');
-      if (aL1) aL1.style.backgroundImage = bgVal;
-      if (aL2) aL2.style.backgroundImage = bgVal;
-
-      if (window.pywebview && window.pywebview.api && window.pywebview.api.get_dominant_colors) {
-        pyCall('get_dominant_colors', data.thumbnail).then(pal => {
-          if (pal && pal.accent1) {
-            applyDynamicPalette(pal.accent1, pal.accent2 || '#ff5500');
-          }
-        });
-      }
-    }
-
-    renderPlaylistVideosGrid();
-    updatePlaylistSelectionUI();
-
-    // Abrir panel lateral adaptado a la Playlist
-    document.body.classList.add('yt-has-selection');
-    const pTitle = document.getElementById('yt-prev-title');
-    const pChannel = document.getElementById('yt-prev-channel');
-    const pImg = document.getElementById('yt-preview-img');
-    const pEmpty = document.getElementById('yt-preview-empty');
-    const btnDownload = document.getElementById('yt-btn-download');
-    const btnTxt = document.getElementById('yt-btn-txt');
-
-    if (pTitle) pTitle.innerText = `[Playlist] ${data.title}`;
-    if (pChannel) pChannel.innerText = data.uploader;
-    if (pImg) { pImg.src = data.thumbnail; pImg.style.display = 'block'; }
-    if (pEmpty) pEmpty.style.display = 'none';
-    if (btnDownload) { btnDownload.disabled = false; btnDownload.style.pointerEvents = 'auto'; }
-    if (btnTxt) btnTxt.innerText = `DESCARGAR LISTA (${data.count})`;
-  }
-
-  function updatePlaylistSelectionUI() {
-    const statusEl = document.getElementById('yt-playlist-selection-status');
-    const btnTxt = document.getElementById('yt-btn-txt');
-    const count = selectedPlaylistVideos.size;
-
-    if (statusEl) statusEl.textContent = `${count} SELECCIONADOS`;
-    if (btnTxt && currentPlaylistData) {
-      btnTxt.innerText = `DESCARGAR LISTA (${count})`;
-    }
-    if (btnPlaylistSelectAll && currentPlaylistData) {
-      btnPlaylistSelectAll.textContent = count === 0 ? '✔ SELECCIONAR TODOS' : '✕ DESMARCAR TODOS';
-    }
-  }
-
-  function renderPlaylistVideosGrid() {
-    const listContainer = document.getElementById('yt-playlist-videos-list');
-    if (!listContainer || !currentPlaylistData) return;
-    listContainer.innerHTML = '';
-
-    currentPlaylistData.videos.forEach((v, idx) => {
-      const row = document.createElement('div');
-      const isSelected = selectedPlaylistVideos.has(v.id);
-      row.className = `yt-playlist-item-row ${isSelected ? 'selected' : ''}`;
-
-      const numStr = String(idx + 1).padStart(2, '0');
-      row.innerHTML = `
-        <span class="yt-row-index">${numStr}</span>
-        <div class="yt-row-thumb-box">
-          <img class="yt-row-thumb-img" src="${v.thumbnail}" alt="Thumbnail" loading="lazy">
-        </div>
-        <div class="yt-row-details">
-          <span class="yt-row-title" title="${v.title}">${v.title}</span>
-          <div class="yt-row-meta">
-            <span>⏱ ${v.duration}</span>
-            <span>👤 ${v.uploader}</span>
-          </div>
-        </div>
-        <span class="yt-row-check-badge" style="background: ${isSelected ? 'rgba(255, 214, 10, 0.15)' : 'rgba(255, 255, 255, 0.05)'}; color: ${isSelected ? 'var(--color-accent-1)' : '#64748b'};">
-          ${isSelected ? '✔ INCLUIDO' : 'EXCLUIDO'}
-        </span>
-      `;
-
-      row.addEventListener('click', () => {
-        if (typeof playSynth === 'function') playSynth('click');
-        if (selectedPlaylistVideos.has(v.id)) {
-          selectedPlaylistVideos.delete(v.id);
-        } else {
-          selectedPlaylistVideos.add(v.id);
-        }
-        document.body.classList.add('yt-has-selection');
-        renderPlaylistVideosGrid();
-        updatePlaylistSelectionUI();
-      });
-
-      listContainer.appendChild(row);
-    });
-  }
-
-  btnPlaylistSelectAll?.addEventListener('click', () => {
-    if (!currentPlaylistData || !currentPlaylistData.videos) return;
-    if (typeof playSynth === 'function') playSynth('origami');
-
-    if (selectedPlaylistVideos.size > 0) {
-      selectedPlaylistVideos.clear();
-      btnPlaylistSelectAll.textContent = '✔ SELECCIONAR TODOS';
-    } else {
-      currentPlaylistData.videos.forEach(v => selectedPlaylistVideos.add(v.id));
-      btnPlaylistSelectAll.textContent = '✕ DESMARCAR TODOS';
-    }
-    renderPlaylistVideosGrid();
-    updatePlaylistSelectionUI();
-  });
-
-  btnPlaylistTogglePanel?.addEventListener('click', () => {
-    if (typeof playSynth === 'function') playSynth('click');
-    document.body.classList.toggle('yt-has-selection');
-    setTimeout(refreshAllGliders, 100);
-  });
-
-  btnPlaylistBack?.addEventListener('click', () => {
-    if (typeof playSynth === 'function') playSynth('click');
-    if (ytPlaylistView) ytPlaylistView.style.display = 'none';
-    if (ytHeroWrapper) {
-      ytHeroWrapper.style.display = 'block';
-      ytHeroWrapper.classList.add('is-searched');
-    }
-    if (ytResultsDock) {
-      ytResultsDock.style.display = 'flex';
-      ytResultsDock.classList.add('active');
-    }
-    currentPlaylistData = null;
-    selectedPlaylistVideos.clear();
-  });
-});
-
-window.addEventListener('resize', () => {
-  refreshAllGliders();
-  setTimeout(refreshAllGliders, 200);
-});
 
 window.updateDownloadProgress = function(taskId, progress, speed, status) {
   if (currentMode === 'youtube') {
@@ -4554,4 +3164,14 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
-});
+
+ // Inicializar eventos de cierre del modal de YouTube
+  if (typeof window.initYtTourEvents === 'function') {
+    window.initYtTourEvents();
+  }
+
+  // Inicializar módulo de YouTube una vez que el DOM está completamente listo
+  if (typeof window.initYoutubeModule === 'function') {
+    window.initYoutubeModule();
+  }
+});})

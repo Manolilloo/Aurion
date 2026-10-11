@@ -1,7 +1,7 @@
 {
-  "active_mode": "youtube",
+  "active_mode": "anime",
   "anime": {
-    "dir": "C:\\Users\\mdema\\Downloads\\yt-videos-prueba",
+    "dir": "",
     "season": 1,
     "start_ep": 1,
     "save_cover": true,
@@ -9,11 +9,11 @@
     "fmt": "mkv",
     "threads": "32",
     "simul": "20",
-    "active_title": "ONE PIECE",
-    "active_tags": "EN EMISI\u00d3N \u2022 \u2605 8.7",
-    "active_bg": "url('https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx21-ELSYx3yMPcKM.jpg')",
-    "accent1": "rgb(225, 150, 45)",
-    "accent2": "rgb(226, 75, 6)",
+    "active_title": "Otome Kaijuu Caram\u00e9liser",
+    "active_tags": "TERMINADO \u2022 \u2605 7.5",
+    "active_bg": "url('https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx204466-vXMvIs4VOoQd.png')",
+    "accent1": "rgb(202, 73, 92)",
+    "accent2": "rgb(238, 122, 194)",
     "open_folder": true
   },
   "movie": {
@@ -35,7 +35,7 @@
   "youtube": {
     "dir": "C:\\Users\\mdema\\Downloads\\yt-videos-prueba",
     "format": "video",
-    "res": "max",
+    "res": "1080",
     "open_folder": true
   }
 }

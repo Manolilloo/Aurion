@@ -560,7 +560,9 @@
     </div>
   </div>
 
-  <!-- MODAL HUD FLOTANTE: TOUR DE YOUTUBE -->
+  <!-- ========================================================
+       MODAL HUD FLOTANTE: TOUR DE YOUTUBE
+       ======================================================== -->
   <div class="modal-backdrop yt-tour-modal-backdrop" id="yt-tour-modal-backdrop">
     <div class="modal-glass-card yt-tour-card-hud" id="yt-tour-card-hud">
       <div class="modal-header">
@@ -568,21 +570,14 @@
         <button class="modal-btn-close" id="yt-tour-btn-close" title="Cerrar (Esc)">✕</button>
       </div>
 
-      <!-- ESCENARIO VISUAL INTERACTIVO DENTRO DEL MODAL -->
-      <div class="yt-tour-interactive-stage" id="yt-tour-interactive-stage">
-        <!-- El contenido interactivo de cada paso se monta aquí vía JS -->
-      </div>
+      <div class="yt-tour-interactive-stage" id="yt-tour-interactive-stage"></div>
 
-      <!-- TEXTOS EXPLICATIVOS -->
       <div class="yt-tour-text-block">
         <h3 class="yt-tour-title" id="yt-tour-title">Título del paso</h3>
         <p class="yt-tour-desc" id="yt-tour-desc">Descripción explicativa del paso actual.</p>
       </div>
 
-      <!-- BOTONES DE ACCIÓN -->
-      <div class="yt-tour-actions-row" id="yt-tour-actions-row">
-        <!-- Botones 'Anterior' y 'Siguiente / Finalizar' inyectados dinámicamente -->
-      </div>
+      <div class="yt-tour-actions-row" id="yt-tour-actions-row"></div>
     </div>
   </div>
 
@@ -829,8 +824,16 @@
     </div>
   </div>
 
+  <!-- Scripts base y orquestador principal -->
   <script src="js/animations.js"></script>
   <script src="js/app.js"></script>
-</body>
 
+  <!-- Módulos específicos -->
+  <script src="js/modules/youtube.js"></script>
+
+  <!-- Tours guiados -->
+  <script src="js/tours/tour_anime.js"></script>
+  <script src="js/tours/tour_cinema.js"></script>
+  <script src="js/tours/tour_youtube.js"></script>
+</body>
 </html>
