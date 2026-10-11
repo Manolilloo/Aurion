@@ -282,15 +282,24 @@
     <!-- COLUMNA IZQUIERDA: Buscador dinámico y Lista de resultados -->
     <div class="yt-search-col">
       <div class="yt-hero-wrapper" id="yt-hero-wrapper">
-        <div class="yt-search-input-box">
-          <svg class="yt-search-ico" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
-            stroke-width="2">
-            <circle cx="11" cy="11" r="8"></circle>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-          </svg>
-          <input type="text" class="search-input yt-input" id="yt-search-input"
-            placeholder="Buscar vídeos o pegar enlace de YouTube..." autocomplete="off">
-          <button class="yt-clear-btn" id="yt-clear-btn" style="display: none;">✕</button>
+        <div class="yt-search-row-container">
+          <div class="yt-search-input-box">
+            <svg class="yt-search-ico" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+              stroke-width="2">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="text" class="search-input yt-input" id="yt-search-input"
+              placeholder="Buscar o pegar enlace de YouTube..." autocomplete="off">
+            <button class="yt-clear-btn" id="yt-clear-btn" style="display: none;">✕</button>
+          </div>
+
+          <!-- CONMUTADOR FLUIDO VÍDEOS / LISTAS -->
+          <div class="chip-group yt-search-mode-switch" id="yt-search-mode-switch">
+            <div class="chip-glider"></div>
+            <button class="chip-btn active" data-search-mode="video">VÍDEOS</button>
+            <button class="chip-btn" data-search-mode="playlist">LISTAS</button>
+          </div>
         </div>
       </div>
 
@@ -333,6 +342,12 @@
       <!-- LISTA DESPLEGABLE GRANDE CON ESTILO FLUIDO -->
       <div class="yt-results-dock" id="yt-results-dock" style="display: none;">
         <div class="yt-results-scroll" id="yt-results-list"></div>
+        <div class="yt-load-more-playlists-box" id="yt-load-more-box" style="display: none;">
+          <button class="btn-channel-load-more" id="btn-load-more-playlists">
+            <span class="btn-load-more-spinner" id="spin-load-more-playlists" style="display: none;"></span>
+            <span id="txt-load-more-playlists">CARGAR MÁS LISTAS ▾</span>
+          </button>
+        </div>
       </div>
 
       <!-- NUEVA PANTALLA COMPLETA: VISTA DEL CANAL DE YOUTUBE -->
@@ -384,6 +399,50 @@
               <span id="txt-load-more">CARGAR MÁS VÍDEOS ▾</span>
             </button>
           </div>
+        </div>
+      </div>
+
+      <!-- VISTA DE LISTA DE REPRODUCCIÓN (PLAYLIST) -->
+      <div class="yt-channel-view" id="yt-playlist-view" style="display: none;">
+        <div class="yt-channel-top-bar" style="justify-content: space-between;">
+          <button class="btn-channel-back" id="btn-playlist-back" title="Volver a los resultados de búsqueda">
+            <span class="btn-back-arrow">←</span>
+            <span>VOLVER A BÚSQUEDA</span>
+          </button>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn-neu" id="btn-playlist-toggle-panel" style="border-radius: 10px; font-size: 11px; padding: 6px 14px;">⚙ OPCIONES</button>
+            <button class="btn-neu" id="btn-playlist-select-all" style="border-radius: 10px; font-size: 11px; padding: 6px 14px;">✔ SELECCIONAR TODOS</button>
+          </div>
+        </div>
+
+        <div class="yt-channel-loading-box" id="yt-playlist-loading" style="display: none;">
+          <div class="yt-orbital-spinner"></div>
+          <span class="yt-loading-txt">EXTRAYENDO LISTA DE REPRODUCCIÓN...</span>
+        </div>
+
+        <div class="yt-channel-content-scroll" id="yt-playlist-content" style="display: none;">
+          <div class="yt-playlist-header-card">
+            <div class="yt-playlist-thumb-container">
+              <img id="yt-playlist-thumb-img" src="" alt="Thumbnail" class="yt-playlist-main-thumb">
+            </div>
+            <div class="yt-playlist-header-details">
+              <h2 class="yt-playlist-main-title" id="yt-playlist-title">Lista de Reproducción</h2>
+              <div class="yt-playlist-main-uploader" id="yt-playlist-uploader">Canal</div>
+              <div class="yt-channel-badges-row">
+                <div class="yt-stat-pill">
+                  <span class="stat-pill-label">TOTAL ELEMENTOS</span>
+                  <span class="stat-pill-val" id="yt-playlist-count">0 vídeos</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="yt-channel-videos-header" style="justify-content: space-between; align-items: center;">
+            <span class="box-header" style="border: none; margin: 0; padding: 0;">VÍDEOS INCLUIDOS</span>
+            <span id="yt-playlist-selection-status" style="font-size: 11px; font-weight: 800; color: var(--color-accent-1);">0 SELECCIONADOS</span>
+          </div>
+
+          <div class="yt-playlist-rows-list" id="yt-playlist-videos-list"></div>
         </div>
       </div>
     </div>

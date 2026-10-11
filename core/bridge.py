@@ -422,13 +422,15 @@ class AurionBridge:
         threading.Thread(target=worker, daemon=True).start()
         return True
 
-    def search_youtube(self, query: str):
-        print(f"\n[BRIDGE YT] >>> Petición recibida desde el frontend con query: '{query}'")
+    def search_youtube(self, query: str, search_type: str = "video", page: int = 1, page_size: int = 12):
+        print(f"\n[BRIDGE YT] >>> Query: '{query}' | Tipo: {search_type} | Página: {page}")
         if not query or not query.strip():
             return []
         
         query = query.strip()
-        search_target = f"ytsearch25:{query}" if not (query.startswith("http://") or query.startswith("https://")) else query
+        is_direct_url = query.startswith("http://") or query.startswith("https://")
+        start_idx = (page - 1) * page_size + 1
+        end_idx = start_idx + page_size - 1
         
         ydl_opts = {
             'quiet': True,
@@ -436,10 +438,11 @@ class AurionBridge:
             'extract_flat': True,
             'no_warnings': True,
             'skip_playlist_after_errors': 0,
+            'playlist_items': f"{start_idx}-{end_idx}",
             'extractor_args': {
                 'youtube': {
                     'skip': ['dash', 'hls'],
-                    'player_client': ['android']
+                    'player_client': ['android', 'web']
                 }
             }
         }
@@ -448,43 +451,119 @@ class AurionBridge:
         try:
             import yt_dlp
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(search_target, download=False)
-                entries = info.get('entries', []) if 'entries' in info else [info]
-                
-                for entry in entries:
+                if is_direct_url:
+                    info = ydl.extract_info(query, download=False)
+                    raw_entries = info.get('entries', []) if 'entries' in info else [info]
+                    is_pl = ('list=' in query) or (info.get('_type') == 'playlist')
+                    targets = [('playlist' if is_pl else 'video', e) for e in raw_entries if e]
+                elif search_type == "playlist":
+                    # Extraer solo el rango solicitado de la página de playlists
+                    pl_search_url = f"https://www.youtube.com/results?search_query={urllib.parse.quote(query)}&sp=EgIQAw%253D%253D"
+                    info_playlists = ydl.extract_info(pl_search_url, download=False) or {}
+                    raw_entries = info_playlists.get('entries', []) or []
+                    targets = [('playlist', e) for e in raw_entries if e]
+                else:
+                    info_videos = ydl.extract_info(f"ytsearch25:{query}", download=False) or {}
+                    raw_entries = info_videos.get('entries', []) or []
+                    targets = [('video', e) for e in raw_entries if e]
+
+                for item_type, entry in targets:
                     if not entry:
                         continue
                     
-                    duration_sec = entry.get('duration') or 0
-                    if duration_sec:
-                        total_s = int(duration_sec)
-                        h = total_s // 3600
-                        m = (total_s % 3600) // 60
-                        s = total_s % 60
-                        if h > 0:
-                            duration_str = f"{h} h {m} min"
-                        elif m > 0:
-                            duration_str = f"{m} min {s} s" if s > 0 else f"{m} min"
-                        else:
-                            duration_str = f"{s} s"
-                    else:
-                        duration_str = "--:--"
-                    
                     vid_id = entry.get('id', '')
-                    thumb_url = entry.get('thumbnail') or f"https://i.ytimg.com/vi/{vid_id}/hqdefault.jpg"
-                    channel_url = entry.get('uploader_url') or entry.get('channel_url') or ''
-                    if not channel_url and entry.get('channel_id'):
-                        channel_url = f"https://www.youtube.com/channel/{entry.get('channel_id')}"
-                    
-                    results.append({
-                        'id': vid_id,
-                        'title': entry.get('title', 'Sin título'),
-                        'uploader': entry.get('uploader') or entry.get('channel', 'Desconocido'),
-                        'channel_url': channel_url,
-                        'duration': duration_str,
-                        'url': entry.get('url') or f"https://www.youtube.com/watch?v={vid_id}",
-                        'thumbnail': thumb_url
-                    })
+                    raw_title = (entry.get('title') or '').strip()
+                    if not vid_id or not raw_title or raw_title.lower() in ['[private video]', '[deleted video]']:
+                        continue
+
+                    uploader = entry.get('uploader') or entry.get('channel') or 'YouTube'
+
+                    if item_type == 'playlist' or entry.get('_type') == 'playlist':
+                        raw_url = entry.get('url') or ''
+                        clean_pl_id = vid_id
+                        
+                        if 'list=' in raw_url:
+                            clean_pl_id = raw_url.split('list=')[-1].split('&')[0]
+                        elif clean_pl_id.startswith('VL'):
+                            clean_pl_id = clean_pl_id[2:]
+
+                        p_count = entry.get('playlist_count') or entry.get('item_count') or 0
+
+                        # Resolución de miniatura nítida sin desenfoque
+                        thumb_url = ''
+                        thumbs_list = entry.get('thumbnails') or []
+                        
+                        # Priorizar miniaturas sin compresión degradada ni parámetros sqp
+                        for t in reversed(thumbs_list):
+                            u = t.get('url', '')
+                            if u and 'sqp=' not in u and not u.endswith('.webp'):
+                                thumb_url = u
+                                break
+                        
+                        if not thumb_url and thumbs_list:
+                            thumb_url = thumbs_list[-1].get('url', '')
+
+                        # Si la miniatura contiene un ID de vídeo real de 11 caracteres, forzar hqdefault nítido
+                        import re
+                        vid_match = re.search(r'/(?:vi|vi_webp)/([a-zA-Z0-9_-]{11})/', thumb_url)
+                        if vid_match:
+                            thumb_url = f"https://i.ytimg.com/vi/{vid_match.group(1)}/hqdefault.jpg"
+                        elif '/vi/PL' in thumb_url or '/vi/VL' in thumb_url or not thumb_url:
+                            # Evitar el 404 del falso ID de playlist extrayendo el ID del primer vídeo
+                            first_sub = ''
+                            sub_entries = entry.get('entries') or []
+                            if sub_entries and sub_entries[0]:
+                                first_sub = sub_entries[0].get('id') or ''
+                            if not first_sub and 'v=' in raw_url:
+                                first_sub = raw_url.split('v=')[-1].split('&')[0]
+
+                            if first_sub and len(first_sub) == 11:
+                                thumb_url = f"https://i.ytimg.com/vi/{first_sub}/hqdefault.jpg"
+                            elif thumbs_list:
+                                thumb_url = thumbs_list[0].get('url', '')
+
+                        final_pl_url = f"https://www.youtube.com/playlist?list={clean_pl_id}"
+
+                        results.append({
+                            'id': clean_pl_id,
+                            'is_playlist': True,
+                            'title': raw_title,
+                            'uploader': uploader,
+                            'item_count': p_count,
+                            'url': final_pl_url,
+                            'thumbnail': thumb_url
+                        })
+                    else:
+                        duration_sec = entry.get('duration') or 0
+                        if duration_sec:
+                            total_s = int(duration_sec)
+                            h = total_s // 3600
+                            m = (total_s % 3600) // 60
+                            s = total_s % 60
+                            if h > 0:
+                                duration_str = f"{h} h {m} min"
+                            elif m > 0:
+                                duration_str = f"{m} min {s} s" if s > 0 else f"{m} min"
+                            else:
+                                duration_str = f"{s} s"
+                        else:
+                            duration_str = "--:--"
+
+                        thumb_url = entry.get('thumbnail') or f"https://i.ytimg.com/vi/{vid_id}/hqdefault.jpg"
+                        channel_url = entry.get('uploader_url') or entry.get('channel_url') or ''
+                        if not channel_url and entry.get('channel_id'):
+                            channel_url = f"https://www.youtube.com/channel/{entry.get('channel_id')}"
+
+                        results.append({
+                            'id': vid_id,
+                            'is_playlist': False,
+                            'title': raw_title,
+                            'uploader': uploader,
+                            'channel_url': channel_url,
+                            'duration': duration_str,
+                            'url': entry.get('url') or f"https://www.youtube.com/watch?v={vid_id}",
+                            'thumbnail': thumb_url
+                        })
         except Exception as e:
             print(f"[ERROR YT SEARCH] {e}")
             return []
@@ -617,6 +696,90 @@ class AurionBridge:
                 }
         except Exception as e:
             print(f"[BRIDGE YT ERROR] {e}")
+            return None
+
+    def get_playlist_details(self, playlist_url: str):
+        """Extrae la información completa de una lista de reproducción de YouTube con soporte resiliente."""
+        if not playlist_url or not playlist_url.strip():
+            return None
+            
+        raw_url = playlist_url.strip()
+        
+        # Si la URL viene enlazada a un vídeo dentro de lista (...watch?v=...&list=PL...), forzar URL canónica de playlist
+        if 'list=' in raw_url:
+            list_id = raw_url.split('list=')[-1].split('&')[0]
+            if list_id.startswith('VL'):
+                list_id = list_id[2:]
+            raw_url = f"https://www.youtube.com/playlist?list={list_id}"
+
+        opts = {
+            'quiet': True,
+            'skip_download': True,
+            'extract_flat': 'in_playlist',
+            'no_warnings': True,
+            'ignoreerrors': True,
+            'extractor_args': {
+                'youtube': {
+                    'skip': ['dash', 'hls'],
+                    'player_client': ['web', 'android']
+                }
+            }
+        }
+        try:
+            import yt_dlp
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                info = ydl.extract_info(raw_url, download=False)
+                if not info:
+                    return None
+
+                # Si es un elemento singular con lista asociada, o una lista directa
+                entries = info.get('entries') or []
+                if not entries and info.get('id'):
+                    entries = [info]
+                    
+                title = info.get('title') or 'Lista de Reproducción'
+                uploader = info.get('uploader') or info.get('channel') or 'YouTube'
+                
+                video_list = []
+                for entry in entries:
+                    if not entry:
+                        continue
+                    vid_id = entry.get('id', '')
+                    raw_title = (entry.get('title') or '').strip()
+                    # Descartar elementos sin ID o títulos fantasma [Private video] / [Deleted video]
+                    if not vid_id or not raw_title or raw_title.lower() in ['[private video]', '[deleted video]', 'sin título', '']:
+                        continue
+
+                    dur = entry.get('duration') or 0
+                    if dur:
+                        total_s = int(dur)
+                        h = total_s // 3600
+                        m = (total_s % 3600) // 60
+                        s = total_s % 60
+                        dur_str = f"{h}:{m:02d}:{s:02d}" if h > 0 else f"{m}:{s:02d}"
+                    else:
+                        dur_str = "--:--"
+                    
+                    v_thumb = entry.get('thumbnail') or f"https://i.ytimg.com/vi/{vid_id}/hqdefault.jpg"
+                    video_list.append({
+                        'id': vid_id,
+                        'title': raw_title,
+                        'duration': dur_str,
+                        'url': entry.get('url') or f"https://www.youtube.com/watch?v={vid_id}",
+                        'thumbnail': v_thumb,
+                        'uploader': entry.get('uploader') or uploader
+                    })
+                    
+                first_thumb = video_list[0]['thumbnail'] if video_list else ''
+                return {
+                    'title': title,
+                    'uploader': uploader,
+                    'thumbnail': first_thumb,
+                    'count': len(video_list),
+                    'videos': video_list
+                }
+        except Exception as e:
+            print(f"[BRIDGE PLAYLIST ERROR] {e}")
             return None
 
     def get_yt_download_options(self, output_path: str, is_audio_only: bool = False, quality: str = "1080"):

@@ -1,19 +1,19 @@
 {
-  "active_mode": "anime",
+  "active_mode": "youtube",
   "anime": {
     "dir": "C:\\Users\\mdema\\Downloads\\yt-videos-prueba",
     "season": 1,
     "start_ep": 1,
-    "save_cover": false,
+    "save_cover": true,
     "res": "max",
     "fmt": "mkv",
     "threads": "32",
     "simul": "20",
-    "active_title": "Deca-Dence",
-    "active_tags": "TERMINADO \u2022 \u2605 7.1",
-    "active_bg": "url('https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx110353-XGYSsii7qJeK.png')",
-    "accent1": "rgb(67, 174, 232)",
-    "accent2": "rgb(252, 47, 57)",
+    "active_title": "ONE PIECE",
+    "active_tags": "EN EMISI\u00d3N \u2022 \u2605 8.7",
+    "active_bg": "url('https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx21-ELSYx3yMPcKM.jpg')",
+    "accent1": "rgb(225, 150, 45)",
+    "accent2": "rgb(226, 75, 6)",
     "open_folder": true
   },
   "movie": {
@@ -33,9 +33,9 @@
     "open_folder": true
   },
   "youtube": {
-    "dir": "D:\\YouTube\\Aurion Vide",
+    "dir": "",
     "format": "video",
-    "res": "2160",
+    "res": "1080",
     "open_folder": true
   }
 }

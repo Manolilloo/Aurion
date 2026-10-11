@@ -52,10 +52,14 @@ class AurionDownloader:
         anime_title = config.get("title", "").strip()
         clean_title = "".join(c for c in anime_title if c not in r'\/:*?"<>|').strip()
 
-        # MODO YOUTUBE: Crear carpeta con el nombre exacto del vídeo en el destino elegido
+        # MODO YOUTUBE: Crear carpeta con el nombre exacto del vídeo o lista en el destino elegido
         if config.get("is_youtube") or mode == "youtube":
-            yt_folder_name = clean_title or "Video_YouTube"
-            final_dir = os.path.abspath(os.path.join(base_dir, yt_folder_name))
+            if config.get("is_playlist") and config.get("create_playlist_subfolder", True):
+                pl_title = config.get("playlist_title") or clean_title or "Playlist_YouTube"
+                final_dir = os.path.abspath(os.path.join(base_dir, pl_title))
+            else:
+                yt_folder_name = clean_title or "Video_YouTube"
+                final_dir = os.path.abspath(os.path.join(base_dir, yt_folder_name))
         # MODO CINE: Carpeta propia con el título de la película (sin temporadas)
         elif mode == "movie":
             if clean_title and clean_title != "Esperando consulta...":

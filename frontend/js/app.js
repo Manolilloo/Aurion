@@ -596,6 +596,11 @@ function setAppMode(mode, save = true) {
     setTimeout(() => {
       const fChips = document.getElementById('yt-format-chips');
       const rChips = document.getElementById('yt-res-chips');
+      const sChips = document.getElementById('yt-search-mode-switch');
+      if (sChips) {
+        const activeSearchMode = sChips.querySelector('.chip-btn.active') || sChips.querySelector('.chip-btn');
+        if (activeSearchMode) updateChipGlider(sChips, activeSearchMode);
+      }
       if (fChips) {
         const activeFmt = fChips.querySelector('.chip-btn.active') || fChips.querySelector('.chip-btn');
         if (activeFmt) {
@@ -1844,15 +1849,17 @@ document.addEventListener('DOMContentLoaded', () => {
     if (switchThumb) switchThumb.style.transform = '';
     switchOpts.forEach(opt => opt.classList.toggle('active', opt.id === `mode-${currentMode}`));
 
-    // Restaurar los valores reales del usuario en el panel derecho si no estamos en tour
+    // Restaurar inmediatamente el valor real que el usuario tenía escrito
+    const cfgDir = document.getElementById('cfg-dir');
+    if (cfgDir) {
+      cfgDir.value = (tourSnapshot && tourSnapshot.dir !== undefined) ? tourSnapshot.dir : (modeStates.anime.dir || '');
+    }
     const state = modeStates[currentMode];
     if (state && !document.body.classList.contains('tour-running-active')) {
       const cfgSave = document.getElementById('cfg-save-cover');
       const cfgOpen = document.getElementById('cfg-open-folder');
-      const cfgDir = document.getElementById('cfg-dir');
       if (cfgSave) cfgSave.checked = state.saveCover !== false;
       if (cfgOpen) cfgOpen.checked = state.openFolder !== false;
-      if (cfgDir) cfgDir.value = state.dir || '';
       setStepperValue('cfg-season', state.season || 1, 0);
       applyChipsState(state);
     }
@@ -2738,6 +2745,12 @@ document.addEventListener('DOMContentLoaded', () => {
     ytTourDemoIntervals.forEach(i => clearInterval(i));
     ytTourDemoIntervals = [];
 
+    // Restaurar inmediatamente el directorio real que el usuario tenía antes del tour demo
+    const ytDirInput = document.getElementById('yt-cfg-dir');
+    if (ytDirInput) {
+      ytDirInput.value = (ytTourSnapshot && ytTourSnapshot.dir !== undefined) ? ytTourSnapshot.dir : (modeStates.youtube.dir || '');
+    }
+
     // Fijar de vuelta en MP4 si venía de la animación
     const fChips = document.getElementById('yt-format-chips');
     const videoBtn = fChips?.querySelector('[data-format="video"]');
@@ -3032,12 +3045,47 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function startYtTour() {
+    const plView = document.getElementById('yt-playlist-view');
+    const chView = document.getElementById('yt-channel-view');
+
     ytTourSnapshot = {
       hasSelection: document.body.classList.contains('yt-has-selection'),
       selectedVideo: modeStates.youtube.selectedVideo,
       query: document.getElementById('yt-search-input')?.value || '',
-      dir: document.getElementById('yt-cfg-dir')?.value || ''
+      dir: document.getElementById('yt-cfg-dir')?.value || '',
+      searchType: currentYtSearchType || 'video',
+      inPlaylist: plView && plView.style.display === 'flex',
+      inChannel: chView && chView.style.display === 'flex'
     };
+
+    // Ocultar cualquier vista secundaria y cerrar el panel lateral inmediatamente
+    if (plView) plView.style.display = 'none';
+    if (chView) chView.style.display = 'none';
+    document.body.classList.remove('yt-has-selection');
+    document.querySelectorAll('.yt-video-card, .yt-grid-video-card').forEach(c => c.classList.remove('selected', 'kb-focused'));
+
+    // Cambiar visual y funcionalmente el switch a VÍDEOS para el demo
+    currentYtSearchType = 'video';
+    const sSwitch = document.getElementById('yt-search-mode-switch');
+    if (sSwitch) {
+      sSwitch.querySelectorAll('.chip-btn').forEach(b => {
+        b.classList.toggle('active', b.getAttribute('data-search-mode') === 'video');
+      });
+      const activeBtn = sSwitch.querySelector('.chip-btn.active');
+      if (activeBtn) updateChipGlider(sSwitch, activeBtn);
+    }
+
+    const ytHero = document.getElementById('yt-hero-wrapper');
+    if (ytHero) {
+      ytHero.style.display = 'block';
+      ytHero.classList.remove('is-searched');
+    }
+
+    const ytDock = document.getElementById('yt-results-dock');
+    if (ytDock) {
+      ytDock.classList.remove('active');
+      ytDock.style.display = 'none';
+    }
 
     const ytCard = document.getElementById('yt-welcome-card');
     const ytBackdrop = document.getElementById('yt-tutorial-backdrop');
@@ -3091,6 +3139,36 @@ document.addEventListener('DOMContentLoaded', () => {
       heroWrapper.style.display = 'block';
     }
 
+    // Restaurar directorio local y tipo de búsqueda previa
+    if (ytTourSnapshot) {
+      if (ytTourSnapshot.dir !== undefined) {
+        const dirInput = document.getElementById('yt-cfg-dir');
+        if (dirInput) dirInput.value = ytTourSnapshot.dir;
+      }
+      if (ytTourSnapshot.searchType) {
+        currentYtSearchType = ytTourSnapshot.searchType;
+        const sSwitch = document.getElementById('yt-search-mode-switch');
+        if (sSwitch) {
+          sSwitch.querySelectorAll('.chip-btn').forEach(b => {
+            b.classList.toggle('active', b.getAttribute('data-search-mode') === currentYtSearchType);
+          });
+          const activeBtn = sSwitch.querySelector('.chip-btn.active');
+          if (activeBtn) updateChipGlider(sSwitch, activeBtn);
+        }
+      }
+    }
+
+    // Si el tour se inició estando dentro de una Playlist, restaurar la vista
+    if (ytTourSnapshot && ytTourSnapshot.inPlaylist && currentPlaylistData) {
+      const plView = document.getElementById('yt-playlist-view');
+      if (plView) plView.style.display = 'flex';
+      if (heroWrapper) heroWrapper.style.display = 'none';
+      if (resultsDock) resultsDock.style.display = 'none';
+      document.body.classList.add('yt-has-selection');
+      updatePlaylistSelectionUI();
+      return;
+    }
+
     // Ocultar la pantalla de canal si estuviera abierta
     if (channelView) channelView.style.display = 'none';
 
@@ -3098,12 +3176,6 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.classList.remove('yt-has-selection');
     document.querySelectorAll('.yt-video-card, .yt-grid-video-card').forEach(c => c.classList.remove('selected', 'kb-focused'));
     modeStates.youtube.selectedVideo = null;
-
-    // Restaurar directorio local si el usuario tenía uno guardado
-    if (ytTourSnapshot && ytTourSnapshot.dir) {
-      const dirInput = document.getElementById('yt-cfg-dir');
-      if (dirInput) dirInput.value = ytTourSnapshot.dir;
-    }
   }
 
   // ========================================================
@@ -3125,7 +3197,34 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    items.forEach(video => {
+    items.forEach(item => {
+      // 1. Tarjeta destacada de Lista de Reproducción
+      if (item.is_playlist) {
+        const card = document.createElement('div');
+        card.className = 'yt-video-card is-playlist-card';
+        card.innerHTML = `
+          <div class="yt-thumb-box">
+            <span class="yt-playlist-badge">PLAYLIST</span>
+            <img class="yt-thumb-img" src="${item.thumbnail}" alt="Thumbnail" loading="lazy">
+            <span class="yt-duration-badge">${item.item_count ? item.item_count + ' vídeos' : 'LISTA'}</span>
+          </div>
+          <div class="yt-video-details">
+            <span class="yt-video-title" title="${item.title}">${item.title}</span>
+            <div class="yt-video-channel">
+              <span style="color: #ffaa00; font-weight:800;">📁 Lista • ${item.uploader}</span>
+            </div>
+          </div>
+        `;
+        card.addEventListener('click', () => {
+          if (typeof playSynth === 'function') playSynth('chord');
+          openYtPlaylistView(item.url);
+        });
+        ytResultsList.appendChild(card);
+        return;
+      }
+
+      // 2. Tarjeta estándar de Vídeo suelto
+      const video = item;
       const card = document.createElement('div');
       card.className = 'yt-video-card';
       if (modeStates.youtube.selectedVideo && modeStates.youtube.selectedVideo.id === video.id) {
@@ -3228,6 +3327,39 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  let currentYtSearchType = 'video';
+  let currentPlaylistSearchPage = 1;
+  const loadMoreBox = document.getElementById('yt-load-more-box');
+  const btnLoadMorePl = document.getElementById('btn-load-more-playlists');
+  const spinLoadMorePl = document.getElementById('spin-load-more-playlists');
+  const txtLoadMorePl = document.getElementById('txt-load-more-playlists');
+
+  const ytSearchModeSwitch = document.getElementById('yt-search-mode-switch');
+  ytSearchModeSwitch?.querySelectorAll('.chip-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const mode = btn.getAttribute('data-search-mode') || 'video';
+      if (mode === currentYtSearchType) return;
+      if (typeof playSynth === 'function') playSynth('origami');
+
+      ytSearchModeSwitch.querySelectorAll('.chip-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      updateChipGlider(ytSearchModeSwitch, btn);
+
+      currentYtSearchType = mode;
+      currentPlaylistSearchPage = 1;
+
+      if (mode === 'playlist') {
+        document.body.classList.remove('yt-has-selection');
+        document.querySelectorAll('.yt-video-card').forEach(c => c.classList.remove('selected', 'kb-focused'));
+        modeStates.youtube.selectedVideo = null;
+      }
+
+      if (ytSearchInput && ytSearchInput.value.trim().length >= 2) {
+        triggerYoutubeSearch();
+      }
+    });
+  });
+
   async function triggerYoutubeSearch() {
     if (!ytSearchInput) return;
     const val = ytSearchInput.value.trim();
@@ -3239,7 +3371,19 @@ document.addEventListener('DOMContentLoaded', () => {
         ytResultsDock.classList.remove('active');
         ytResultsDock.style.display = 'none';
       }
+      if (loadMoreBox) loadMoreBox.style.display = 'none';
       document.body.classList.remove('yt-has-selection');
+      return;
+    }
+
+    // Detección directa de URL de Lista de Reproducción
+    if (val.includes('list=') && (val.startsWith('http://') || val.startsWith('https://'))) {
+      if (ytHeroWrapper) ytHeroWrapper.classList.add('is-searched');
+      if (ytResultsDock) {
+        ytResultsDock.style.display = 'none';
+        ytResultsDock.classList.remove('active');
+      }
+      openYtPlaylistView(val);
       return;
     }
 
@@ -3249,6 +3393,9 @@ document.addEventListener('DOMContentLoaded', () => {
       setTimeout(() => ytResultsDock.classList.add('active'), 50);
     }
 
+    currentPlaylistSearchPage = 1;
+    if (loadMoreBox) loadMoreBox.style.display = 'none';
+
     ytResultsList.innerHTML = `
       <div class="yt-loading-box">
         <div class="yt-orbital-spinner"></div>
@@ -3256,10 +3403,46 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>
     `;
 
-    const results = await pyCall('search_youtube', val);
+    const results = await pyCall('search_youtube', val, currentYtSearchType, 1, 12);
     modeStates.youtube.results = results || [];
     renderYtResults(results);
+
+    // Si estamos buscando listas y obtuvimos resultados, mostrar botón de cargar más
+    if (currentYtSearchType === 'playlist' && results && results.length >= 8 && loadMoreBox) {
+      loadMoreBox.style.display = 'flex';
+      if (txtLoadMorePl) txtLoadMorePl.textContent = 'CARGAR MÁS LISTAS ▾';
+    }
   }
+
+  // Paginación continua bajo demanda para listas
+  btnLoadMorePl?.addEventListener('click', async () => {
+    const val = ytSearchInput?.value.trim();
+    if (!val || currentYtSearchType !== 'playlist') return;
+
+    if (typeof playSynth === 'function') playSynth('origami');
+    if (spinLoadMorePl) spinLoadMorePl.style.display = 'inline-block';
+    if (txtLoadMorePl) txtLoadMorePl.textContent = 'CARGANDO MÁS LISTAS...';
+    btnLoadMorePl.disabled = true;
+
+    currentPlaylistSearchPage++;
+    const nextResults = await pyCall('search_youtube', val, 'playlist', currentPlaylistSearchPage, 12);
+
+    if (spinLoadMorePl) spinLoadMorePl.style.display = 'none';
+    btnLoadMorePl.disabled = false;
+
+    if (nextResults && nextResults.length > 0) {
+      nextResults.forEach(item => {
+        if (!modeStates.youtube.results.some(r => r.id === item.id)) {
+          modeStates.youtube.results.push(item);
+        }
+      });
+      renderYtResults(modeStates.youtube.results);
+      if (txtLoadMorePl) txtLoadMorePl.textContent = 'CARGAR MÁS LISTAS ▾';
+    } else {
+      if (txtLoadMorePl) txtLoadMorePl.textContent = 'NO HAY MÁS LISTAS';
+      setTimeout(() => { if (txtLoadMorePl) txtLoadMorePl.textContent = 'CARGAR MÁS LISTAS ▾'; }, 2000);
+    }
+  });
 
   let activeYtNavIndex = -1;
 
@@ -3556,6 +3739,41 @@ document.addEventListener('DOMContentLoaded', () => {
     const quality = modeStates.youtube.res || '1080';
     const shouldOpen = ytCfgOpen ? ytCfgOpen.checked : true;
 
+    // Si estamos descargando una Playlist completa
+    if (currentPlaylistData && selectedPlaylistVideos.size > 0) {
+      const selectedTasks = currentPlaylistData.videos
+        .filter(v => selectedPlaylistVideos.has(v.id))
+        .map((v, idx) => ({
+          id: 'task_pl_' + Date.now() + '_' + idx,
+          title: v.title + (isAudioOnly ? ' [MP3]' : ''),
+          url: v.url,
+          pageUrl: v.url,
+          status: 'En cola',
+          resolution: isAudioOnly ? 'MP3' : `${quality}p`,
+          bytes: 0,
+          progress: 0,
+          speed: '0 KB/s'
+        }));
+
+      setYtDownloadState(true);
+
+      pyCall('start_downloads', {
+        tasks: selectedTasks,
+        config: {
+          dir: targetDir,
+          is_youtube: true,
+          is_playlist: true,
+          playlist_title: currentPlaylistData.title,
+          create_playlist_subfolder: true,
+          is_audio_only: isAudioOnly,
+          quality: quality,
+          title: currentPlaylistData.title,
+          open_folder: shouldOpen
+        }
+      });
+      return;
+    }
+
     const task = {
       id: 'task_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
       title: video.title + (isAudioOnly ? ' [MP3]' : ''),
@@ -3826,6 +4044,188 @@ document.addEventListener('DOMContentLoaded', () => {
     if (ytChannelView) ytChannelView.style.display = 'none';
     if (ytHeroWrapper) ytHeroWrapper.style.display = 'block';
     if (ytResultsDock) ytResultsDock.style.display = 'flex';
+  });
+
+  // ========================================================
+  // CONTROLADOR Y GESTIÓN DE LISTAS DE REPRODUCCIÓN (PLAYLISTS)
+  // ========================================================
+  const ytPlaylistView = document.getElementById('yt-playlist-view');
+  const ytPlaylistLoading = document.getElementById('yt-playlist-loading');
+  const ytPlaylistContent = document.getElementById('yt-playlist-content');
+  const btnPlaylistBack = document.getElementById('btn-playlist-back');
+  const btnPlaylistSelectAll = document.getElementById('btn-playlist-select-all');
+  let currentPlaylistData = null;
+  let selectedPlaylistVideos = new Set();
+
+  async function openYtPlaylistView(playlistUrl) {
+    if (!ytPlaylistView) return;
+
+    if (ytHeroWrapper) ytHeroWrapper.style.display = 'none';
+    if (ytResultsDock) ytResultsDock.style.display = 'none';
+    if (ytChannelView) ytChannelView.style.display = 'none';
+
+    ytPlaylistView.style.display = 'flex';
+    if (ytPlaylistLoading) ytPlaylistLoading.style.display = 'flex';
+    if (ytPlaylistContent) ytPlaylistContent.style.display = 'none';
+
+    const data = await pyCall('get_playlist_details', playlistUrl);
+    if (ytPlaylistLoading) ytPlaylistLoading.style.display = 'none';
+
+    if (!data || !data.videos || data.videos.length === 0) {
+      alert('No se pudieron extraer vídeos de la lista de reproducción proporcionada.');
+      btnPlaylistBack?.click();
+      return;
+    }
+
+    currentPlaylistData = data;
+    selectedPlaylistVideos = new Set(data.videos.map(v => v.id)); // Seleccionados por defecto
+
+    if (ytPlaylistContent) ytPlaylistContent.style.display = 'flex';
+
+    const tTitle = document.getElementById('yt-playlist-title');
+    const tUploader = document.getElementById('yt-playlist-uploader');
+    const tCount = document.getElementById('yt-playlist-count');
+    const tImg = document.getElementById('yt-playlist-thumb-img');
+
+    if (tTitle) tTitle.textContent = data.title;
+    if (tUploader) tUploader.textContent = data.uploader;
+    if (tCount) tCount.textContent = `${data.count} vídeos`;
+    if (tImg && data.thumbnail) tImg.src = data.thumbnail;
+
+    // Extracción de paleta cromática de la miniatura de la lista para teñir la sección entera
+    if (data.thumbnail) {
+      const bgVal = `url('${data.thumbnail}')`;
+      const aL1 = document.getElementById('ambient-layer-1');
+      const aL2 = document.getElementById('ambient-layer-2');
+      if (aL1) aL1.style.backgroundImage = bgVal;
+      if (aL2) aL2.style.backgroundImage = bgVal;
+
+      if (window.pywebview && window.pywebview.api && window.pywebview.api.get_dominant_colors) {
+        pyCall('get_dominant_colors', data.thumbnail).then(pal => {
+          if (pal && pal.accent1) {
+            applyDynamicPalette(pal.accent1, pal.accent2 || '#ff5500');
+          }
+        });
+      }
+    }
+
+    renderPlaylistVideosGrid();
+    updatePlaylistSelectionUI();
+
+    // Activar panel lateral adaptado a la Playlist
+    document.body.classList.add('yt-has-selection');
+    const pTitle = document.getElementById('yt-prev-title');
+    const pChannel = document.getElementById('yt-prev-channel');
+    const pImg = document.getElementById('yt-preview-img');
+    const pEmpty = document.getElementById('yt-preview-empty');
+    const btnDownload = document.getElementById('yt-btn-download');
+    const btnTxt = document.getElementById('yt-btn-txt');
+
+    if (pTitle) pTitle.innerText = `[Playlist] ${data.title}`;
+    if (pChannel) pChannel.innerText = data.uploader;
+    if (pImg) { pImg.src = data.thumbnail; pImg.style.display = 'block'; }
+    if (pEmpty) pEmpty.style.display = 'none';
+    if (btnDownload) { btnDownload.disabled = false; btnDownload.style.pointerEvents = 'auto'; }
+    if (btnTxt) btnTxt.innerText = `DESCARGAR LISTA (${data.count})`;
+  }
+
+  function updatePlaylistSelectionUI() {
+    const statusEl = document.getElementById('yt-playlist-selection-status');
+    const btnTxt = document.getElementById('yt-btn-txt');
+    const count = selectedPlaylistVideos.size;
+
+    if (statusEl) statusEl.textContent = `${count} SELECCIONADOS`;
+    if (btnTxt && currentPlaylistData) {
+      btnTxt.innerText = `DESCARGAR LISTA (${count})`;
+    }
+    if (btnPlaylistSelectAll && currentPlaylistData) {
+      btnPlaylistSelectAll.textContent = count === 0 ? '✔ SELECCIONAR TODOS' : '✕ DESMARCAR TODOS';
+    }
+  }
+
+  function renderPlaylistVideosGrid() {
+    const listContainer = document.getElementById('yt-playlist-videos-list');
+    if (!listContainer || !currentPlaylistData) return;
+    listContainer.innerHTML = '';
+
+    currentPlaylistData.videos.forEach((v, idx) => {
+      const row = document.createElement('div');
+      const isSelected = selectedPlaylistVideos.has(v.id);
+      row.className = `yt-playlist-item-row ${isSelected ? 'selected' : ''}`;
+
+      const numStr = String(idx + 1).padStart(2, '0');
+      row.innerHTML = `
+        <span class="yt-row-index">${numStr}</span>
+        <div class="yt-row-thumb-box">
+          <img class="yt-row-thumb-img" src="${v.thumbnail}" alt="Thumbnail" loading="lazy">
+        </div>
+        <div class="yt-row-details">
+          <span class="yt-row-title" title="${v.title}">${v.title}</span>
+          <div class="yt-row-meta">
+            <span>⏱ ${v.duration}</span>
+            <span>👤 ${v.uploader}</span>
+          </div>
+        </div>
+        <span class="yt-row-check-badge" style="background: ${isSelected ? 'rgba(255, 214, 10, 0.15)' : 'rgba(255, 255, 255, 0.05)'}; color: ${isSelected ? 'var(--color-accent-1)' : '#64748b'};">
+          ${isSelected ? '✔ INCLUIDO' : 'EXCLUIDO'}
+        </span>
+      `;
+
+      row.addEventListener('click', () => {
+        if (typeof playSynth === 'function') playSynth('click');
+        if (selectedPlaylistVideos.has(v.id)) {
+          selectedPlaylistVideos.delete(v.id);
+        } else {
+          selectedPlaylistVideos.add(v.id);
+        }
+        // Asegurar apertura del panel de opciones si estaba cerrado
+        document.body.classList.add('yt-has-selection');
+        renderPlaylistVideosGrid();
+        updatePlaylistSelectionUI();
+      });
+
+      listContainer.appendChild(row);
+    });
+  }
+
+  // BOTÓN PARA MOSTRAR / OCULTAR PANEL LATERAL EN LA LISTA
+  document.getElementById('btn-playlist-toggle-panel')?.addEventListener('click', () => {
+    if (typeof playSynth === 'function') playSynth('click');
+    document.body.classList.toggle('yt-has-selection');
+    setTimeout(refreshAllGliders, 100);
+  });
+
+  btnPlaylistSelectAll?.addEventListener('click', () => {
+    if (!currentPlaylistData || !currentPlaylistData.videos) return;
+    if (typeof playSynth === 'function') playSynth('origami');
+
+    const totalVideos = currentPlaylistData.videos.length;
+    // Si ya están todos seleccionados (o casi todos), desmarcar absolutamente todos
+    if (selectedPlaylistVideos.size > 0) {
+      selectedPlaylistVideos.clear();
+      btnPlaylistSelectAll.textContent = '✔ SELECCIONAR TODOS';
+    } else {
+      currentPlaylistData.videos.forEach(v => selectedPlaylistVideos.add(v.id));
+      btnPlaylistSelectAll.textContent = '✕ DESMARCAR TODOS';
+    }
+    renderPlaylistVideosGrid();
+    updatePlaylistSelectionUI();
+  });
+
+  btnPlaylistBack?.addEventListener('click', () => {
+    if (typeof playSynth === 'function') playSynth('click');
+    if (ytPlaylistView) ytPlaylistView.style.display = 'none';
+    if (ytHeroWrapper) {
+      ytHeroWrapper.style.display = 'block';
+      ytHeroWrapper.classList.add('is-searched');
+    }
+    // Restaurar los resultados de búsqueda intactos inmediatamente
+    if (ytResultsDock) {
+      ytResultsDock.style.display = 'flex';
+      ytResultsDock.classList.add('active');
+    }
+    currentPlaylistData = null;
+    selectedPlaylistVideos.clear();
   });
 });
 
