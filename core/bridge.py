@@ -396,11 +396,9 @@ class AurionBridge:
         return True
 
     def start_downloads(self, payload):
-        """Inicia el proceso de descarga delegando al downloader."""
         config = payload.get("config", {}) if isinstance(payload, dict) else {}
         dest_dir = str(config.get("dir") or "").strip()
 
-        # Blindaje: si no hay ruta válida especificada, bloquear la descarga
         if not dest_dir:
             print("[BRIDGE ERROR] Intento de descarga bloqueado: no se especificó ruta de destino.")
             return False

@@ -55,5 +55,14 @@ Name: "{userprograms}\{#MyAppName}\Desinstalar {#MyAppName}"; Filename: "{uninst
 Name: "{userdesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon; IconFilename: "{app}\{#MyAppExeName}"
 Name: "{userdesktop}\Carpeta Extensión Aurion"; Filename: "{app}\extension"; Tasks: extdesktopicon
 
+[UninstallDelete]
+; Borra recursivamente la carpeta _internal completa con todo lo que haya dentro
+Type: filesandordirs; Name: "{app}\_internal"
+; Borra cualquier archivo residual generado tras la instalación (logs, configs, temp)
+Type: files; Name: "{app}\*.json"
+Type: files; Name: "{app}\*.log"
+; Borra la carpeta de la app entera si queda vacía
+Type: dirifempty; Name: "{app}"
+
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall

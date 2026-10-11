@@ -1860,7 +1860,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function clearTourHighlights() {
     stopAllTourDemos();
-    document.body.classList.remove('tour-running-active');
+    if (typeof stopAllYtTourDemos === 'function') stopAllYtTourDemos();
+    document.body.classList.remove('tour-running-active', 'tour-extension-locked');
+    document.querySelectorAll('.tour-highlighted-element, .tour-blurred-zone, .tour-sub-dimmed').forEach(el => {
+      el.classList.remove('tour-highlighted-element', 'tour-blurred-zone', 'tour-sub-dimmed');
+    });
+    if (tourBackdrop) {
+      tourBackdrop.classList.remove('active');
+      tourBackdrop.style.pointerEvents = 'none';
+    }
+    if (tourCard) {
+      tourCard.classList.remove('active');
+      tourCard.style.pointerEvents = 'none';
+    }
   }
 
   function applySelectiveBlur(activeEls) {
@@ -2400,12 +2412,27 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    tourBackdrop?.classList.add('active');
-    tourCard?.classList.add('active');
+    if (tourBackdrop) {
+      tourBackdrop.classList.add('active');
+      tourBackdrop.style.pointerEvents = 'auto';
+    }
+    if (tourCard) {
+      tourCard.classList.add('active');
+      tourCard.style.pointerEvents = 'auto';
+    }
   }
 
   function startTour(fromCenter = false) {
     isTourStartedFromCenter = fromCenter;
+
+    // Asegurar que si venimos de YouTube, la interfaz de Anime/Cine esté visible
+    if (currentMode === 'youtube') {
+      setAppMode('anime', false);
+    }
+    const cockpit = document.getElementById('cockpit-grid');
+    const ytStage = document.getElementById('yt-stage');
+    if (cockpit) cockpit.style.display = 'flex';
+    if (ytStage) ytStage.style.display = 'none';
     
     const curState = modeStates[currentMode] || {};
     const sInput = document.getElementById('search-input');
@@ -2450,8 +2477,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function endTour(isFinished = false) {
     clearTourHighlights();
-    tourBackdrop?.classList.remove('active');
-    tourCard?.classList.remove('active');
+    if (tourBackdrop) {
+      tourBackdrop.classList.remove('active');
+      tourBackdrop.style.pointerEvents = 'none';
+    }
+    if (tourCard) {
+      tourCard.classList.remove('active');
+      tourCard.style.pointerEvents = 'none';
+    }
     document.body.classList.remove('tour-extension-locked');
     isTourOpenFromGuided = false;
 
@@ -2587,10 +2620,11 @@ document.addEventListener('DOMContentLoaded', () => {
   btnHelp?.addEventListener('click', () => {
     if (typeof playSynth === 'function') playSynth('click');
     btnHelp.classList.remove('pulse-attention');
+    clearTourHighlights(); // Limpia cualquier residuo previo antes de empezar
     if (currentMode === 'youtube') {
       startYtTour();
     } else {
-      startTour(false); // Iniciado desde arriba a la derecha (no resetea)
+      startTour(false);
     }
   });
 
@@ -2665,7 +2699,7 @@ document.addEventListener('DOMContentLoaded', () => {
     },
     {
       id: 'yt_channel_btn',
-      target: '.yt-video-card:first-child .yt-video-channel-btn',
+      target: '.yt-video-card:first-child .yt-video-channel-btn, #yt-results-dock',
       title: '2. Perfiles y Catálogos de Creadores',
       desc: 'Cada tarjeta cuenta con el botón directo de su autor. Al pulsarlo accedes a su perfil con su banner oficial, estadísticas y todo su catálogo subido.',
       placement: 'left-center'
@@ -2917,10 +2951,17 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    const tBadge = document.getElementById('tour-step-badge');
+    const tTitle = document.getElementById('tour-card-title');
+    const tDesc = document.getElementById('tour-card-desc');
+    const tActions = document.getElementById('tour-card-actions');
+    const tBackdrop = document.getElementById('tour-backdrop');
+    const tCard = document.getElementById('tour-card');
+
     currentYtTourStep = stepIdx;
-    if (tourBadge) tourBadge.textContent = `YOUTUBE • PASO ${stepIdx + 1} DE ${ytTourSteps.length}`;
-    if (tourTitle) tourTitle.textContent = step.title;
-    if (tourDesc) tourDesc.textContent = step.desc;
+    if (tBadge) tBadge.textContent = `YOUTUBE • PASO ${stepIdx + 1} DE ${ytTourSteps.length}`;
+    if (tTitle) tTitle.textContent = step.title;
+    if (tDesc) tDesc.textContent = step.desc;
 
     // Asegurar apertura del panel derecho para los pasos técnicos
     if (['yt_format_options', 'yt_resolutions', 'yt_dest_folder', 'yt_download_trigger'].includes(step.id)) {
@@ -2952,8 +2993,8 @@ document.addEventListener('DOMContentLoaded', () => {
       console.warn('[YtTour] Fallo en demo:', e);
     }
 
-    if (tourActions) {
-      tourActions.innerHTML = '';
+    if (tActions) {
+      tActions.innerHTML = '';
 
       if (stepIdx > 0) {
         const btnPrev = document.createElement('button');
@@ -2963,7 +3004,7 @@ document.addEventListener('DOMContentLoaded', () => {
           stopAllYtTourDemos();
           renderYtTourStep(stepIdx - 1);
         });
-        tourActions.appendChild(btnPrev);
+        tActions.appendChild(btnPrev);
       }
 
       const btnNext = document.createElement('button');
@@ -2977,11 +3018,17 @@ document.addEventListener('DOMContentLoaded', () => {
           renderYtTourStep(stepIdx + 1);
         }
       });
-      tourActions.appendChild(btnNext);
+      tActions.appendChild(btnNext);
     }
 
-    tourBackdrop?.classList.add('active');
-    tourCard?.classList.add('active');
+    if (tBackdrop) {
+      tBackdrop.classList.add('active');
+      tBackdrop.style.pointerEvents = 'auto';
+    }
+    if (tCard) {
+      tCard.classList.add('active');
+      tCard.style.pointerEvents = 'auto';
+    }
   }
 
   function startYtTour() {
@@ -3003,14 +3050,18 @@ document.addEventListener('DOMContentLoaded', () => {
   function endYtTour() {
     stopAllYtTourDemos();
     clearTourHighlights();
+
+    const tBackdrop = document.getElementById('tour-backdrop');
+    const tCard = document.getElementById('tour-card');
     document.body.classList.remove('tour-running-active', 'tour-extension-locked');
-    if (tourBackdrop) {
-      tourBackdrop.classList.remove('active');
-      tourBackdrop.style.pointerEvents = 'none';
+
+    if (tBackdrop) {
+      tBackdrop.classList.remove('active');
+      tBackdrop.style.pointerEvents = 'none';
     }
-    if (tourCard) {
-      tourCard.classList.remove('active');
-      tourCard.style.pointerEvents = 'none';
+    if (tCard) {
+      tCard.classList.remove('active');
+      tCard.style.pointerEvents = 'none';
     }
 
     // Limpiar y replegar completamente el buscador al estado central en reposo
