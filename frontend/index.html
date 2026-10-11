@@ -334,6 +334,62 @@
       <div class="yt-results-dock" id="yt-results-dock" style="display: none;">
         <div class="yt-results-scroll" id="yt-results-list"></div>
       </div>
+
+      <!-- NUEVA PANTALLA COMPLETA: VISTA DEL CANAL DE YOUTUBE -->
+      <div class="yt-channel-view" id="yt-channel-view" style="display: none;">
+        <div class="yt-channel-top-bar">
+          <button class="btn-channel-back" id="btn-channel-back" title="Volver a los resultados de búsqueda">
+            <span class="btn-back-arrow">←</span>
+            <span>VOLVER A BÚSQUEDA</span>
+          </button>
+        </div>
+
+        <div class="yt-channel-loading-box" id="yt-channel-loading" style="display: none;">
+          <div class="yt-orbital-spinner"></div>
+          <span class="yt-loading-txt">CARGANDO CANAL Y VÍDEOS...</span>
+        </div>
+
+        <div class="yt-channel-content-scroll" id="yt-channel-content" style="display: none;">
+          <!-- CABECERA HERO ÚNICA Y COMPACTA -->
+          <div class="yt-channel-hero-card" id="yt-channel-hero">
+            <div class="yt-channel-banner" id="yt-channel-banner"></div>
+            <div class="yt-channel-identity-cluster">
+              <div class="yt-channel-avatar-box">
+                <img id="yt-channel-avatar-img" src="" alt="Avatar" style="display: block;">
+              </div>
+              <div class="yt-channel-meta-box">
+                <h2 class="yt-channel-name" id="yt-channel-name">Canal</h2>
+                <div class="yt-channel-bio" id="yt-channel-bio"></div>
+                <div class="yt-channel-badges-row">
+                  <div class="yt-stat-pill" title="Suscriptores del canal">
+                    <span class="stat-pill-label">SUSCRIPTORES</span>
+                    <span class="stat-pill-val" id="yt-channel-subs">--</span>
+                  </div>
+                  <div class="yt-stat-pill" title="Visualizaciones totales acumuladas">
+                    <span class="stat-pill-label">VISITAS</span>
+                    <span class="stat-pill-val" id="yt-channel-views">--</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- SECCIÓN DE VÍDEOS RECIENTES -->
+          <div class="yt-channel-videos-header">
+            <span class="box-header" style="border: none; margin: 0; padding: 0;">VÍDEOS RECIENTES</span>
+          </div>
+
+          <div class="yt-channel-videos-grid" id="yt-channel-videos-grid"></div>
+
+          <!-- BOTÓN CARGAR MÁS -->
+          <div class="yt-channel-load-more-box" id="yt-channel-load-more-box">
+            <button class="btn-channel-load-more" id="btn-channel-load-more">
+              <span class="btn-load-more-spinner" id="spin-load-more" style="display: none;"></span>
+              <span id="txt-load-more">CARGAR MÁS VÍDEOS ▾</span>
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- COLUMNA DERECHA: Panel 'X' (Opciones, Previa y Descarga) -->

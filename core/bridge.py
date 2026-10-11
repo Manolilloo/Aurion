@@ -467,11 +467,15 @@ class AurionBridge:
                     
                     vid_id = entry.get('id', '')
                     thumb_url = entry.get('thumbnail') or f"https://i.ytimg.com/vi/{vid_id}/hqdefault.jpg"
+                    channel_url = entry.get('uploader_url') or entry.get('channel_url') or ''
+                    if not channel_url and entry.get('channel_id'):
+                        channel_url = f"https://www.youtube.com/channel/{entry.get('channel_id')}"
                     
                     results.append({
                         'id': vid_id,
                         'title': entry.get('title', 'Sin título'),
                         'uploader': entry.get('uploader') or entry.get('channel', 'Desconocido'),
+                        'channel_url': channel_url,
                         'duration': duration_str,
                         'url': entry.get('url') or f"https://www.youtube.com/watch?v={vid_id}",
                         'thumbnail': thumb_url
@@ -481,6 +485,590 @@ class AurionBridge:
             return []
             
         return results
+
+    def get_channel_details(self, channel_url_or_name: str, start_index: int = 1, count: int = 24, *args, **kwargs):
+        """Extracción ultrarrápida en una sola pasada: perfil y vídeos en una sola llamada ligera."""
+        if not channel_url_or_name or not str(channel_url_or_name).strip():
+            return None
+
+        target = str(channel_url_or_name).strip()
+        if not (target.startswith("http://") or target.startswith("https://")):
+            target = f"https://www.youtube.com/@{target.lstrip('@')}"
+
+        base_channel_url = target.split('?')[0].rstrip('/')
+        for tab in ['/featured', '/shorts', '/streams', '/live', '/playlists', '/community', '/videos']:
+            if base_channel_url.endswith(tab):
+                base_channel_url = base_channel_url[:-len(tab)]
+                break
+
+        # Consultar directamente /videos en modo plano
+        videos_url = f"{base_channel_url}/videos"
+        end_index = start_index + count - 1
+
+        def format_num(val):
+            if not val or not isinstance(val, (int, float)):
+                return "--"
+            if val >= 1_000_000:
+                return f"{val / 1_000_000:.1f} M".replace('.0', '')
+            if val >= 1_000:
+                return f"{val / 1_000:.1f} K".replace('.0', '')
+            return str(int(val))
+
+        opts = {
+            'quiet': True,
+            'skip_download': True,
+            'extract_flat': 'in_playlist',
+            'no_warnings': True,
+            'playlist_items': f'{start_index}-{end_index}',
+            'extractor_args': {
+                'youtube': {
+                    'skip': ['dash', 'hls', 'translated_subs'],
+                    'player_client': ['android', 'web']
+                }
+            }
+        }
+
+        try:
+            import yt_dlp
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                info = ydl.extract_info(videos_url, download=False)
+                if not info:
+                    return None
+
+                title = info.get('channel') or info.get('uploader') or info.get('title') or 'Canal'
+                subs = format_num(info.get('channel_follower_count') or info.get('subscriber_count'))
+                views = format_num(info.get('view_count'))
+                desc = (info.get('description') or '').strip()[:240]
+
+                avatar_url = info.get('uploader_avatar') or ''
+                banner_url = ''
+                thumbs = info.get('thumbnails') or []
+
+                for t in thumbs:
+                    u = t.get('url', '')
+                    if not banner_url and any(k in u for k in ['banner', 'w1060', 'w2120', 'w2560', 'fcrop64']):
+                        banner_url = u
+                    elif not avatar_url and any(k in u for k in ['avatar', 'yt3.ggpht.com', '=s', 'photo.jpg', 'googleusercontent']):
+                        avatar_url = u
+
+                # Si sigue vacío, buscar cualquier miniatura cuadrada típica de avatar
+                if not avatar_url:
+                    for t in thumbs:
+                        u = t.get('url', '')
+                        w = t.get('width') or 0
+                        h = t.get('height') or 0
+                        if w and h and w == h and 'banner' not in u:
+                            avatar_url = u
+                            break
+
+                if not avatar_url and thumbs:
+                    avatar_url = thumbs[0].get('url', '')
+
+                raw_entries = info.get('entries', []) or []
+                video_list = []
+
+                for entry in raw_entries:
+                    if not entry:
+                        continue
+                    vid_id = entry.get('id', '')
+                    entry_title = entry.get('title', '')
+                    if not vid_id or vid_id in ['videos', 'shorts', 'streams', 'live']:
+                        continue
+                    if entry_title.strip().lower() in ['videos', 'vídeos', 'shorts', 'live', 'directos']:
+                        continue
+
+                    dur = entry.get('duration') or 0
+                    if dur:
+                        total_s = int(dur)
+                        h = total_s // 3600
+                        m = (total_s % 3600) // 60
+                        s = total_s % 60
+                        dur_str = f"{h}:{m:02d}:{s:02d}" if h > 0 else f"{m}:{s:02d}"
+                    else:
+                        dur_str = "--:--"
+
+                    v_thumb = entry.get('thumbnail') or f"https://i.ytimg.com/vi/{vid_id}/hqdefault.jpg"
+                    v_views = format_num(entry.get('view_count'))
+
+                    video_list.append({
+                        'id': vid_id,
+                        'title': entry_title or 'Sin título',
+                        'duration': dur_str,
+                        'url': entry.get('url') or f"https://www.youtube.com/watch?v={vid_id}",
+                        'thumbnail': v_thumb,
+                        'views': v_views,
+                        'uploader': title
+                    })
+
+                return {
+                    'title': title,
+                    'url': base_channel_url,
+                    'avatar': avatar_url,
+                    'banner': banner_url,
+                    'subscribers': subs,
+                    'views': views,
+                    'description': desc or 'Canal oficial de YouTube',
+                    'videos': video_list
+                }
+        except Exception as e:
+            print(f"[BRIDGE YT ERROR] {e}")
+            return None
+        """Extrae perfil completo con avatar/banner panorámico y vídeos recientes."""
+        print(f"\n[BRIDGE YT] >>> Canal: '{channel_url_or_name}' | Rango: {start_index}-{start_index + count - 1}")
+        if not channel_url_or_name or not channel_url_or_name.strip():
+            return None
+
+        target = channel_url_or_name.strip()
+        if not (target.startswith("http://") or target.startswith("https://")):
+            target = f"https://www.youtube.com/@{target.lstrip('@')}"
+
+        base_channel_url = target.split('?')[0].rstrip('/')
+        for tab in ['/featured', '/shorts', '/streams', '/live', '/playlists', '/community', '/videos']:
+            if base_channel_url.endswith(tab):
+                base_channel_url = base_channel_url[:-len(tab)]
+                break
+
+        videos_target_url = f"{base_channel_url}/videos?view=0&sort=dd"
+
+        def format_num(val):
+            if not val or not isinstance(val, (int, float)):
+                return "--"
+            if val >= 1_000_000:
+                return f"{val / 1_000_000:.1f} M".replace('.0', '')
+            if val >= 1_000:
+                return f"{val / 1_000:.1f} K".replace('.0', '')
+            return str(int(val))
+
+        channel_meta = {
+            'title': 'Canal',
+            'avatar': '',
+            'banner': '',
+            'subscribers': '--',
+            'views': '--',
+            'description': ''
+        }
+
+        import yt_dlp
+
+        # 1. Metadatos del perfil del canal
+        if start_index == 1:
+            try:
+                meta_opts = {
+                    'quiet': True,
+                    'skip_download': True,
+                    'extract_flat': True,
+                    'playlist_items': '0',
+                    'no_warnings': True,
+                }
+                with yt_dlp.YoutubeDL(meta_opts) as ydl_meta:
+                    info_meta = ydl_meta.extract_info(base_channel_url, download=False)
+                    if info_meta:
+                        channel_meta['title'] = (
+                            info_meta.get('uploader') or 
+                            info_meta.get('channel') or 
+                            info_meta.get('title') or 
+                            'Canal de YouTube'
+                        )
+                        channel_meta['subscribers'] = format_num(
+                            info_meta.get('channel_follower_count') or 
+                            info_meta.get('subscriber_count')
+                        )
+                        channel_meta['views'] = format_num(info_meta.get('view_count'))
+                        channel_meta['description'] = (info_meta.get('description') or '').strip()[:240]
+
+                        thumbs = info_meta.get('thumbnails') or []
+                        for t in thumbs:
+                            u = t.get('url', '')
+                            # Detección inteligente de banner panorámico y avatar
+                            if any(k in u for k in ['banner', 'w1060', 'w2120', 'w2560', 'fcrop64=1']):
+                                channel_meta['banner'] = u
+                            elif any(k in u for k in ['avatar', 'yt3.ggpht.com', '=s', 'photo.jpg']):
+                                if not channel_meta['avatar']:
+                                    channel_meta['avatar'] = u
+
+                        if not channel_meta['avatar'] and thumbs:
+                            channel_meta['avatar'] = thumbs[-1].get('url', '')
+            except Exception as e_meta:
+                print(f"[BRIDGE YT META ERROR] {e_meta}")
+
+        # 2. Extracción de vídeos recientes
+        end_index = start_index + count - 1
+        video_opts = {
+            'quiet': True,
+            'skip_download': True,
+            'extract_flat': 'in_playlist',
+            'no_warnings': True,
+            'playlist_items': f'{start_index}-{end_index}',
+            'extractor_args': {
+                'youtube': {
+                    'skip': ['dash', 'hls'],
+                    'player_client': ['web']
+                }
+            }
+        }
+
+        video_list = []
+        try:
+            with yt_dlp.YoutubeDL(video_opts) as ydl_vids:
+                vids_info = ydl_vids.extract_info(videos_target_url, download=False)
+                if vids_info:
+                    raw_entries = vids_info.get('entries', []) or []
+                    if channel_meta['title'] == 'Canal':
+                        channel_meta['title'] = (
+                            vids_info.get('uploader') or 
+                            vids_info.get('channel') or 
+                            vids_info.get('title') or 
+                            'Canal'
+                        )
+
+                    for entry in raw_entries:
+                        if not entry:
+                            continue
+                        vid_id = entry.get('id', '')
+                        title = entry.get('title', 'Sin título')
+
+                        if not vid_id or vid_id in ['videos', 'shorts', 'streams', 'live']:
+                            continue
+                        if title.strip().lower() in ['videos', 'vídeos', 'shorts', 'live', 'directos']:
+                            continue
+
+                        dur = entry.get('duration') or 0
+                        if dur:
+                            total_s = int(dur)
+                            h = total_s // 3600
+                            m = (total_s % 3600) // 60
+                            s = total_s % 60
+                            dur_str = f"{h}:{m:02d}:{s:02d}" if h > 0 else f"{m}:{s:02d}"
+                        else:
+                            dur_str = "--:--"
+
+                        raw_views = entry.get('view_count') or 0
+                        video_list.append({
+                            'id': vid_id,
+                            'title': title,
+                            'duration': dur_str,
+                            'url': entry.get('url') or f"https://www.youtube.com/watch?v={vid_id}",
+                            'thumbnail': entry.get('thumbnail') or f"https://i.ytimg.com/vi/{vid_id}/hqdefault.jpg",
+                            'views': format_num(raw_views),
+                            'uploader': channel_meta['title']
+                        })
+        except Exception as e_vids:
+            print(f"[BRIDGE YT VIDS ERROR] {e_vids}")
+
+        return {
+            'title': channel_meta['title'],
+            'url': base_channel_url,
+            'avatar': channel_meta['avatar'],
+            'banner': channel_meta['banner'],
+            'subscribers': channel_meta['subscribers'],
+            'views': channel_meta['views'],
+            'description': channel_meta['description'],
+            'videos': video_list
+        }
+        """Extrae perfil completo con avatar/banner y vídeos ordenados por recientes o populares reales."""
+        print(f"\n[BRIDGE YT] >>> Canal: '{channel_url_or_name}' | Rango: {start_index}-{start_index + count - 1} | Orden: {sort_by}")
+        if not channel_url_or_name or not channel_url_or_name.strip():
+            return None
+
+        target = channel_url_or_name.strip()
+        if not (target.startswith("http://") or target.startswith("https://")):
+            target = f"https://www.youtube.com/@{target.lstrip('@')}"
+
+        # 1. URL base para la metadata del canal
+        base_channel_url = target.split('?')[0].rstrip('/')
+        for tab in ['/featured', '/shorts', '/streams', '/live', '/playlists', '/community', '/videos']:
+            if base_channel_url.endswith(tab):
+                base_channel_url = base_channel_url[:-len(tab)]
+                break
+
+        # 2. URL de vídeos según el criterio de ordenación real de YouTube
+        if sort_by == "views":
+            videos_target_url = f"{base_channel_url}/videos?view=0&sort=p"
+        else:
+            videos_target_url = f"{base_channel_url}/videos?view=0&sort=dd"
+
+        def format_num(val):
+            if not val or not isinstance(val, (int, float)):
+                return "--"
+            if val >= 1_000_000:
+                return f"{val / 1_000_000:.1f} M".replace('.0', '')
+            if val >= 1_000:
+                return f"{val / 1_000:.1f} K".replace('.0', '')
+            return str(int(val))
+
+        channel_meta = {
+            'title': 'Canal',
+            'avatar': '',
+            'banner': '',
+            'subscribers': '--',
+            'views': '--',
+            'video_count': '--',
+            'description': ''
+        }
+
+        import yt_dlp
+
+        # Solo en la primera página consultamos la información base del perfil del canal
+        if start_index == 1:
+            try:
+                meta_opts = {
+                    'quiet': True,
+                    'skip_download': True,
+                    'extract_flat': True,
+                    'playlist_items': '0',
+                    'no_warnings': True,
+                }
+                with yt_dlp.YoutubeDL(meta_opts) as ydl_meta:
+                    info_meta = ydl_meta.extract_info(base_channel_url, download=False)
+                    if info_meta:
+                        channel_meta['title'] = (
+                            info_meta.get('uploader') or 
+                            info_meta.get('channel') or 
+                            info_meta.get('title') or 
+                            'Canal de YouTube'
+                        )
+                        channel_meta['subscribers'] = format_num(
+                            info_meta.get('channel_follower_count') or 
+                            info_meta.get('subscriber_count')
+                        )
+                        channel_meta['views'] = format_num(info_meta.get('view_count'))
+                        channel_meta['description'] = (info_meta.get('description') or '').strip()[:240]
+
+                        # Avatar y Banner
+                        thumbs = info_meta.get('thumbnails') or []
+                        for t in thumbs:
+                            u = t.get('url', '')
+                            if 'avatar' in u or 'yt3.ggpht.com' in u or '=s' in u:
+                                channel_meta['avatar'] = u
+                            elif 'banner' in u or 'w1060' in u or 'w2120' in u:
+                                channel_meta['banner'] = u
+                        
+                        if not channel_meta['avatar'] and thumbs:
+                            channel_meta['avatar'] = thumbs[-1].get('url', '')
+            except Exception as e_meta:
+                print(f"[BRIDGE YT META ERROR] {e_meta}")
+
+        # 3. Extracción de los vídeos del canal
+        end_index = start_index + count - 1
+        video_opts = {
+            'quiet': True,
+            'skip_download': True,
+            'extract_flat': 'in_playlist',
+            'no_warnings': True,
+            'playlist_items': f'{start_index}-{end_index}',
+            'extractor_args': {
+                'youtube': {
+                    'skip': ['dash', 'hls'],
+                    'player_client': ['web']
+                }
+            }
+        }
+
+        video_list = []
+        try:
+            with yt_dlp.YoutubeDL(video_opts) as ydl_vids:
+                vids_info = ydl_vids.extract_info(videos_target_url, download=False)
+                if vids_info:
+                    raw_entries = vids_info.get('entries', []) or []
+                    
+                    # Si no teníamos título, recuperarlo
+                    if channel_meta['title'] == 'Canal':
+                        channel_meta['title'] = (
+                            vids_info.get('uploader') or 
+                            vids_info.get('channel') or 
+                            vids_info.get('title') or 
+                            'Canal'
+                        )
+
+                    total_possible = vids_info.get('playlist_count')
+                    channel_meta['video_count'] = format_num(total_possible) if total_possible else "10 K+"
+
+                    for entry in raw_entries:
+                        if not entry:
+                            continue
+                        vid_id = entry.get('id', '')
+                        title = entry.get('title', 'Sin título')
+
+                        # Descartar contenedores o listas que no sean vídeos
+                        if not vid_id or vid_id in ['videos', 'shorts', 'streams', 'live']:
+                            continue
+                        if title.strip().lower() in ['videos', 'vídeos', 'shorts', 'live', 'directos']:
+                            continue
+
+                        dur = entry.get('duration') or 0
+                        if dur:
+                            total_s = int(dur)
+                            h = total_s // 3600
+                            m = (total_s % 3600) // 60
+                            s = total_s % 60
+                            dur_str = f"{h}:{m:02d}:{s:02d}" if h > 0 else f"{m}:{s:02d}"
+                        else:
+                            dur_str = "--:--"
+
+                        raw_views = entry.get('view_count') or 0
+                        video_list.append({
+                            'id': vid_id,
+                            'title': title,
+                            'duration': dur_str,
+                            'url': entry.get('url') or f"https://www.youtube.com/watch?v={vid_id}",
+                            'thumbnail': entry.get('thumbnail') or f"https://i.ytimg.com/vi/{vid_id}/hqdefault.jpg",
+                            'views': format_num(raw_views),
+                            'raw_views': int(raw_views) if isinstance(raw_views, (int, float)) else 0,
+                            'uploader': channel_meta['title']
+                        })
+        except Exception as e_vids:
+            print(f"[BRIDGE YT VIDS ERROR] {e_vids}")
+
+        return {
+            'title': channel_meta['title'],
+            'url': base_channel_url,
+            'avatar': channel_meta['avatar'],
+            'banner': channel_meta['banner'],
+            'subscribers': channel_meta['subscribers'],
+            'views': channel_meta['views'],
+            'video_count': channel_meta['video_count'],
+            'description': channel_meta['description'],
+            'videos': video_list
+        }
+        """Extrae perfil completo y solo vídeos normales del canal con soporte de paginación."""
+        print(f"\n[BRIDGE YT] >>> Consultando canal: '{channel_url_or_name}' (Desde {start_index} hasta {start_index + count - 1})")
+        if not channel_url_or_name or not channel_url_or_name.strip():
+            return None
+
+        target = channel_url_or_name.strip()
+        if not (target.startswith("http://") or target.startswith("https://")):
+            target = f"https://www.youtube.com/@{target.lstrip('@')}"
+
+        # Limpiar cualquier subpestaña residual y forzar la ruta directa /videos
+        clean_target = target.rstrip('/')
+        for tab in ['/featured', '/shorts', '/streams', '/live', '/playlists', '/community']:
+            if clean_target.endswith(tab):
+                clean_target = clean_target[:-len(tab)]
+                break
+
+        if not clean_target.endswith('/videos'):
+            channel_videos_url = f"{clean_target}/videos"
+        else:
+            channel_videos_url = clean_target
+
+        end_index = start_index + count - 1
+        ydl_opts = {
+            'quiet': True,
+            'skip_download': True,
+            'extract_flat': 'in_playlist',
+            'no_warnings': True,
+            'playlist_items': f'{start_index}-{end_index}',
+            'compat_opts': ['no-youtube-channel-redirect'],
+            'extractor_args': {
+                'youtube': {
+                    'skip': ['dash', 'hls'],
+                    'player_client': ['web']
+                }
+            }
+        }
+
+        try:
+            import yt_dlp
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(channel_videos_url, download=False)
+                if not info:
+                    return None
+
+                def format_num(val):
+                    if not val or not isinstance(val, (int, float)):
+                        return "--"
+                    if val >= 1_000_000:
+                        return f"{val / 1_000_000:.1f} M".replace('.0', '')
+                    if val >= 1_000:
+                        return f"{val / 1_000:.1f} K".replace('.0', '')
+                    return str(int(val))
+
+                channel_title = info.get('uploader') or info.get('channel') or info.get('title') or 'Canal de YouTube'
+                subscribers = format_num(info.get('channel_follower_count') or info.get('subscriber_count'))
+                total_views = format_num(info.get('view_count'))
+
+                # Miniatura o Avatar del canal
+                thumbnails = info.get('thumbnails') or []
+                avatar_url = ''
+                banner_url = ''
+                for t in thumbnails:
+                    url = t.get('url', '')
+                    if 'avatar' in url or '=s' in url or 'yt3.ggpht.com' in url:
+                        avatar_url = url
+                    elif 'banner' in url or 'w1060' in url or 'w2120' in url:
+                        banner_url = url
+
+                if not avatar_url and thumbnails:
+                    avatar_url = thumbnails[-1].get('url', '')
+
+                raw_entries = info.get('entries', []) or []
+                
+                # Desempaquetar si YouTube devolvió sub-playlists como primer nivel
+                flattened_entries = []
+                for item in raw_entries:
+                    if not item:
+                        continue
+                    title_lower = (item.get('title') or '').strip().lower()
+                    if 'entries' in item and item.get('entries'):
+                        flattened_entries.extend(item['entries'])
+                    elif title_lower in ['videos', 'vídeos', 'shorts', 'live', 'directos']:
+                        # Ignorar el contenedor/pestaña huérfano
+                        continue
+                    else:
+                        flattened_entries.append(item)
+
+                video_list = []
+                for entry in flattened_entries:
+                    if not entry:
+                        continue
+                    
+                    vid_id = entry.get('id', '')
+                    title = entry.get('title', 'Sin título')
+
+                    # Descartar si el elemento no es un vídeo real
+                    if not vid_id or vid_id in ['videos', 'shorts', 'streams', 'live']:
+                        continue
+                    if title.strip().lower() in ['videos', 'vídeos', 'shorts', 'live', 'directos']:
+                        continue
+
+                    dur = entry.get('duration') or 0
+                    if dur:
+                        total_s = int(dur)
+                        h = total_s // 3600
+                        m = (total_s % 3600) // 60
+                        s = total_s % 60
+                        dur_str = f"{h}:{m:02d}:{s:02d}" if h > 0 else f"{m}:{s:02d}"
+                    else:
+                        dur_str = "--:--"
+
+                    raw_views = entry.get('view_count') or 0
+                    video_list.append({
+                        'id': vid_id,
+                        'title': title,
+                        'duration': dur_str,
+                        'url': entry.get('url') or f"https://www.youtube.com/watch?v={vid_id}",
+                        'thumbnail': entry.get('thumbnail') or f"https://i.ytimg.com/vi/{vid_id}/hqdefault.jpg",
+                        'views': format_num(raw_views),
+                        'raw_views': int(raw_views) if isinstance(raw_views, (int, float)) else 0,
+                        'uploader': channel_title
+                    })
+
+                total_videos = format_num(info.get('playlist_count') or len(video_list))
+
+                return {
+                    'title': channel_title,
+                    'url': target,
+                    'avatar': avatar_url,
+                    'banner': banner_url,
+                    'subscribers': subscribers,
+                    'views': total_views,
+                    'video_count': total_videos,
+                    'description': (info.get('description') or '').strip()[:240],
+                    'videos': video_list
+                }
+        except Exception as e:
+            print(f"[ERROR YT CHANNEL] {e}")
+            return None
 
     def get_yt_download_options(self, output_path: str, is_audio_only: bool = False, quality: str = "1080"):
         """Genera las opciones de yt-dlp optimizadas para YouTube."""

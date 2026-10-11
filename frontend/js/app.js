@@ -2647,6 +2647,7 @@ document.addEventListener('DOMContentLoaded', () => {
         card.classList.add('selected');
       }
 
+      const channelTarget = video.channel_url || video.uploader;
       card.innerHTML = `
         <div class="yt-thumb-box">
           <img class="yt-thumb-img" src="${video.thumbnail}" alt="Thumbnail" loading="lazy">
@@ -2654,9 +2655,24 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
         <div class="yt-video-details">
           <span class="yt-video-title" title="${video.title}">${video.title}</span>
-          <span class="yt-video-channel">${video.uploader}</span>
+          <div class="yt-video-channel">
+            <button class="yt-video-channel-btn" data-channel="${channelTarget}" title="Ver canal completo">
+              <span class="yt-channel-btn-icon">📺</span>
+              <span>${video.uploader}</span>
+            </button>
+          </div>
         </div>
       `;
+
+      // Clic directo al canal sin propagar al vídeo
+      const chBtn = card.querySelector('.yt-video-channel-btn');
+      if (chBtn) {
+        chBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (typeof playSynth === 'function') playSynth('click');
+          openYtChannelView(channelTarget, video.uploader);
+        });
+      }
 
       card.addEventListener('click', async () => {
         if (typeof playSynth === 'function') playSynth('click');
@@ -3068,6 +3084,239 @@ document.addEventListener('DOMContentLoaded', () => {
     if (pBox) pBox.style.display = 'none';
 
     setYtDownloadState(false);
+  });
+
+  // ========================================================
+  // CONTROLADOR Y NAVEGACIÓN DE LA PANTALLA DE CANAL DE YOUTUBE
+  // ========================================================
+  const ytChannelView = document.getElementById('yt-channel-view');
+  const ytChannelLoading = document.getElementById('yt-channel-loading');
+  const ytChannelContent = document.getElementById('yt-channel-content');
+  const btnChannelBack = document.getElementById('btn-channel-back');
+  const btnLoadMore = document.getElementById('btn-channel-load-more');
+  const sortChips = document.getElementById('yt-channel-sort-chips');
+
+  let currentChannelTarget = '';
+  let channelVideosList = [];
+  let currentSortMode = 'recent';
+  let nextStartIndex = 1;
+  const pageSize = 24;
+
+  async function openYtChannelView(channelIdentifier, fallbackName = 'Canal') {
+    if (!ytChannelView) return;
+
+    currentChannelTarget = channelIdentifier;
+    channelVideosList = [];
+    nextStartIndex = 1;
+
+    if (ytHeroWrapper) ytHeroWrapper.style.display = 'none';
+    if (ytResultsDock) ytResultsDock.style.display = 'none';
+
+    ytChannelView.style.display = 'flex';
+    if (ytChannelLoading) ytChannelLoading.style.display = 'flex';
+    if (ytChannelContent) ytChannelContent.style.display = 'none';
+
+    const data = await pyCall('get_channel_details', channelIdentifier, 1, pageSize);
+
+    if (ytChannelLoading) ytChannelLoading.style.display = 'none';
+
+    if (!data) {
+      if (ytChannelContent) {
+        ytChannelContent.style.display = 'flex';
+      }
+      return;
+    }
+
+    if (ytChannelContent) ytChannelContent.style.display = 'flex';
+
+    // Asignación segura de textos y enlaces multimedia
+    const nameEl = document.getElementById('yt-channel-name');
+    const bioEl = document.getElementById('yt-channel-bio');
+    const avatarImg = document.getElementById('yt-channel-avatar-img');
+    const bannerBox = document.getElementById('yt-channel-banner');
+    const subsEl = document.getElementById('yt-channel-subs');
+    const viewsEl = document.getElementById('yt-channel-views');
+    const heroCard = document.getElementById('yt-channel-hero');
+
+    if (heroCard) heroCard.style.display = 'flex';
+    if (nameEl) nameEl.textContent = data.title || fallbackName;
+    if (bioEl) bioEl.textContent = (data.description && data.description.trim()) ? data.description : 'Canal oficial de YouTube';
+    if (subsEl) subsEl.textContent = data.subscribers || '--';
+    if (viewsEl) viewsEl.textContent = data.views || '--';
+
+    if (avatarImg) {
+      const avatarSrc = (data.avatar && data.avatar.trim()) ? data.avatar : `https://ui-avatars.com/api/?name=${encodeURIComponent(data.title || 'YT')}&background=ff0055&color=fff&size=128`;
+      avatarImg.src = avatarSrc;
+      avatarImg.style.display = 'block';
+      avatarImg.onerror = () => {
+        avatarImg.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(data.title || 'YT')}&background=ff0055&color=fff&size=128`;
+      };
+    }
+
+    if (bannerBox) {
+      if (data.banner) {
+        bannerBox.style.backgroundImage = `url('${data.banner}')`;
+      } else {
+        bannerBox.style.backgroundImage = 'none';
+      }
+    }
+
+    channelVideosList = data.videos || [];
+    nextStartIndex = channelVideosList.length + 1;
+
+    renderChannelVideosGrid();
+  }
+
+  function renderChannelVideosGrid() {
+    const grid = document.getElementById('yt-channel-videos-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+
+    if (!channelVideosList || channelVideosList.length === 0) {
+      grid.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:40px; color:#64748b; font-size:12px; font-weight:800;">NO SE ENCONTRARON VÍDEOS PÚBLICOS</div>';
+      return;
+    }
+
+    channelVideosList.forEach(v => {
+      const card = document.createElement('div');
+      card.className = 'yt-grid-video-card';
+      if (modeStates.youtube.selectedVideo && modeStates.youtube.selectedVideo.id === v.id) {
+        card.classList.add('selected');
+      }
+
+      card.innerHTML = `
+        <div class="yt-grid-thumb-box">
+          <img class="yt-grid-thumb-img" src="${v.thumbnail}" alt="Thumbnail" loading="lazy">
+          <span class="yt-duration-badge">${v.duration}</span>
+        </div>
+        <span class="yt-grid-video-title" title="${v.title}">${v.title}</span>
+        <div class="yt-grid-video-meta">
+          <span>${v.views} vistas</span>
+          <span>Descargar ➔</span>
+        </div>
+      `;
+
+      card.addEventListener('click', async () => {
+        if (typeof playSynth === 'function') playSynth('click');
+        document.querySelectorAll('.yt-grid-video-card, .yt-video-card').forEach(c => c.classList.remove('selected', 'kb-focused'));
+        card.classList.add('selected');
+
+        modeStates.youtube.selectedVideo = v;
+        document.body.classList.add('yt-has-selection');
+        saveCurrentState();
+
+        // Actualizar la posición de las pildoritas de formato y resolución al instante
+        setTimeout(() => {
+          const fChips = document.getElementById('yt-format-chips');
+          const rChips = document.getElementById('yt-res-chips');
+          if (fChips) {
+            const activeFmt = fChips.querySelector('.chip-btn.active') || fChips.querySelector('[data-format="video"]');
+            if (activeFmt) updateChipGlider(fChips, activeFmt);
+          }
+          if (rChips) {
+            const activeRes = rChips.querySelector('.chip-btn.active') || rChips.querySelector('[data-res="1080"]');
+            if (activeRes) updateChipGlider(rChips, activeRes);
+          }
+        }, 60);
+
+        setTimeout(() => {
+          refreshAllGliders();
+        }, 220);
+
+        const pImg = document.getElementById('yt-preview-img');
+        const pEmpty = document.getElementById('yt-preview-empty');
+        const pTitle = document.getElementById('yt-prev-title');
+        const pChannel = document.getElementById('yt-prev-channel');
+        const btnDownload = document.getElementById('yt-btn-download');
+
+        if (pImg) { pImg.src = v.thumbnail; pImg.style.display = 'block'; }
+        if (pEmpty) pEmpty.style.display = 'none';
+        if (pTitle) pTitle.innerText = v.title;
+        if (pChannel) pChannel.innerText = v.uploader;
+        if (btnDownload) {
+          btnDownload.disabled = false;
+          btnDownload.removeAttribute('disabled');
+          btnDownload.style.pointerEvents = 'auto';
+          btnDownload.style.opacity = '1';
+        }
+
+        const bgVal = v.thumbnail ? `url('${v.thumbnail}')` : 'none';
+        const aL1 = document.getElementById('ambient-layer-1');
+        const aL2 = document.getElementById('ambient-layer-2');
+        if (aL1) aL1.style.backgroundImage = bgVal;
+        if (aL2) aL2.style.backgroundImage = bgVal;
+      });
+
+      grid.appendChild(card);
+    });
+  }
+
+  // Cambio de criterio: consulta a YouTube directamente el orden seleccionado
+  sortChips?.querySelectorAll('.chip-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const mode = btn.getAttribute('data-sort');
+      if (mode === currentSortMode) return;
+      if (typeof playSynth === 'function') playSynth('origami');
+
+      sortChips.querySelectorAll('.chip-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentSortMode = mode;
+
+      const grid = document.getElementById('yt-channel-videos-grid');
+      if (grid) {
+        grid.innerHTML = `
+          <div style="grid-column: 1/-1; display:flex; justify-content:center; padding:50px 0;">
+            <div class="yt-orbital-spinner"></div>
+          </div>
+        `;
+      }
+
+      channelVideosList = [];
+      nextStartIndex = 1;
+
+      const data = await pyCall('get_channel_details', currentChannelTarget, 1, pageSize, currentSortMode);
+      if (data && data.videos) {
+        channelVideosList = data.videos;
+        nextStartIndex = channelVideosList.length + 1;
+      }
+      renderChannelVideosDOM();
+    });
+  });
+
+  // Paginación continua con "Cargar más"
+  btnLoadMore?.addEventListener('click', async () => {
+    if (!currentChannelTarget) return;
+    const spin = document.getElementById('spin-load-more');
+    const txt = document.getElementById('txt-load-more');
+    if (spin) spin.style.display = 'inline-block';
+    if (txt) txt.textContent = 'CARGANDO...';
+    btnLoadMore.disabled = true;
+
+    const data = await pyCall('get_channel_details', currentChannelTarget, nextStartIndex, pageSize);
+
+    if (spin) spin.style.display = 'none';
+    if (txt) txt.textContent = 'CARGAR MÁS VÍDEOS ▾';
+    btnLoadMore.disabled = false;
+
+    if (data && data.videos && data.videos.length > 0) {
+      data.videos.forEach(nv => {
+        if (!channelVideosList.some(ev => ev.id === nv.id)) {
+          channelVideosList.push(nv);
+        }
+      });
+      nextStartIndex += data.videos.length;
+      renderChannelVideosDOM();
+    } else {
+      if (txt) txt.textContent = 'NO HAY MÁS VÍDEOS';
+      setTimeout(() => { if (txt) txt.textContent = 'CARGAR MÁS VÍDEOS ▾'; }, 2000);
+    }
+  });
+
+  btnChannelBack?.addEventListener('click', () => {
+    if (typeof playSynth === 'function') playSynth('click');
+    if (ytChannelView) ytChannelView.style.display = 'none';
+    if (ytHeroWrapper) ytHeroWrapper.style.display = 'block';
+    if (ytResultsDock) ytResultsDock.style.display = 'flex';
   });
 });
 
