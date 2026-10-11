@@ -3325,6 +3325,52 @@ document.addEventListener('DOMContentLoaded', () => {
 
       ytResultsList.appendChild(card);
     });
+
+    // Inyectar el botón 'Cargar más' solo si estamos en LISTAS y al final del scroll
+    if (currentYtSearchType === 'playlist' && items.length >= 8) {
+      const loadMoreRow = document.createElement('div');
+      loadMoreRow.className = 'yt-load-more-playlists-box';
+      loadMoreRow.id = 'yt-load-more-box';
+      loadMoreRow.innerHTML = `
+        <button class="btn-channel-load-more" id="btn-load-more-playlists">
+          <span class="btn-load-more-spinner" id="spin-load-more-playlists" style="display: none;"></span>
+          <span id="txt-load-more-playlists">CARGAR MÁS LISTAS ▾</span>
+        </button>
+      `;
+
+      loadMoreRow.querySelector('#btn-load-more-playlists')?.addEventListener('click', async (e) => {
+        const btn = e.currentTarget;
+        const spin = btn.querySelector('#spin-load-more-playlists');
+        const txt = btn.querySelector('#txt-load-more-playlists');
+        const val = ytSearchInput?.value.trim();
+        if (!val || currentYtSearchType !== 'playlist') return;
+
+        if (typeof playSynth === 'function') playSynth('origami');
+        if (spin) spin.style.display = 'inline-block';
+        if (txt) txt.textContent = 'CARGANDO MÁS LISTAS...';
+        btn.disabled = true;
+
+        currentPlaylistSearchPage++;
+        const nextResults = await pyCall('search_youtube', val, 'playlist', currentPlaylistSearchPage, 12);
+
+        if (spin) spin.style.display = 'none';
+        btn.disabled = false;
+
+        if (nextResults && nextResults.length > 0) {
+          nextResults.forEach(item => {
+            if (!modeStates.youtube.results.some(r => r.id === item.id)) {
+              modeStates.youtube.results.push(item);
+            }
+          });
+          renderYtResults(modeStates.youtube.results);
+        } else {
+          if (txt) txt.textContent = 'NO HAY MÁS LISTAS';
+          setTimeout(() => { if (txt) txt.textContent = 'CARGAR MÁS LISTAS ▾'; }, 2000);
+        }
+      });
+
+      ytResultsList.appendChild(loadMoreRow);
+    }
   }
 
   let currentYtSearchType = 'video';
@@ -3348,11 +3394,10 @@ document.addEventListener('DOMContentLoaded', () => {
       currentYtSearchType = mode;
       currentPlaylistSearchPage = 1;
 
-      if (mode === 'playlist') {
-        document.body.classList.remove('yt-has-selection');
-        document.querySelectorAll('.yt-video-card').forEach(c => c.classList.remove('selected', 'kb-focused'));
-        modeStates.youtube.selectedVideo = null;
-      }
+      // Si cambiamos entre modos, limpiar la selección y cualquier botón residual
+      document.body.classList.remove('yt-has-selection');
+      document.querySelectorAll('.yt-video-card').forEach(c => c.classList.remove('selected', 'kb-focused'));
+      modeStates.youtube.selectedVideo = null;
 
       if (ytSearchInput && ytSearchInput.value.trim().length >= 2) {
         triggerYoutubeSearch();
