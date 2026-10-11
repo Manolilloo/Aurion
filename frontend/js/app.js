@@ -1369,11 +1369,34 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
+      const currentManualDir = (document.getElementById('cfg-dir')?.value || modeStates[currentMode].dir || '').trim();
+
+      if (!currentManualDir) {
+        if (typeof playSynth === 'function') playSynth('click');
+        const dirInput = document.getElementById('cfg-dir');
+        btnMaster.classList.add('is-empty');
+        magTxt.innerText = 'SELECCIONA RUTA';
+        if (dirInput) {
+          dirInput.focus();
+          dirInput.style.borderColor = '#ff3366';
+          dirInput.style.boxShadow = '0 0 16px rgba(255, 51, 102, 0.4)';
+          setTimeout(() => {
+            dirInput.style.borderColor = '';
+            dirInput.style.boxShadow = '';
+          }, 2000);
+        }
+        setTimeout(() => {
+          btnMaster.classList.remove('is-empty');
+          magTxt.innerText = originalText;
+        }, 1400);
+
+        document.getElementById('btn-browse-dir')?.click();
+        return;
+      }
+
       isMasterRunning = true;
       if (typeof playSynth === 'function') playSynth('chord');
       setMasterDownloadState(true);
-
-      const currentManualDir = document.getElementById('cfg-dir')?.value || modeStates[currentMode].dir;
 
       let cleanCoverUrl = '';
       const bgRaw = modeStates[currentMode].bg || '';
@@ -1946,7 +1969,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const rect = targetEl.getBoundingClientRect();
       if (placement === 'left-center') {
         top = Math.max(80, rect.top + rect.height / 2 - cardHeight / 2);
-        left = Math.max(20, rect.left - cardWidth - 24);
+        left = Math.max(20, rect.left - cardWidth - 44);
       } else if (placement === 'bottom-right') {
         top = rect.bottom + 16;
         left = Math.max(20, rect.right - cardWidth);
@@ -2564,7 +2587,11 @@ document.addEventListener('DOMContentLoaded', () => {
   btnHelp?.addEventListener('click', () => {
     if (typeof playSynth === 'function') playSynth('click');
     btnHelp.classList.remove('pulse-attention');
-    startTour(false); // Iniciado desde arriba a la derecha (no resetea)
+    if (currentMode === 'youtube') {
+      startYtTour();
+    } else {
+      startTour(false); // Iniciado desde arriba a la derecha (no resetea)
+    }
   });
 
   const closeYtTutorial = () => {
@@ -2620,6 +2647,413 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
   });
+
+  // ========================================================
+  // GUÍA TURÍSTICO CINEMÁTICO DEDICADO A YOUTUBE CON DEMOS EN BUCLE
+  // ========================================================
+  let currentYtTourStep = 0;
+  let ytTourSnapshot = null;
+  let ytTourDemoIntervals = [];
+
+  const ytTourSteps = [
+    {
+      id: 'yt_search',
+      target: '#yt-hero-wrapper',
+      title: '1. Invocación y Búsqueda en Vivo',
+      desc: 'Escribe el nombre de un creador, canción o pega el enlace completo. Los vídeos aparecen de inmediato con miniaturas, duración y autor.',
+      placement: 'bottom-center'
+    },
+    {
+      id: 'yt_channel_btn',
+      target: '.yt-video-card:first-child .yt-video-channel-btn',
+      title: '2. Perfiles y Catálogos de Creadores',
+      desc: 'Cada tarjeta cuenta con el botón directo de su autor. Al pulsarlo accedes a su perfil con su banner oficial, estadísticas y todo su catálogo subido.',
+      placement: 'left-center'
+    },
+    {
+      id: 'yt_format_options',
+      target: '#yt-format-chips',
+      title: '3. Formato: Vídeo (MP4) o Audio (MP3)',
+      desc: 'Elige si prefieres extraer el vídeo completo o solo la pista de sonido en MP3 lista para tu móvil u otro dispositivo.',
+      placement: 'left-center'
+    },
+    {
+      id: 'yt_resolutions',
+      target: '#yt-res-group',
+      title: '4. Selector Táctil de Calidad',
+      desc: 'Configura desde 144p hasta 4K Ultra HD. Puedes pulsar cualquier opción o arrastrar el selector con amortiguación elástica.',
+      placement: 'left-center'
+    },
+    {
+      id: 'yt_dest_folder',
+      target: '#yt-stage .settings-area > div:first-child, #yt-card-open-folder',
+      title: '5. Carpeta Local y Apertura Automática',
+      desc: 'Elige dónde guardar los archivos en tu PC. Si activas la opción, la carpeta se abrirá automáticamente en Windows al terminar.',
+      placement: 'left-center'
+    },
+    {
+      id: 'yt_download_trigger',
+      target: '#yt-split-cluster',
+      title: '6. Extracción y Cancelación Segura',
+      desc: 'Inicia la descarga con un clic. Durante el proceso, el botón se divide para que puedas cancelar o pausar al instante sin bloqueos.',
+      placement: 'left-center'
+    }
+  ];
+
+  function stopAllYtTourDemos() {
+    ytTourDemoIntervals.forEach(i => clearInterval(i));
+    ytTourDemoIntervals = [];
+
+    // Fijar de vuelta en MP4 si venía de la animación
+    const fChips = document.getElementById('yt-format-chips');
+    const videoBtn = fChips?.querySelector('[data-format="video"]');
+    if (videoBtn && !videoBtn.classList.contains('active')) {
+      videoBtn.click();
+    }
+
+    document.querySelectorAll('.tour-sub-dimmed, .tour-channel-pulse, .tour-demo-anim').forEach(el => {
+      el.classList.remove('tour-sub-dimmed', 'tour-channel-pulse', 'tour-demo-anim');
+    });
+
+    const ytSplit = document.getElementById('yt-split-cluster');
+    if (ytSplit) ytSplit.classList.remove('is-split');
+    const ytBtnTxt = document.getElementById('yt-btn-txt');
+    if (ytBtnTxt) ytBtnTxt.innerText = 'DESCARGAR VÍDEO';
+
+    const pBox = document.getElementById('yt-dl-progress-box');
+    if (pBox && !window.__isActualYtDownloading) pBox.style.display = 'none';
+  }
+
+  function applyYtSelectiveBlur(activeEls, stepId) {
+    document.body.classList.add('tour-running-active');
+    const firstTarget = activeEls[0];
+    const sidebar = document.getElementById('yt-sidebar-box');
+    const isInsideSidebar = sidebar && firstTarget && sidebar.contains(firstTarget);
+
+    if (firstTarget && tourBackdrop) {
+      const rect = firstTarget.getBoundingClientRect();
+      let centerX = rect.left + rect.width / 2;
+      let centerY = rect.top + rect.height / 2;
+      let dynamicRadius = Math.max(220, Math.max(rect.width, rect.height) * 0.75);
+
+      if (stepId === 'yt_search') {
+        dynamicRadius = Math.max(480, rect.width * 0.55);
+      } else if (stepId === 'yt_channel_btn') {
+        dynamicRadius = 380;
+      }
+
+      tourBackdrop.style.setProperty('--spot-x', `${centerX}px`);
+      tourBackdrop.style.setProperty('--spot-y', `${centerY}px`);
+      tourBackdrop.style.setProperty('--spot-r', `${dynamicRadius}px`);
+    }
+
+    if (sidebar) {
+      const sidebarItems = [
+        sidebar.querySelector('.yt-preview-card'),
+        document.getElementById('yt-format-chips')?.closest('div'),
+        document.getElementById('yt-res-group'),
+        document.getElementById('yt-card-open-folder'),
+        sidebar.querySelector('#yt-cfg-dir')?.closest('div'),
+        sidebar.querySelector('.mag-wrapper'),
+        sidebar.querySelector('.yt-telemetry-box')
+      ].filter(Boolean);
+
+      sidebarItems.forEach(item => {
+        const isChildActive = activeEls.some(t => item === t || item.contains(t) || t.contains(item));
+        if (isInsideSidebar) {
+          if (!isChildActive) {
+            item.classList.add('tour-sub-dimmed');
+            item.classList.remove('tour-highlighted-element');
+          } else {
+            item.classList.remove('tour-sub-dimmed');
+            item.classList.add('tour-highlighted-element');
+          }
+        } else {
+          item.classList.remove('tour-sub-dimmed');
+        }
+      });
+    }
+
+    const searchCol = document.querySelector('.yt-search-col');
+    if (searchCol && sidebar) {
+      if (isInsideSidebar) {
+        searchCol.classList.add('tour-blurred-zone');
+        sidebar.classList.remove('tour-blurred-zone');
+      } else {
+        searchCol.classList.remove('tour-blurred-zone');
+        if (stepId === 'yt_search' || stepId === 'yt_channel_btn') {
+          sidebar.classList.add('tour-blurred-zone');
+        }
+      }
+    }
+  }
+
+  function startYtStepInteractiveDemo(stepId) {
+    if (stepId === 'yt_search') {
+      const ytInput = document.getElementById('yt-search-input');
+      const hero = document.getElementById('yt-hero-wrapper');
+      if (ytInput) {
+        ytInput.value = '';
+        const demoText = 'DaniRep';
+        let idx = 0;
+        const typeInterval = setInterval(() => {
+          if (idx <= demoText.length) {
+            ytInput.value = demoText.substring(0, idx);
+            idx++;
+          } else {
+            clearInterval(typeInterval);
+            if (hero) hero.classList.add('is-searched');
+            triggerYoutubeSearch();
+          }
+        }, 85);
+        ytTourDemoIntervals.push(typeInterval);
+      }
+    } else if (stepId === 'yt_channel_btn') {
+      // Destacar en bucle continuo el botón de canal del primer vídeo
+      const firstChannelBtn = document.querySelector('.yt-video-card .yt-video-channel-btn');
+      if (firstChannelBtn) {
+        firstChannelBtn.classList.add('tour-channel-pulse');
+      }
+    } else if (stepId === 'yt_format_options') {
+      // Bucle continuo alternando entre VÍDEO y AUDIO
+      const fChips = document.getElementById('yt-format-chips');
+      const btns = fChips?.querySelectorAll('.chip-btn');
+      let curFmt = 0;
+      const fmtInterval = setInterval(() => {
+        if (btns && btns.length) {
+          curFmt = (curFmt + 1) % btns.length;
+          btns[curFmt].click();
+        }
+      }, 1200);
+      ytTourDemoIntervals.push(fmtInterval);
+    } else if (stepId === 'yt_resolutions') {
+      // Fijar de vuelta en MP4 para que la selección de calidades sea coherente
+      const fChips = document.getElementById('yt-format-chips');
+      const videoBtn = fChips?.querySelector('[data-format="video"]');
+      if (videoBtn && !videoBtn.classList.contains('active')) {
+        videoBtn.click();
+      }
+
+      // Bucle continuo oscilando entre las calidades con física gelatina
+      const rChips = document.getElementById('yt-res-chips');
+      const btns = rChips?.querySelectorAll('.chip-btn');
+      let resIdx = 6; // 1080p
+      let forward = true;
+      const resInterval = setInterval(() => {
+        if (btns && btns.length) {
+          if (forward) {
+            resIdx++;
+            if (resIdx >= btns.length - 1) forward = false;
+          } else {
+            resIdx--;
+            if (resIdx <= 4) forward = true;
+          }
+          btns[resIdx]?.click();
+        }
+      }, 850);
+      ytTourDemoIntervals.push(resInterval);
+    } else if (stepId === 'yt_dest_folder') {
+      // Animación en bucle de la ruta de destino escribiéndose y borrándose
+      const dirInput = document.getElementById('yt-cfg-dir');
+      const btnBrowse = document.getElementById('yt-btn-browse');
+      const openToggle = document.getElementById('yt-cfg-open-folder');
+      const demoPath = 'D:\\YouTube\\Aurion Videos';
+      let charIdx = 0;
+      let isDeleting = false;
+      if (dirInput) dirInput.value = '';
+
+      const typeLoop = setInterval(() => {
+        if (!dirInput) return;
+        if (!isDeleting) {
+          charIdx += 2;
+          dirInput.value = demoPath.substring(0, Math.min(demoPath.length, charIdx));
+          if (charIdx >= demoPath.length + 8) isDeleting = true;
+        } else {
+          charIdx -= 2;
+          dirInput.value = demoPath.substring(0, Math.max(0, charIdx));
+          if (charIdx <= 0) isDeleting = false;
+        }
+      }, 70);
+
+      const toggleInterval = setInterval(() => {
+        if (openToggle) openToggle.checked = !openToggle.checked;
+        if (btnBrowse) {
+          btnBrowse.style.transform = 'scale(0.92)';
+          setTimeout(() => { if (btnBrowse) btnBrowse.style.transform = ''; }, 160);
+        }
+      }, 1100);
+
+      ytTourDemoIntervals.push(typeLoop, toggleInterval);
+    } else if (stepId === 'yt_download_trigger') {
+      // Bucle continuo de descarga simulada y división elástica
+      const ytSplit = document.getElementById('yt-split-cluster');
+      const ytTxt = document.getElementById('yt-btn-txt');
+      const pBox = document.getElementById('yt-dl-progress-box');
+      const pBar = document.getElementById('yt-dl-bar');
+      const pStatus = document.getElementById('yt-dl-status');
+      const pSpeed = document.getElementById('yt-dl-speed');
+
+      if (ytSplit) ytSplit.classList.add('is-split');
+      if (ytTxt) ytTxt.innerText = 'DESCARGANDO...';
+      if (pBox) pBox.style.display = 'flex';
+
+      let simPct = 0;
+      const dlLoop = setInterval(() => {
+        simPct = (simPct + 3.2) % 100;
+        if (pBar) pBar.style.width = `${simPct.toFixed(1)}%`;
+        if (pStatus) pStatus.innerText = simPct >= 95 ? 'Completando...' : 'Descargando...';
+        if (pSpeed) pSpeed.innerText = `${simPct.toFixed(0)}% • 22.8 MB/s`;
+      }, 70);
+      ytTourDemoIntervals.push(dlLoop);
+    }
+  }
+
+  function renderYtTourStep(stepIdx) {
+    stopAllYtTourDemos();
+    clearTourHighlights();
+    const step = ytTourSteps[stepIdx];
+    if (!step) {
+      endYtTour();
+      return;
+    }
+
+    currentYtTourStep = stepIdx;
+    if (tourBadge) tourBadge.textContent = `YOUTUBE • PASO ${stepIdx + 1} DE ${ytTourSteps.length}`;
+    if (tourTitle) tourTitle.textContent = step.title;
+    if (tourDesc) tourDesc.textContent = step.desc;
+
+    // Asegurar apertura del panel derecho para los pasos técnicos
+    if (['yt_format_options', 'yt_resolutions', 'yt_dest_folder', 'yt_download_trigger'].includes(step.id)) {
+      document.body.classList.add('yt-has-selection');
+      const sidebar = document.getElementById('yt-sidebar-box');
+      if (sidebar) sidebar.style.display = 'flex';
+      setTimeout(() => refreshAllGliders(), 80);
+    }
+
+    let targetEls = [];
+    try {
+      targetEls = document.querySelectorAll(step.target);
+      targetEls.forEach(el => el.classList.add('tour-highlighted-element'));
+      applyYtSelectiveBlur(targetEls, step.id);
+    } catch (e) {
+      console.warn('[YtTour] Fallo localizando objetivo:', e);
+    }
+
+    const firstTarget = targetEls[0] || document.body;
+    try {
+      positionTourCard(firstTarget, step.placement);
+    } catch (e) {
+      console.warn('[YtTour] Fallo posicionando tarjeta:', e);
+    }
+
+    try {
+      startYtStepInteractiveDemo(step.id);
+    } catch (e) {
+      console.warn('[YtTour] Fallo en demo:', e);
+    }
+
+    if (tourActions) {
+      tourActions.innerHTML = '';
+
+      if (stepIdx > 0) {
+        const btnPrev = document.createElement('button');
+        btnPrev.className = 'btn-tour-secondary';
+        btnPrev.textContent = 'Anterior';
+        btnPrev.addEventListener('click', () => {
+          stopAllYtTourDemos();
+          renderYtTourStep(stepIdx - 1);
+        });
+        tourActions.appendChild(btnPrev);
+      }
+
+      const btnNext = document.createElement('button');
+      btnNext.className = 'btn-tour-primary';
+      btnNext.textContent = stepIdx === ytTourSteps.length - 1 ? '¡A descargar! 🚀' : 'Siguiente ➔';
+      btnNext.addEventListener('click', () => {
+        stopAllYtTourDemos();
+        if (stepIdx === ytTourSteps.length - 1) {
+          endYtTour();
+        } else {
+          renderYtTourStep(stepIdx + 1);
+        }
+      });
+      tourActions.appendChild(btnNext);
+    }
+
+    tourBackdrop?.classList.add('active');
+    tourCard?.classList.add('active');
+  }
+
+  function startYtTour() {
+    ytTourSnapshot = {
+      hasSelection: document.body.classList.contains('yt-has-selection'),
+      selectedVideo: modeStates.youtube.selectedVideo,
+      query: document.getElementById('yt-search-input')?.value || '',
+      dir: document.getElementById('yt-cfg-dir')?.value || ''
+    };
+
+    const ytCard = document.getElementById('yt-welcome-card');
+    const ytBackdrop = document.getElementById('yt-tutorial-backdrop');
+    if (ytCard) ytCard.style.display = 'none';
+    if (ytBackdrop) ytBackdrop.classList.remove('active');
+
+    renderYtTourStep(0);
+  }
+
+  function endYtTour() {
+    stopAllYtTourDemos();
+    clearTourHighlights();
+    document.body.classList.remove('tour-running-active', 'tour-extension-locked');
+    if (tourBackdrop) {
+      tourBackdrop.classList.remove('active');
+      tourBackdrop.style.pointerEvents = 'none';
+    }
+    if (tourCard) {
+      tourCard.classList.remove('active');
+      tourCard.style.pointerEvents = 'none';
+    }
+
+    // Limpiar y replegar completamente el buscador al estado central en reposo
+    const ytInput = document.getElementById('yt-search-input');
+    const heroWrapper = document.getElementById('yt-hero-wrapper');
+    const resultsDock = document.getElementById('yt-results-dock');
+    const resultsList = document.getElementById('yt-results-list');
+    const clearBtn = document.getElementById('yt-clear-btn');
+    const channelView = document.getElementById('yt-channel-view');
+
+    if (ytInput) {
+      ytInput.value = '';
+      ytInput.blur();
+    }
+    if (clearBtn) clearBtn.style.display = 'none';
+
+    // Cerrar y vaciar la lista desplegable de vídeos
+    if (resultsDock) {
+      resultsDock.classList.remove('active');
+      resultsDock.style.display = 'none';
+    }
+    if (resultsList) resultsList.innerHTML = '';
+
+    // Bajar el buscador a su posición centrada original
+    if (heroWrapper) {
+      heroWrapper.classList.remove('is-searched');
+      heroWrapper.style.display = 'block';
+    }
+
+    // Ocultar la pantalla de canal si estuviera abierta
+    if (channelView) channelView.style.display = 'none';
+
+    // Cerrar el panel lateral derecho y deseleccionar cualquier vídeo simulado
+    document.body.classList.remove('yt-has-selection');
+    document.querySelectorAll('.yt-video-card, .yt-grid-video-card').forEach(c => c.classList.remove('selected', 'kb-focused'));
+    modeStates.youtube.selectedVideo = null;
+
+    // Restaurar directorio local si el usuario tenía uno guardado
+    if (ytTourSnapshot && ytTourSnapshot.dir) {
+      const dirInput = document.getElementById('yt-cfg-dir');
+      if (dirInput) dirInput.value = ytTourSnapshot.dir;
+    }
+  }
 
   // ========================================================
   // INICIALIZACIÓN MÓDULO YOUTUBE
@@ -3028,6 +3462,33 @@ document.addEventListener('DOMContentLoaded', () => {
     const video = modeStates.youtube.selectedVideo;
     if (!video) return;
 
+    const targetDir = (ytCfgDir?.value || modeStates.youtube.dir || '').trim();
+    if (!targetDir) {
+      if (typeof playSynth === 'function') playSynth('click');
+      const ytBtnTxt = document.getElementById('yt-btn-txt');
+      const origTxt = ytBtnTxt ? ytBtnTxt.innerText : 'DESCARGAR VÍDEO';
+      if (ytBtnTxt) ytBtnTxt.innerText = 'SELECCIONA RUTA';
+      ytBtnDownload.classList.add('is-empty');
+
+      if (ytCfgDir) {
+        ytCfgDir.focus();
+        ytCfgDir.style.borderColor = '#ff0055';
+        ytCfgDir.style.boxShadow = '0 0 16px rgba(255, 0, 85, 0.4)';
+        setTimeout(() => {
+          ytCfgDir.style.borderColor = '';
+          ytCfgDir.style.boxShadow = '';
+        }, 2000);
+      }
+
+      setTimeout(() => {
+        ytBtnDownload.classList.remove('is-empty');
+        if (ytBtnTxt) ytBtnTxt.innerText = origTxt;
+      }, 1400);
+
+      document.getElementById('yt-btn-browse')?.click();
+      return;
+    }
+
     if (typeof playSynth === 'function') playSynth('chord');
 
     const pBox = document.getElementById('yt-dl-progress-box');
@@ -3042,7 +3503,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const isAudioOnly = modeStates.youtube.format === 'audio';
     const quality = modeStates.youtube.res || '1080';
-    const targetDir = ytCfgDir?.value || modeStates.youtube.dir;
     const shouldOpen = ytCfgOpen ? ytCfgOpen.checked : true;
 
     const task = {
@@ -3135,14 +3595,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const avatarImg = document.getElementById('yt-channel-avatar-img');
     const bannerBox = document.getElementById('yt-channel-banner');
     const subsEl = document.getElementById('yt-channel-subs');
-    const viewsEl = document.getElementById('yt-channel-views');
     const heroCard = document.getElementById('yt-channel-hero');
 
     if (heroCard) heroCard.style.display = 'flex';
     if (nameEl) nameEl.textContent = data.title || fallbackName;
     if (bioEl) bioEl.textContent = (data.description && data.description.trim()) ? data.description : 'Canal oficial de YouTube';
     if (subsEl) subsEl.textContent = data.subscribers || '--';
-    if (viewsEl) viewsEl.textContent = data.views || '--';
 
     if (avatarImg) {
       const avatarSrc = (data.avatar && data.avatar.trim()) ? data.avatar : `https://ui-avatars.com/api/?name=${encodeURIComponent(data.title || 'YT')}&background=ff0055&color=fff&size=128`;
@@ -3279,7 +3737,7 @@ document.addEventListener('DOMContentLoaded', () => {
         channelVideosList = data.videos;
         nextStartIndex = channelVideosList.length + 1;
       }
-      renderChannelVideosDOM();
+      renderChannelVideosGrid();
     });
   });
 
@@ -3305,7 +3763,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       });
       nextStartIndex += data.videos.length;
-      renderChannelVideosDOM();
+      renderChannelVideosGrid();
     } else {
       if (txt) txt.textContent = 'NO HAY MÁS VÍDEOS';
       setTimeout(() => { if (txt) txt.textContent = 'CARGAR MÁS VÍDEOS ▾'; }, 2000);

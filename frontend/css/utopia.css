@@ -4084,6 +4084,49 @@ body.yt-has-selection .yt-sidebar-box {
   animation: ytOrbit 0.7s linear infinite !important;
 }
 
+/* =========================================================
+   ANIMACIONES CINEMÁTICAS DEL TOUR DE YOUTUBE EN BUCLE
+   ========================================================= */
+
+/* Aislamiento selectivo de sub-bloques en el panel lateral durante el tour */
+.yt-sidebar-box .settings-area > div.tour-sub-dimmed,
+.yt-sidebar-box .yt-preview-card.tour-sub-dimmed,
+.yt-sidebar-box .mag-wrapper.tour-sub-dimmed {
+  opacity: 0.12 !important;
+  filter: blur(5px) brightness(0.3) !important;
+  pointer-events: none !important;
+  user-select: none !important;
+  transition: opacity 0.3s ease, filter 0.3s ease !important;
+}
+
+.yt-sidebar-box .settings-area > div.tour-highlighted-element,
+.yt-sidebar-box .mag-wrapper.tour-highlighted-element {
+  opacity: 1 !important;
+  filter: none !important;
+  position: relative !important;
+  z-index: 99992 !important;
+}
+
+/* Pulsación continua en bucle del botón de canal en el paso 2 */
+.yt-video-channel-btn.tour-channel-pulse {
+  animation: ytTourChannelPulse 1.2s cubic-bezier(0.4, 0, 0.6, 1) infinite alternate !important;
+  border-color: var(--color-accent-1, #ff0055) !important;
+  background: rgba(255, 0, 85, 0.25) !important;
+  color: #ffffff !important;
+}
+
+@keyframes ytTourChannelPulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 6px var(--color-glow, rgba(255, 0, 85, 0.4));
+  }
+  100% {
+    transform: scale(1.15) translateY(-2px);
+    box-shadow: 0 0 24px var(--color-accent-1, #ff0055), inset 0 0 10px rgba(255, 255, 255, 0.5);
+    border-color: #ffffff !important;
+  }
+}
+
 /* TARJETAS VERTICALES DEL CATÁLOGO DEL CANAL */
 .yt-grid-video-card {
   display: flex;
@@ -5738,6 +5781,54 @@ body.tour-running-active .tour-blurred-zone {
   transition: opacity 0.3s ease, filter 0.3s ease !important;
 }
 
+/* ENFOQUE Y AISLAMIENTO SELECTIVO EN EL TOUR DE YOUTUBE */
+.mode-youtube .yt-sidebar-box.tour-highlighted-element,
+.mode-youtube #yt-hero-wrapper.tour-highlighted-element,
+.mode-youtube .yt-search-col.tour-highlighted-element {
+  position: relative !important;
+  z-index: 99988 !important;
+  opacity: 1 !important;
+  filter: none !important;
+  pointer-events: auto !important;
+}
+
+/* Atenuación precisa de sub-bloques dentro de la columna derecha de YouTube */
+.yt-sidebar-box .settings-area > div.tour-sub-dimmed,
+.yt-sidebar-box .yt-preview-card.tour-sub-dimmed,
+.yt-sidebar-box .mag-wrapper.tour-sub-dimmed {
+  opacity: 0.14 !important;
+  filter: blur(4px) brightness(0.35) !important;
+  pointer-events: none !important;
+  transition: opacity 0.3s ease, filter 0.3s ease !important;
+}
+
+.yt-sidebar-box .settings-area > div.tour-highlighted-element,
+.yt-sidebar-box .mag-wrapper.tour-highlighted-element {
+  opacity: 1 !important;
+  filter: none !important;
+  position: relative !important;
+  z-index: 99992 !important;
+}
+
+/* Animación pulsante demostrativa para el botón de canal del paso 2 */
+.yt-video-channel-btn.tour-channel-pulse {
+  animation: ytTourChannelPulse 1.4s ease-in-out infinite alternate !important;
+  border-color: var(--color-accent-1, #ff0055) !important;
+  background: rgba(255, 0, 85, 0.22) !important;
+}
+
+@keyframes ytTourChannelPulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 6px var(--color-glow, rgba(255, 0, 85, 0.4));
+  }
+  100% {
+    transform: scale(1.12);
+    box-shadow: 0 0 20px var(--color-accent-1, #ff0055), inset 0 0 8px rgba(255, 255, 255, 0.4);
+    color: #ffffff;
+  }
+}
+
 /* El bloque activo dentro de Ingeniería Multimedia sobresale nítido */
 .settings-area > div.tour-highlighted-element {
   position: relative !important;
@@ -6085,4 +6176,47 @@ body.tour-running-active .tour-blurred-zone {
   pointer-events: auto !important;
   cursor: pointer !important;
   z-index: 100000 !important;
+}
+
+/* =========================================================
+   ANIMACIONES CINEMÁTICAS DEL TOUR DE YOUTUBE EN BUCLE
+   ========================================================= */
+
+/* Atenuación del resto de bloques del panel derecho durante el tour */
+.yt-sidebar-box .settings-area > div.tour-sub-dimmed,
+.yt-sidebar-box .yt-preview-card.tour-sub-dimmed,
+.yt-sidebar-box .mag-wrapper.tour-sub-dimmed {
+  opacity: 0.12 !important;
+  filter: blur(5px) brightness(0.3) !important;
+  pointer-events: none !important;
+  user-select: none !important;
+  transition: opacity 0.3s ease, filter 0.3s ease !important;
+}
+
+.yt-sidebar-box .settings-area > div.tour-highlighted-element,
+.yt-sidebar-box .mag-wrapper.tour-highlighted-element {
+  opacity: 1 !important;
+  filter: none !important;
+  position: relative !important;
+  z-index: 99992 !important;
+}
+
+/* Pulsación continua en bucle del botón de canal en el paso 2 */
+.yt-video-channel-btn.tour-channel-pulse {
+  animation: ytTourChannelPulse 1.2s cubic-bezier(0.4, 0, 0.6, 1) infinite alternate !important;
+  border-color: var(--color-accent-1, #ff0055) !important;
+  background: rgba(255, 0, 85, 0.25) !important;
+  color: #ffffff !important;
+}
+
+@keyframes ytTourChannelPulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 6px var(--color-glow, rgba(255, 0, 85, 0.4));
+  }
+  100% {
+    transform: scale(1.15) translateY(-2px);
+    box-shadow: 0 0 24px var(--color-accent-1, #ff0055), inset 0 0 10px rgba(255, 255, 255, 0.5);
+    border-color: #ffffff !important;
+  }
 }

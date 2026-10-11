@@ -397,9 +397,16 @@ class AurionBridge:
 
     def start_downloads(self, payload):
         """Inicia el proceso de descarga delegando al downloader."""
+        config = payload.get("config", {}) if isinstance(payload, dict) else {}
+        dest_dir = str(config.get("dir") or "").strip()
+
+        # Blindaje: si no hay ruta válida especificada, bloquear la descarga
+        if not dest_dir:
+            print("[BRIDGE ERROR] Intento de descarga bloqueado: no se especificó ruta de destino.")
+            return False
+
         print(f"\n[DEBUG BRIDGE] start_downloads recibido!")
         tasks = payload.get("tasks", [])
-        config = payload.get("config", {})
         print(f"[DEBUG BRIDGE] Tareas a descargar: {len(tasks)}")
         for t in tasks:
             print(f"   -> Episodio: {t.get('title')} | URL: {t.get('url')}")
@@ -613,7 +620,8 @@ class AurionBridge:
         except Exception as e:
             print(f"[BRIDGE YT ERROR] {e}")
             return None
-        """Extrae perfil completo con avatar/banner panorámico y vídeos recientes."""
+
+    def get_yt_download_options(self, output_path: str, is_audio_only: bool = False, quality: str = "1080"):
         print(f"\n[BRIDGE YT] >>> Canal: '{channel_url_or_name}' | Rango: {start_index}-{start_index + count - 1}")
         if not channel_url_or_name or not channel_url_or_name.strip():
             return None
