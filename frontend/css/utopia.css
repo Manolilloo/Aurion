@@ -517,7 +517,7 @@ input[type=number] {
   box-sizing: border-box;
   height: calc(100vh - 74px);
   overflow: visible !important;
-  transition: max-width 0.3s ease, gap 0.3s ease, padding 0.3s ease;
+  transition: max-width 0.4s var(--ease-spring), gap 0.4s var(--ease-spring), padding 0.3s ease;
   -webkit-app-region: no-drag !important;
 }
 
@@ -535,11 +535,78 @@ input[type=number] {
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.65), 
               inset 0 1px 1px rgba(255, 255, 255, 0.18),
               inset 0 -1px 2px rgba(0, 0, 0, 0.4) !important;
-  transition: flex 0.3s ease, width 0.3s ease, border-radius 0.3s ease;
+  transition: flex 0.45s cubic-bezier(0.16, 1, 0.3, 1),
+              width 0.45s cubic-bezier(0.16, 1, 0.3, 1),
+              max-width 0.45s cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 0.35s ease,
+              transform 0.45s cubic-bezier(0.16, 1, 0.3, 1),
+              margin 0.45s cubic-bezier(0.16, 1, 0.3, 1);
   -webkit-app-region: no-drag !important;
   transform: translateZ(0);
-  will-change: transform;
-  contain: layout style;
+  will-change: transform, width, opacity;
+}
+
+/* ========================================================
+   ESTADO REACTIVO STANDBY // PIPELINE OCULTO (COLA VACÍA)
+   ======================================================== */
+.cockpit.pipeline-idle .glass-box:first-child {
+  flex: 0 0 0px !important;
+  width: 0px !important;
+  max-width: 0px !important;
+  min-width: 0px !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transform: translateX(-45px) scale(0.92) !important;
+  margin-right: -24px !important; /* Absorbe el gap con la columna central */
+  border-color: transparent !important;
+  overflow: hidden !important;
+}
+
+/* Tarjeta central expandida y protagonista en Standby */
+.cockpit.pipeline-idle .center-stage {
+  max-width: 620px !important;
+  flex: 1 1 600px !important;
+  align-self: center !important;
+}
+
+.cockpit.pipeline-idle .workspace-card {
+  max-width: 540px !important;
+  height: 100% !important;
+  max-height: calc(100vh - 120px) !important;
+}
+
+.cockpit.pipeline-idle .parallax-wrap {
+  height: 600px !important;
+  max-height: calc(100vh - 210px) !important;
+}
+
+/* Consola de Ingeniería Multimedia ancha y con todo su contenido a la vista */
+.cockpit.pipeline-idle .glass-box:last-child {
+  flex: 0 0 540px !important;
+  width: 540px !important;
+  height: 100% !important;
+  max-height: calc(100vh - 120px) !important;
+  align-self: center !important;
+}
+
+/* POP & COLAPSO ELÁSTICO DEL BOTÓN MAESTRO EN STANDBY */
+.cockpit.pipeline-idle #mag-wrap {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transform: scale(0.4) translateY(20px) !important;
+  height: 0px !important;
+  min-height: 0px !important;
+  margin: 0 !important;
+  overflow: hidden !important;
+  transition: all 0.38s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+}
+
+#mag-wrap {
+  transition: opacity 0.35s ease,
+              transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1),
+              height 0.4s ease,
+              margin 0.4s ease !important;
+  transform: scale(1) translateY(0);
 }
 
 .glass-box:hover {
@@ -924,35 +991,61 @@ input:checked + .switch-slider:before {
 
 /* CHIPS PROFESIONALES ESCALADOS CON TACTO PREMIUM */
 .chip-group {
-  position: relative;
-  display: flex;
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.65) 0%, rgba(0, 0, 0, 0.45) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.75), inset 0 -1px 1px rgba(255, 255, 255, 0.05);
-  border-radius: 14px;
-  padding: 3px;
-  height: 38px;
-  align-items: center;
-  overflow: hidden; /* Mantiene la estética pero con amortiguación */
+  position: relative !important;
+  display: flex !important;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.65) 0%, rgba(0, 0, 0, 0.45) 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.75), inset 0 -1px 1px rgba(255, 255, 255, 0.05) !important;
+  border-radius: 14px !important;
+  padding: 3px !important;
+  height: 38px !important;
+  align-items: center !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
 }
 
 .chip-glider {
-  position: absolute;
-  top: 3px;
-  left: 0;
-  height: calc(100% - 6px);
-  background: linear-gradient(135deg, var(--color-accent-1) 0%, #ffffff 180%);
-  border-radius: 11px;
+  position: absolute !important;
+  top: 3px !important;
+  left: 0 !important;
+  height: calc(100% - 6px) !important;
+  background: linear-gradient(135deg, var(--color-accent-1) 0%, #ffffff 180%) !important;
+  border-radius: 11px !important;
   box-shadow: 0 4px 14px var(--color-glow), 
               inset 0 1px 2px rgba(255, 255, 255, 0.75), 
-              inset 0 -1px 2px rgba(0, 0, 0, 0.35);
-  transition: transform 0.32s cubic-bezier(0.25, 1.25, 0.5, 1), 
-              width 0.26s cubic-bezier(0.25, 1.25, 0.5, 1);
-  pointer-events: none;
-  transform-origin: center center;
+              inset 0 -1px 2px rgba(0, 0, 0, 0.35) !important;
+  transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1), 
+              width 0.24s cubic-bezier(0.2, 0.8, 0.2, 1) !important;
+  pointer-events: none !important;
+  z-index: 1 !important;
   will-change: transform, width;
-  transform: translateZ(0);
-  opacity: 1;
+}
+
+.chip-btn {
+  flex: 1 1 0% !important;
+  height: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+  background: transparent !important;
+  border: none !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.6px !important;
+  color: #94a3b8 !important;
+  cursor: pointer !important;
+  position: relative !important;
+  z-index: 3 !important; /* Siempre por encima del fondo amarillo */
+  user-select: none !important;
+  transition: color 0.18s ease !important;
+}
+
+.chip-btn.active {
+  color: #05080e !important; /* Texto negro contrastado nítido dentro de la pastilla */
+  font-weight: 900 !important;
 }
 
 /* Ocultar glider solo si no hay selección activa */
@@ -1026,7 +1119,9 @@ body.yt-has-selection .yt-sidebar-box .chip-glider {
 }
 
 .chip-btn {
-  flex: 1;
+  flex: 1 1 0% !important;
+  width: 100% !important;
+  text-align: center !important;
   background: transparent;
   border: none;
   padding: 8px 0;
@@ -1035,8 +1130,11 @@ body.yt-has-selection .yt-sidebar-box .chip-glider {
   letter-spacing: 0.6px;
   color: #94a3b8;
   cursor: pointer;
-  z-index: 2;
-  position: relative;
+  z-index: 2 !important;
+  position: relative !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
   transition: color 0.18s ease, transform 0.15s ease;
 }
 
@@ -1111,6 +1209,8 @@ body.yt-has-selection .yt-sidebar-box .chip-glider {
   position: relative !important;
   box-sizing: border-box !important;
   overflow: visible !important;
+  transition: max-width 0.45s cubic-bezier(0.16, 1, 0.3, 1),
+              flex 0.45s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .welcome-card {
@@ -2615,312 +2715,185 @@ body.is-single-season #section-steppers {
 }
 
 /* =========================================================
-   SISTEMA RESPONSIVO MULTI-RESOLUCIÓN (1080p / 1440p 2K / 4K)
+   OPCIÓN C: ESCALA PROPORCIONAL ESCÉNICA (MAXI BOOST)
    ========================================================= */
 
-/* --- NIVEL 1: PANTALLAS 1080p (Full HD maximizado) --- */
+/* 1. SEPARACIÓN CUIDADA DEL CONMUTADOR SUPERIOR */
+body.is-maximized .top-nav {
+  height: 90px !important;
+  padding: 0 42px !important;
+}
+
 body.is-maximized .switch-center-anchor {
-  top: 18px !important;
+  position: absolute !important;
+  top: 32px !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  margin: 0 !important;
 }
 
 body.is-maximized .matrix-switch {
-  width: 320px !important;
+  width: 325px !important;
   height: 44px !important;
 }
 
-body.is-maximized .matrix-opt {
-  font-size: 13px !important;
-}
-
+/* 2. ESCENARIO Y CABINA: ESCALA GIGANTE Y CENTRADA CON ESPACIO PARA LAS 3 COLUMNAS */
 body.is-maximized .cockpit {
-  max-width: 1480px !important;
+  max-width: 1780px !important;
   width: 96vw !important;
-  height: calc(100vh - 78px) !important;
-  gap: 24px !important;
-  padding: 10px 24px 16px 24px !important;
-}
-
-body.is-maximized .yt-cockpit {
-  max-width: 1680px !important;
-  gap: 32px !important;
-  padding-top: 38px !important; /* Separación amplia para no rozar el conmutador */
-}
-
-body.is-maximized.yt-has-selection .yt-sidebar-box {
-  flex: 0 0 500px !important;
-  width: 500px !important;
-}
-
-body.is-maximized .yt-chips-resolutions {
-  height: 38px !important;
-}
-
-body.is-maximized .yt-chips-resolutions .chip-btn {
-  font-size: 10px !important;
-}
-
-body.is-maximized .glass-box {
-  flex: 0 0 395px !important;
-  width: 395px !important;
-  border-radius: 26px !important;
-}
-
-body.is-maximized .glass-inner {
-  padding: 20px 22px !important;
-  gap: 12px !important;
-}
-
-body.is-maximized .settings-area {
-  gap: 13px !important;
-}
-
-body.is-maximized .search-input {
-  font-size: 12.5px !important;
-  padding: 10px 14px !important;
-}
-
-body.is-maximized .toggle-card {
-  padding: 11px 16px !important;
-}
-
-body.is-maximized .stepper-box {
-  padding: 4px 8px !important;
-}
-
-body.is-maximized .step-btn {
-  width: 30px !important;
-  height: 30px !important;
-  font-size: 16px !important;
-}
-
-body.is-maximized .step-val {
-  font-size: 15px !important;
-}
-
-body.is-maximized .chip-group {
-  height: 42px !important;
-}
-
-body.is-maximized .chip-btn {
-  font-size: 12px !important;
-}
-
-body.is-maximized .center-stage {
-  max-width: 620px !important;
+  height: calc(100vh - 92px) !important;
   display: flex !important;
+  justify-content: center !important;
   align-items: center !important;
-  justify-content: center !important;
+  gap: 32px !important;
+  padding: 10px 24px 20px 24px !important;
 }
 
-body.is-maximized .workspace-card {
-  max-width: 480px !important;
-  width: 100% !important;
+/* 2.1 PIPELINE ACTIVO EN MAXIMIZADO: CLON EXACTO DE LA CONSOLA DERECHA */
+body.is-maximized #cockpit-grid .glass-box:first-child {
+  flex: 0 0 520px !important;
+  width: 520px !important;
+  height: auto !important;
+  max-height: 610px !important; /* Altura emparejada con el póster y la consola */
+  align-self: center !important;
+  border-radius: 30px !important;
+}
+
+body.is-maximized #cockpit-grid .glass-box:first-child .glass-inner {
   height: 100% !important;
-  justify-content: center !important;
-  gap: 10px !important;
-  padding: 0 !important;
+  max-height: 610px !important;
+  padding: 24px 28px !important;
+  gap: 14px !important;
+  display: flex !important;
+  flex-direction: column !important;
 }
 
-body.is-maximized .search-container {
+body.is-maximized #cockpit-grid .glass-box:first-child .queue-area {
+  flex: 1 1 auto !important;
+  min-height: 280px !important;
+  max-height: 440px !important;
+  overflow-y: auto !important;
+  padding-right: 6px !important;
+}
+
+body.is-maximized #cockpit-grid .glass-box:first-child .neu-controls {
+  margin-top: auto !important;
+  padding-top: 8px !important;
+}
+
+/* 3. LADO IZQUIERDO: PÓSTER Y BUSCADOR MASIVOS */
+body.is-maximized #cockpit-grid .center-stage,
+body.is-maximized #cockpit-grid.pipeline-idle .center-stage {
+  max-width: 680px !important;
+  flex: 1.1 1 640px !important;
+  height: auto !important;
+  align-self: center !important;
+}
+
+body.is-maximized #cockpit-grid .workspace-card,
+body.is-maximized #cockpit-grid.pipeline-idle .workspace-card {
+  max-width: 640px !important;
   width: 100% !important;
-  margin: 0 !important;
-  padding: 0 !important;
+  height: auto !important;
+  gap: 18px !important;
 }
 
-body.is-maximized .parallax-wrap {
+body.is-maximized #cockpit-grid .search-container {
   width: 100% !important;
-  flex: 0 0 auto !important;
-  height: calc(100vh - 230px) !important;
-  min-height: 500px !important;
-  max-height: 640px !important;
+}
+
+body.is-maximized #cockpit-grid .search-container .search-input {
+  height: 60px !important;
+  font-size: 15.5px !important;
+  border-radius: 30px !important;
+  padding: 0 24px !important;
+}
+
+body.is-maximized #cockpit-grid .parallax-wrap,
+body.is-maximized #cockpit-grid.pipeline-idle .parallax-wrap {
+  width: 100% !important;
+  height: 590px !important;
+  max-height: 610px !important;
+  aspect-ratio: auto !important;
   margin: 0 !important;
 }
 
-body.is-maximized .parallax-poster {
-  border-radius: 22px !important;
+/* 4. LADO DERECHO: CONSOLA CLONADA DE VENTANA CON ANCHO ESCALADO (520px) */
+body.is-maximized #cockpit-grid .glass-box:last-child {
+  flex: 0 0 520px !important;
+  width: 520px !important;
+  height: auto !important;
+  align-self: center !important;
+  border-radius: 30px !important;
 }
 
-body.is-maximized .btn-god {
-  width: 320px !important;
-  height: 48px !important;
+body.is-maximized #cockpit-grid .glass-box:last-child .glass-inner {
+  height: auto !important;
+  padding: 24px 28px !important;
+  gap: 14px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: visible !important;
 }
 
-body.is-maximized .btn-god-txt {
-  font-size: 12.5px !important;
+body.is-maximized #cockpit-grid .glass-box:last-child .box-header {
+  font-size: 13.5px !important;
+  letter-spacing: 2px !important;
+  margin-bottom: 2px !important;
+  padding-bottom: 8px !important;
 }
 
+/* COLUMNA VERTICAL IDÉNTICA A MODO VENTANA */
+body.is-maximized #cockpit-grid .settings-area {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 11px !important;
+  width: 100% !important;
+}
 
-/* --- NIVEL 2: PANTALLAS 1440p (2K) Y SUPERIORES (>= 2200px o altura >= 1200px) --- */
-@media (min-width: 2200px), (min-height: 1200px) {
-  body.is-maximized .switch-center-anchor {
-    top: 26px !important;
-  }
+/* CONTROLES AMPLIOS Y CONFORTABLES AL TACTO (46px) */
+body.is-maximized #cockpit-grid .toggle-card {
+  height: 46px !important;
+  min-height: 46px !important;
+  padding: 0 18px !important;
+  border-radius: 15px !important;
+}
 
-  body.is-maximized .matrix-switch {
-    width: 360px !important;
-    height: 48px !important;
-  }
+body.is-maximized #cockpit-grid .toggle-label {
+  font-size: 11px !important;
+}
 
-  body.is-maximized .matrix-opt {
-    font-size: 14px !important;
-  }
+body.is-maximized #cockpit-grid .stepper-box {
+  height: 46px !important;
+  min-height: 46px !important;
+  border-radius: 15px !important;
+}
 
-  body.is-maximized .cockpit {
-    max-width: 1850px !important;
-    gap: 40px !important;
-    padding: 16px 36px 26px 36px !important;
-  }
+body.is-maximized #cockpit-grid .step-btn {
+  width: 32px !important;
+  height: 32px !important;
+}
 
-  body.is-maximized .glass-box {
-    flex: 0 0 490px !important;
-    width: 490px !important;
-    border-radius: 34px !important;
-  }
+body.is-maximized #cockpit-grid .chip-group {
+  height: 46px !important;
+  min-height: 46px !important;
+  border-radius: 15px !important;
+}
 
-  body.is-maximized .glass-inner {
-    padding: 28px 32px !important;
-    gap: 18px !important;
-  }
+body.is-maximized #cockpit-grid .chip-btn {
+  font-size: 11.5px !important;
+}
 
-  body.is-maximized .box-header {
-    font-size: 15px !important;
-    letter-spacing: 2.4px !important;
-    padding-bottom: 12px !important;
-    margin-bottom: 8px !important;
-  }
+body.is-maximized #cockpit-grid #block-threads-simul {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 14px !important;
+}
 
-  body.is-maximized .section-label {
-    font-size: 13px !important;
-    letter-spacing: 1.2px !important;
-    margin-bottom: 9px !important;
-  }
-
-  body.is-maximized .settings-area {
-    gap: 18px !important;
-  }
-
-  body.is-maximized .search-input {
-    font-size: 14.5px !important;
-    padding: 13px 18px !important;
-    border-radius: 16px !important;
-  }
-
-  body.is-maximized .toggle-card {
-    padding: 15px 22px !important;
-    border-radius: 18px !important;
-  }
-
-  body.is-maximized .toggle-label {
-    font-size: 13px !important;
-  }
-
-  body.is-maximized .switch-toggle {
-    width: 52px !important;
-    height: 28px !important;
-  }
-
-  body.is-maximized .switch-slider:before {
-    height: 22px !important;
-    width: 22px !important;
-  }
-
-  body.is-maximized input:checked + .switch-slider:before {
-    transform: translateX(24px) !important;
-  }
-
-  body.is-maximized .stepper-box {
-    padding: 6px 10px !important;
-    border-radius: 16px !important;
-  }
-
-  body.is-maximized .step-btn {
-    width: 38px !important;
-    height: 38px !important;
-    font-size: 20px !important;
-    border-radius: 12px !important;
-  }
-
-  body.is-maximized .step-viewport {
-    height: 34px !important;
-  }
-
-  body.is-maximized .step-val {
-    font-size: 18px !important;
-  }
-
-  body.is-maximized .chip-group {
-    height: 50px !important;
-    border-radius: 18px !important;
-    padding: 4px !important;
-  }
-
-  body.is-maximized .chip-btn {
-    font-size: 14px !important;
-  }
-
-  body.is-maximized .center-stage {
-    max-width: 800px !important;
-  }
-
-  body.is-maximized .workspace-card {
-    max-width: 580px !important;
-    justify-content: center !important;
-    gap: 12px !important;
-  }
-
-  body.is-maximized .search-container {
-    width: 100% !important;
-    margin: 0 !important;
-  }
-
-  body.is-maximized .search-container .search-input {
-    font-size: 15px !important;
-    padding: 13px 18px !important;
-  }
-
-  body.is-maximized .parallax-wrap {
-    width: 100% !important;
-    flex: 0 0 auto !important;
-    height: calc(100vh - 260px) !important;
-    min-height: 620px !important;
-    max-height: 760px !important;
-    margin: 0 !important;
-  }
-
-  body.is-maximized .parallax-poster {
-    border-radius: 28px !important;
-  }
-
-  body.is-maximized .poster-title {
-    font-size: 24px !important;
-  }
-
-  body.is-maximized .poster-tags {
-    font-size: 13px !important;
-  }
-
-  body.is-maximized .btn-god {
-    width: 400px !important;
-    height: 58px !important;
-    border-radius: 32px !important;
-  }
-
-  body.is-maximized .btn-god-txt {
-    font-size: 15px !important;
-    letter-spacing: 2.4px !important;
-  }
-
-  body.is-maximized .telemetry-card {
-    padding: 16px 22px !important;
-  }
-
-  body.is-maximized #disk-drive-name {
-    font-size: 14px !important;
-  }
-
-  body.is-maximized #disk-free-txt {
-    font-size: 13.5px !important;
-  }
+body.is-maximized #cockpit-grid .telemetry-card {
+  margin-top: 6px !important;
+  padding: 12px 16px !important;
+  border-radius: 15px !important;
 }
 
 /* ==========================================================================
