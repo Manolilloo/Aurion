@@ -29,6 +29,15 @@ if (window.top !== window) {
     return Math.round(mb) + ' MB';
   }
 
+  function estimateBytesFromResolution(resStr) {
+    const h = parseInt(resStr, 10);
+    if (!h || isNaN(h)) return 0;
+    // Tasa de transferencia estimada para capítulos de anime (~24 min = 1440 seg)
+    const bitrateMap = { 1080: 2600000, 720: 1400000, 480: 750000, 360: 400000 };
+    const bw = bitrateMap[h] || (h >= 1080 ? 2600000 : 1400000);
+    return Math.round((bw * 1440) / 8);
+  }
+
 function getCleanMediaTitle() {
     let raw = '';
 
@@ -173,7 +182,10 @@ function getCleanMediaTitle() {
         <div class="aurion-pill-preview-box">
           <div class="aurion-pill-preview-top">
             <span class="aurion-pill-server-tag" id="aurion-pill-server">SERVIDOR</span>
-            <span class="aurion-pill-server-tag" id="aurion-pill-meta-tag" style="background: rgba(255,255,255,0.1); color: #fff;">Auto</span>
+            <div style="display: flex; gap: 5px; align-items: center;">
+              <span class="aurion-pill-server-tag" id="aurion-pill-size-tag" style="background: rgba(0,255,170,0.12); color: #00ffaa; border-color: rgba(0,255,170,0.3); display: none;"></span>
+              <span class="aurion-pill-server-tag" id="aurion-pill-meta-tag" style="background: rgba(255,255,255,0.1); color: #fff;">Auto</span>
+            </div>
           </div>
           <div class="aurion-pill-url-preview" id="aurion-pill-url">...</div>
         </div>
@@ -220,11 +232,25 @@ function getCleanMediaTitle() {
     const serverEl = document.getElementById('aurion-pill-server');
     const urlEl = document.getElementById('aurion-pill-url');
     const metaTag = document.getElementById('aurion-pill-meta-tag');
+    const sizeTag = document.getElementById('aurion-pill-size-tag');
 
     if (titleEl) titleEl.innerText = getCleanMediaTitle();
     if (serverEl) serverEl.innerText = media.source || 'STREAM';
     if (urlEl) urlEl.innerText = media.url;
     if (metaTag) metaTag.innerText = media.resolution || 'Auto';
+
+    const displayBytes = (media.bytes && media.bytes > 0) 
+      ? media.bytes 
+      : estimateBytesFromResolution(media.resolution);
+
+    if (sizeTag) {
+      if (displayBytes > 0) {
+        sizeTag.style.display = 'inline-block';
+        sizeTag.innerText = formatBytes(displayBytes);
+      } else {
+        sizeTag.style.display = 'none';
+      }
+    }
 
     positionHUD(pill);
     pill.classList.add('aurion-visible');
@@ -245,12 +271,29 @@ function getCleanMediaTitle() {
   });
 
   window.addEventListener('message', (event) => {
-    if (event.data?.aurionType === 'NATIVE_RES_DETECTED') {
-      const metaTag = document.getElementById('aurion-pill-meta-tag');
-      if (metaTag && event.data.resolution) {
-        metaTag.innerText = event.data.resolution;
-        if (activeMedia) activeMedia.resolution = event.data.resolution;
+  if (event.data?.aurionType === 'NATIVE_RES_DETECTED') {
+    const metaTag = document.getElementById('aurion-pill-meta-tag');
+    const sizeTag = document.getElementById('aurion-pill-size-tag');
+    const newRes = event.data.resolution;
+
+    if (newRes) {
+      if (metaTag) metaTag.innerText = newRes;
+      if (activeMedia) {
+        activeMedia.resolution = newRes;
+        if (!activeMedia.bytes || activeMedia.bytes === 0) {
+          activeMedia.bytes = estimateBytesFromResolution(newRes);
+        }
+      }
+      if (sizeTag) {
+        const b = (activeMedia?.bytes && activeMedia.bytes > 0) 
+          ? activeMedia.bytes 
+          : estimateBytesFromResolution(newRes);
+        if (b > 0) {
+          sizeTag.style.display = 'inline-block';
+          sizeTag.innerText = formatBytes(b);
+        }
       }
     }
-  });
+  }
+});
 }
