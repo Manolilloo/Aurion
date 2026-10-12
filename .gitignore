@@ -16,3 +16,11 @@ __pycache__/
 # Ignorar instalador y script de Inno Setup para no contaminar lenguajes en GitHub
 *.iss
 Output/
+
+# Archivos temporales de iconos y fotos
+foto_nueva.*
+generar_icono_redondo.py
+make_icons.py
+*.ico
+# Si tampoco quieres que se suba el script del instalador:
+installer.iss
