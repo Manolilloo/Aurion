@@ -70,19 +70,19 @@ const youtubeTourSteps = [
       container.innerHTML = `
         <div style="display: flex; flex-direction: column; gap: 14px; align-items: center; width: 100%;">
           <!-- SELECTOR DE FORMATO -->
-          <div class="chip-group" id="demo-fmt-group" style="position: relative; width: 240px; height: 36px;">
-            <div class="chip-glider" id="demo-fmt-glider" style="width: 50%; height: 100%; transform: translateX(0px); background: var(--color-accent-1); border-radius: 8px; opacity: 1; display: block; position: absolute; top: 0; left: 0; transition: transform 0.25s ease;"></div>
-            <button class="chip-btn active" data-val="video" style="flex: 1; z-index: 2; position: relative;">VÍDEO (MP4)</button>
-            <button class="chip-btn" data-val="audio" style="flex: 1; z-index: 2; position: relative;">AUDIO (MP3)</button>
+          <div class="chip-group" id="demo-fmt-group" style="position: relative; width: 240px; height: 36px; background: rgba(255, 255, 255, 0.05); border-radius: 8px; overflow: hidden; padding: 2px; box-sizing: border-box;">
+            <div class="chip-glider" id="demo-fmt-glider" style="position: absolute; top: 2px; left: 2px; width: calc(50% - 2px); height: calc(100% - 4px); transform: translateX(0%); background: var(--color-accent-1); border-radius: 6px; z-index: 1; transition: transform 0.25s ease;"></div>
+            <button class="chip-btn active" data-val="video" style="flex: 1; z-index: 2; position: relative; color: #ffffff !important; font-weight: 800; background: none; border: none;">VÍDEO (MP4)</button>
+            <button class="chip-btn" data-val="audio" style="flex: 1; z-index: 2; position: relative; color: #94a3b8 !important; font-weight: 800; background: none; border: none;">AUDIO (MP3)</button>
           </div>
 
           <!-- SELECTOR DE CALIDADES -->
-          <div class="chip-group yt-chips-resolutions" id="demo-res-group" style="position: relative; width: 320px; height: 36px;">
-            <div class="chip-glider" id="demo-res-glider" style="width: 25%; height: 100%; transform: translateX(25%); background: var(--color-accent-1); border-radius: 8px; opacity: 1; display: block; position: absolute; top: 0; left: 0; transition: transform 0.22s ease;"></div>
-            <button class="chip-btn" style="flex: 1; z-index: 2; position: relative;">720p</button>
-            <button class="chip-btn active" style="flex: 1; z-index: 2; position: relative;">1080p</button>
-            <button class="chip-btn" style="flex: 1; z-index: 2; position: relative;">2K</button>
-            <button class="chip-btn" style="flex: 1; z-index: 2; position: relative;">4K</button>
+          <div class="chip-group yt-chips-resolutions" id="demo-res-group" style="position: relative; width: 320px; height: 36px; background: rgba(255, 255, 255, 0.05); border-radius: 8px; overflow: hidden; padding: 2px; box-sizing: border-box;">
+            <div class="chip-glider" id="demo-res-glider" style="position: absolute; top: 2px; left: 2px; width: calc(25% - 2px); height: calc(100% - 4px); transform: translateX(0%); background: var(--color-accent-1); border-radius: 6px; z-index: 1; transition: transform 0.22s ease;"></div>
+            <button class="chip-btn active" style="flex: 1; z-index: 2; position: relative; color: #ffffff !important; font-weight: 800; background: none; border: none;">720p</button>
+            <button class="chip-btn" style="flex: 1; z-index: 2; position: relative; color: #94a3b8 !important; font-weight: 800; background: none; border: none;">1080p</button>
+            <button class="chip-btn" style="flex: 1; z-index: 2; position: relative; color: #94a3b8 !important; font-weight: 800; background: none; border: none;">2K</button>
+            <button class="chip-btn" style="flex: 1; z-index: 2; position: relative; color: #94a3b8 !important; font-weight: 800; background: none; border: none;">4K</button>
           </div>
         </div>
       `;
@@ -95,11 +95,14 @@ const youtubeTourSteps = [
       let fmtIdx = 0;
       const fmtTimer = setInterval(() => {
         fmtIdx = (fmtIdx + 1) % fmtBtns.length;
-        fmtBtns.forEach((b, i) => b.classList.toggle('active', i === fmtIdx));
+        fmtBtns.forEach((b, i) => {
+          b.classList.toggle('active', i === fmtIdx);
+          b.style.setProperty('color', i === fmtIdx ? '#ffffff' : '#94a3b8', 'important');
+        });
         if (fmtGlider) fmtGlider.style.transform = `translateX(${fmtIdx * 100}%)`;
       }, 1150);
 
-      let resIdx = 1;
+      let resIdx = 0;
       let resForward = true;
       const resTimer = setInterval(() => {
         if (resForward) {
@@ -109,7 +112,10 @@ const youtubeTourSteps = [
           resIdx--;
           if (resIdx <= 0) resForward = true;
         }
-        resBtns.forEach((b, i) => b.classList.toggle('active', i === resIdx));
+        resBtns.forEach((b, i) => {
+          b.classList.toggle('active', i === resIdx);
+          b.style.setProperty('color', i === resIdx ? '#ffffff' : '#94a3b8', 'important');
+        });
         if (resGlider) resGlider.style.transform = `translateX(${resIdx * 100}%)`;
       }, 720);
 
@@ -145,11 +151,109 @@ const youtubeTourSteps = [
         }
       }, 1200);
     }
+  },
+  {
+    title: '6. ¿Fallo temporal? Cancelar y Reintentar',
+    desc: 'Si YouTube bloquea temporalmente una descarga, no te preocupes: pulsa Cancelar y vuelve a darle a Descargar de inmediato para renovar el token.',
+    renderDemo: (container) => {
+      container.innerHTML = `
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%;">
+          <div class="split-cluster is-split" id="yt-demo-fail-split" style="width: 290px; pointer-events: none; transition: transform 0.2s ease;">
+            <button class="btn-god btn-split-main" id="yt-demo-fail-btn" style="flex: 1; transition: background 0.3s ease, border-color 0.3s ease;">
+              <span class="btn-god-txt" id="yt-demo-fail-txt">DESCARGANDO...</span>
+            </button>
+            <button class="btn-split-cancel" id="yt-demo-cancel-btn" style="transition: transform 0.15s ease, background 0.2s ease;">
+              <span>⏹ CANCELAR</span>
+            </button>
+          </div>
+          <div id="yt-demo-status-pill" style="font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 6px; background: rgba(255, 255, 255, 0.05); color: #94a3b8; transition: all 0.3s ease;">
+            DESCARGANDO STREAM...
+          </div>
+        </div>
+      `;
+
+      const cluster = container.querySelector('#yt-demo-fail-split');
+      const mainBtn = container.querySelector('#yt-demo-fail-btn');
+      const mainTxt = container.querySelector('#yt-demo-fail-txt');
+      const cancelBtn = container.querySelector('#yt-demo-cancel-btn');
+      const statusPill = container.querySelector('#yt-demo-status-pill');
+
+      let timer1, timer2, timer3;
+
+      function loopAnimation() {
+        if (!cluster) return;
+
+        // Fase 1: Error simulado
+        cluster.classList.add('is-split');
+        if (mainBtn) {
+          mainBtn.style.background = '#ef4444';
+          mainBtn.style.borderColor = '#dc2626';
+        }
+        if (mainTxt) mainTxt.innerText = '⚠️ ERROR TEMPORAL';
+        if (statusPill) {
+          statusPill.innerText = '1. ¡FALLO DETECTADO! PULSA CANCELAR';
+          statusPill.style.background = 'rgba(239, 68, 68, 0.15)';
+          statusPill.style.color = '#ef4444';
+        }
+
+        // Fase 2: Pulsar cancelar
+        timer1 = setTimeout(() => {
+          if (cancelBtn) {
+            cancelBtn.style.transform = 'scale(0.88)';
+            cancelBtn.style.background = 'rgba(255, 255, 255, 0.25)';
+          }
+          if (statusPill) {
+            statusPill.innerText = '2. PULSANDO CANCELAR...';
+            statusPill.style.color = '#f59e0b';
+            statusPill.style.background = 'rgba(245, 158, 11, 0.15)';
+          }
+
+          // Fase 3: Reinicio y volver a pulsar descargar
+          timer2 = setTimeout(() => {
+            if (cancelBtn) {
+              cancelBtn.style.transform = 'scale(1)';
+              cancelBtn.style.background = '';
+            }
+            cluster.classList.remove('is-split');
+            if (mainBtn) {
+              mainBtn.style.background = '';
+              mainBtn.style.borderColor = '';
+              mainBtn.style.transform = 'scale(0.92)';
+            }
+            if (mainTxt) mainTxt.innerText = 'DESCARGAR VÍDEO';
+            if (statusPill) {
+              statusPill.innerText = '3. ¡PULSA DESCARGAR OTRA VEZ Y FUNCIONARÁ!';
+              statusPill.style.color = 'var(--color-accent-1)';
+              statusPill.style.background = 'rgba(255, 214, 10, 0.15)';
+            }
+
+            timer3 = setTimeout(() => {
+              if (mainBtn) mainBtn.style.transform = 'scale(1)';
+            }, 250);
+          }, 800);
+        }, 1800);
+      }
+
+      loopAnimation();
+      const mainInterval = setInterval(loopAnimation, 4200);
+
+      ytTourDemoInterval = {
+        clear: () => {
+          clearInterval(mainInterval);
+          clearTimeout(timer1);
+          clearTimeout(timer2);
+          clearTimeout(timer3);
+        }
+      };
+    }
   }
 ];
 
 function stopYtTourDemo() {
-  if (Array.isArray(ytTourDemoInterval)) {
+  if (ytTourDemoInterval && typeof ytTourDemoInterval.clear === 'function') {
+    ytTourDemoInterval.clear();
+    ytTourDemoInterval = null;
+  } else if (Array.isArray(ytTourDemoInterval)) {
     ytTourDemoInterval.forEach(id => clearInterval(id));
     ytTourDemoInterval = null;
   } else if (ytTourDemoInterval) {

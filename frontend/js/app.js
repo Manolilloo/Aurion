@@ -569,6 +569,13 @@ function setAppMode(mode, save = true) {
     if (cockpitGrid) cockpitGrid.style.display = 'none';
     if (ytStage) ytStage.style.display = 'flex';
 
+    // Disparar aviso gigante EXCLUSIVAMENTE si es usuario con cero datos
+    setTimeout(() => {
+      if (typeof window.triggerYtTourWelcomeIfVirginUser === 'function') {
+        window.triggerYtTourWelcomeIfVirginUser();
+      }
+    }, 200);
+
     document.body.classList.add('workspace-open');
     const welcomeCard = document.getElementById('welcome-card');
     if (welcomeCard) welcomeCard.style.display = 'none';
@@ -604,12 +611,17 @@ function setAppMode(mode, save = true) {
     }
 
     const selected = modeStates.youtube.selectedVideo;
+    const aL1 = document.getElementById('ambient-layer-1');
+    const aL2 = document.getElementById('ambient-layer-2');
+
     if (selected && selected.thumbnail) {
       const bgVal = `url('${selected.thumbnail}')`;
-      const aL1 = document.getElementById('ambient-layer-1');
-      const aL2 = document.getElementById('ambient-layer-2');
       if (aL1) aL1.style.backgroundImage = bgVal;
       if (aL2) aL2.style.backgroundImage = bgVal;
+    } else {
+      // Limpiar inmediatamente el fondo residual de anime o cine
+      if (aL1) aL1.style.backgroundImage = 'none';
+      if (aL2) aL2.style.backgroundImage = 'none';
     }
 
     const ytAccent1 = modeStates.youtube.accent1 || '#ff0055';
@@ -1987,7 +1999,38 @@ document.addEventListener('DOMContentLoaded', () => {
       } else if (isFinished && isTourStartedFromCenter) {
         // Solo para usuarios novatos sin anime previo iniciado desde el botón central
         if (launcherCenter) launcherCenter.style.display = 'none';
-        if (finishCard) finishCard.style.display = 'flex';
+        if (finishCard) {
+          finishCard.style.display = 'flex';
+
+          // Inyectar botón de Ir al Tour de YouTube si no existe ya
+          let btnGoYt = document.getElementById('btn-tour-finish-go-youtube');
+          if (!btnGoYt) {
+            btnGoYt = document.createElement('button');
+            btnGoYt.id = 'btn-tour-finish-go-youtube';
+            btnGoYt.className = 'btn-god';
+            btnGoYt.style.cssText = 'margin-top: 10px; width: 100%; background: #ff0055; border: none; font-size: 13px; font-weight: 800; color: #fff; cursor: pointer; padding: 12px; border-radius: 8px; box-shadow: 0 4px 18px rgba(255, 0, 85, 0.35);';
+            btnGoYt.innerHTML = '<span>Ver Tour de YouTube ➔</span>';
+            
+            btnGoYt.addEventListener('click', () => {
+              if (typeof playSynth === 'function') playSynth('chord');
+              finishCard.style.display = 'none';
+              setAppMode('youtube', true);
+              setTimeout(() => {
+                if (typeof openYtTourModal === 'function') {
+                  openYtTourModal();
+                }
+              }, 250);
+            });
+
+            // Insertar justo antes del botón de cerrar o al final de la tarjeta
+            const closeBtn = document.getElementById('btn-tour-finish-close');
+            if (closeBtn && closeBtn.parentNode) {
+              closeBtn.parentNode.insertBefore(btnGoYt, closeBtn);
+            } else {
+              finishCard.appendChild(btnGoYt);
+            }
+          }
+        }
       } else {
         if (finishCard) finishCard.style.display = 'none';
         if (launcherCenter) launcherCenter.style.display = 'flex';
@@ -2005,6 +2048,8 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-tour-finish-close')?.addEventListener('click', () => {
     const finishCard = document.getElementById('tour-finished-card');
     if (finishCard) finishCard.style.display = 'none';
+    const btnGoYt = document.getElementById('btn-tour-finish-go-youtube');
+    if (btnGoYt) btnGoYt.remove();
     document.getElementById('tour-launcher-center')?.classList.remove('is-hidden');
   });
 

@@ -3,6 +3,91 @@
 // ========================================================
 
 window.initYoutubeModule = function() {
+  const TOUR_VERSION_KEY = 'aurion_yt_tour_v1.1.2_shown';
+
+  // Función global expuesta para dispararse ÚNICAMENTE al cambiar a modo YouTube
+  window.triggerYtTourWelcomeIfVirginUser = function() {
+    if (window.currentMode !== 'youtube') return;
+    if (localStorage.getItem(TOUR_VERSION_KEY)) return;
+
+    // Comprobación estricta de CERO DATOS en todo el ecosistema (Anime, Cine o YouTube)
+    const states = window.modeStates || {};
+    const anime = states.anime || {};
+    const movie = states.movie || {};
+    const yt = states.youtube || {};
+
+    const hasAnimeData = !!(
+      (anime.dir && anime.dir.trim().length > 0) ||
+      (anime.title && anime.title !== 'Esperando consulta...' && anime.title.trim() !== '') ||
+      (anime.bg && anime.bg.trim() !== '' && anime.bg !== 'none')
+    );
+
+    const hasMovieData = !!(
+      (movie.dir && movie.dir.trim().length > 0) ||
+      (movie.title && movie.title !== 'Esperando consulta...' && movie.title.trim() !== '')
+    );
+
+    const hasYtData = !!(yt.dir && yt.dir.trim().length > 0);
+
+    // Si el usuario tiene CUALQUIER dato previo configurado, NO es nuevo usuario
+    if (hasAnimeData || hasMovieData || hasYtData) {
+      return;
+    }
+
+    if (document.getElementById('yt-giant-welcome-backdrop')) return;
+
+    const backdrop = document.createElement('div');
+    backdrop.id = 'yt-giant-welcome-backdrop';
+    backdrop.style.cssText = `
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.78);
+      backdrop-filter: blur(8px);
+      z-index: 100000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: fadeInModal 0.25s ease-out;
+    `;
+
+    backdrop.innerHTML = `
+      <div style="background: #111215; border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 20px; width: 90%; max-width: 540px; padding: 36px; box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8); display: flex; flex-direction: column; align-items: center; text-align: center; gap: 20px; color: #f8fafc;">
+        <div style="width: 68px; height: 68px; border-radius: 50%; background: rgba(255, 0, 85, 0.12); border: 1px solid rgba(255, 0, 85, 0.3); display: flex; align-items: center; justify-content: center; font-size: 32px;">
+          🎬
+        </div>
+        <div>
+          <h2 style="font-size: 22px; font-weight: 800; color: #ffffff; margin-bottom: 8px;">¿Quieres empezar el tutorial de YouTube?</h2>
+          <p style="font-size: 14px; color: #94a3b8; line-height: 1.5; margin: 0;">
+            Parece que es tu primera vez aquí. Si no sabes por dónde empezar, te mostramos en un instante cómo buscar, seleccionar resoluciones y descargar vídeos o listas completas sin fallos.
+          </p>
+        </div>
+        <div style="background: rgba(255, 255, 255, 0.04); border-radius: 10px; padding: 12px 16px; font-size: 12px; color: #cbd5e1; width: 100%; text-align: left; display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 16px;">💡</span>
+          <span>Si lo prefieres ver luego, siempre tendrás el botón del <strong>Tour</strong> disponible arriba a la derecha.</span>
+        </div>
+        <div style="display: flex; width: 100%; gap: 12px; margin-top: 8px;">
+          <button id="btn-giant-yt-later" class="btn-neu" style="flex: 1; padding: 12px; font-size: 13px; font-weight: 600; cursor: pointer; border-radius: 10px; background: rgba(255, 255, 255, 0.06); color: #94a3b8; border: 1px solid rgba(255, 255, 255, 0.08);">Más tarde</button>
+          <button id="btn-giant-yt-start" class="btn-neu" style="flex: 1.4; padding: 12px; font-size: 14px; font-weight: 800; cursor: pointer; border-radius: 10px; background: var(--color-accent-1, #ffd60a); color: #000; border: none;">¡Empezar tutorial! 🚀</button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(backdrop);
+
+    backdrop.querySelector('#btn-giant-yt-later')?.addEventListener('click', () => {
+      localStorage.setItem(TOUR_VERSION_KEY, 'true');
+      backdrop.remove();
+    });
+
+    backdrop.querySelector('#btn-giant-yt-start')?.addEventListener('click', () => {
+      localStorage.setItem(TOUR_VERSION_KEY, 'true');
+      backdrop.remove();
+      if (typeof window.openYtTourModal === 'function') {
+        window.openYtTourModal();
+      }
+    });
+  };
+
   const ytSearchInput = document.getElementById('yt-search-input');
   const ytHeroWrapper = document.getElementById('yt-hero-wrapper');
   const ytResultsDock = document.getElementById('yt-results-dock');
@@ -433,49 +518,92 @@ window.initYoutubeModule = function() {
     });
   });
 
-  // CHECKBOX ABRIR CARPETA AL COMPLETAR (Conexión precisa)
-  const ytCfgOpenFolder = document.getElementById('yt-cfg-open-folder');
-  const ytCardOpenFolder = document.getElementById('yt-card-open-folder');
+  // SELECTOR DE CARPETA DE DESCARGA (Bloqueo antirrebotey ventana única)
+  const ytBtnBrowse = document.getElementById('yt-btn-browse');
+  const ytCfgDir = document.getElementById('yt-cfg-dir');
+  let isBrowsingFolder = false;
 
-  if (ytCfgOpenFolder) {
-    // Si en modeStates ya está guardado false explícito, respetarlo
-    if (window.modeStates?.youtube && typeof window.modeStates.youtube.open_folder === 'boolean') {
-      ytCfgOpenFolder.checked = window.modeStates.youtube.open_folder;
+  ytBtnBrowse?.addEventListener('click', async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+
+    if (isBrowsingFolder) return;
+    isBrowsingFolder = true;
+
+    if (typeof window.playSynth === 'function') window.playSynth('click');
+
+    try {
+      const selected = await window.pyCall('select_folder');
+      if (selected && ytCfgDir) {
+        ytCfgDir.value = selected;
+        if (window.modeStates?.youtube) {
+          window.modeStates.youtube.dir = selected;
+        }
+        if (typeof window.saveCurrentState === 'function') window.saveCurrentState();
+      }
+    } catch (err) {
+      console.error('[YouTube] Error abriendo selector de carpeta:', err);
+    } finally {
+      // Pequeño retardo para evitar que cualquier evento encolado vuelva a abrirlo
+      setTimeout(() => {
+        isBrowsingFolder = false;
+      }, 400);
     }
+  });
 
-    const toggleOpenFolder = (forcedVal = null) => {
-      const nextVal = (forcedVal !== null) ? forcedVal : ytCfgOpenFolder.checked;
-      ytCfgOpenFolder.checked = nextVal;
+  // TOGGLE ABRIR CARPETA AL COMPLETAR (Visual + Estado Sincronizado)
+  const ytCfgOpenFolder = document.getElementById('yt-cfg-open-folder');
+  const ytCardOpenFolder = document.getElementById('yt-card-open-folder') || ytCfgOpenFolder?.closest('.config-row, .setting-card, div');
+  const ytSwitchEl = ytCardOpenFolder?.querySelector('.switch, .toggle-switch, .chip-toggle') || ytCfgOpenFolder;
 
-      if (window.modeStates && window.modeStates.youtube) {
-        window.modeStates.youtube.open_folder = nextVal;
-      }
-      if (typeof window.playSynth === 'function') {
-        window.playSynth('click');
-      }
-      if (typeof window.saveCurrentState === 'function') {
-        window.saveCurrentState();
-      }
-    };
-
-    ytCfgOpenFolder.addEventListener('change', (e) => {
-      e.stopPropagation();
-      toggleOpenFolder(e.target.checked);
+  function syncToggleVisual(isActive) {
+    if (ytCfgOpenFolder) {
+      ytCfgOpenFolder.checked = isActive;
+    }
+    // Sincronizar clases visuales comunes en utopia.css
+    [ytCardOpenFolder, ytSwitchEl, ytCfgOpenFolder].forEach(el => {
+      if (!el) return;
+      el.classList.toggle('active', isActive);
+      el.classList.toggle('is-active', isActive);
+      el.classList.toggle('checked', isActive);
     });
 
-    // Permitir hacer clic también en la tarjeta entera o en el switch
+    if (window.modeStates && window.modeStates.youtube) {
+      window.modeStates.youtube.open_folder = isActive;
+    }
+    if (typeof window.saveCurrentState === 'function') window.saveCurrentState();
+  }
+
+  if (ytCfgOpenFolder || ytCardOpenFolder) {
+    // Determinar valor inicial guardado o activo por defecto
+    let currentVal = true;
+    if (window.modeStates?.youtube && typeof window.modeStates.youtube.open_folder === 'boolean') {
+      currentVal = window.modeStates.youtube.open_folder;
+    } else if (ytCfgOpenFolder) {
+      currentVal = ytCfgOpenFolder.checked;
+    }
+    syncToggleVisual(currentVal);
+
+    const handleToggleClick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const nextVal = !(window.modeStates?.youtube?.open_folder ?? (ytCfgOpenFolder ? ytCfgOpenFolder.checked : true));
+      if (typeof window.playSynth === 'function') window.playSynth('click');
+      syncToggleVisual(nextVal);
+    };
+
     if (ytCardOpenFolder) {
       ytCardOpenFolder.style.cursor = 'pointer';
-      ytCardOpenFolder.addEventListener('click', (e) => {
-        // Si el clic fue directo en el input, ya se encarga el evento change
-        if (e.target === ytCfgOpenFolder) return;
-        e.preventDefault();
-        toggleOpenFolder(!ytCfgOpenFolder.checked);
-      });
+      ytCardOpenFolder.onclick = handleToggleClick;
+    } else if (ytCfgOpenFolder) {
+      ytCfgOpenFolder.style.cursor = 'pointer';
+      ytCfgOpenFolder.onclick = handleToggleClick;
     }
   }
 
-  // SELECTOR DE RESOLUCIONES Y ARRASTRE FLUIDO EN TIEMPO REAL (60/165 FPS)
+  // SELECTOR DE RESOLUCIÓN (Sonidos al cambiar de paso y tope magnético fijo)
   const ytResChips = document.getElementById('yt-res-chips');
   function snapGliderToBtn(group, targetBtn, withJelly = false, direction = 0) {
     if (!group || !targetBtn) return;
@@ -487,17 +615,9 @@ window.initYoutubeModule = function() {
     const width = targetBtn.offsetWidth;
 
     if (glider) {
-      glider.style.transition = 'transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1), width 0.25s ease';
+      glider.style.transition = 'transform 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.2), width 0.2s ease';
       glider.style.width = `${width}px`;
       glider.style.transform = `translateX(${leftOffset}px)`;
-
-      if (withJelly && direction !== 0) {
-        glider.classList.remove('jelly-stretch-right', 'jelly-stretch-left');
-        glider.classList.add(direction > 0 ? 'jelly-stretch-right' : 'jelly-stretch-left');
-        setTimeout(() => {
-          glider.classList.remove('jelly-stretch-right', 'jelly-stretch-left');
-        }, 220);
-      }
     }
 
     if (window.modeStates?.youtube) {
@@ -510,15 +630,14 @@ window.initYoutubeModule = function() {
     let isDragging = false;
     let startMouseX = 0;
     let initialGliderLeft = 0;
+    let lastActiveBtn = null;
     const gliderEl = ytResChips.querySelector('.chip-glider');
 
     ytResChips.querySelectorAll('.chip-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
+      btn.addEventListener('click', () => {
         if (isDragging) return;
-        const currentActive = ytResChips.querySelector('.chip-btn.active');
-        const dir = currentActive ? (btn.offsetLeft - currentActive.offsetLeft) : 0;
-        if (typeof window.playSynth === 'function') window.playSynth('origami');
-        snapGliderToBtn(ytResChips, btn, true, dir);
+        if (typeof window.playSynth === 'function') window.playSynth('click');
+        snapGliderToBtn(ytResChips, btn, false);
       });
     });
 
@@ -527,10 +646,10 @@ window.initYoutubeModule = function() {
       if (!activeBtn || !gliderEl) return;
 
       isDragging = true;
+      lastActiveBtn = activeBtn;
       startMouseX = e.clientX || (e.touches && e.touches[0].clientX) || 0;
       initialGliderLeft = activeBtn.offsetLeft;
 
-      // Desactivar transiciones durante el arrastre manual para que siga el cursor 1:1
       gliderEl.style.transition = 'none';
       gliderEl.classList.add('is-dragging');
     };
@@ -539,18 +658,15 @@ window.initYoutubeModule = function() {
       if (!isDragging || !gliderEl) return;
       const currentMouseX = e.clientX || (e.touches && e.touches[0].clientX) || 0;
       const deltaX = currentMouseX - startMouseX;
-      
-      const minLeft = 0;
-      const maxLeft = ytResChips.offsetWidth - gliderEl.offsetWidth;
-      let newLeft = initialGliderLeft + deltaX;
 
-      // Efecto elástico en los extremos
-      if (newLeft < minLeft) newLeft = minLeft - Math.pow(minLeft - newLeft, 0.7);
-      if (newLeft > maxLeft) newLeft = maxLeft + Math.pow(newLeft - maxLeft, 0.7);
+      // Topes absolutos para no salirse de la barra
+      const minLeft = 0;
+      const maxLeft = ytResChips.clientWidth - gliderEl.offsetWidth;
+      let newLeft = Math.max(minLeft, Math.min(maxLeft, initialGliderLeft + deltaX));
 
       gliderEl.style.transform = `translateX(${newLeft}px)`;
 
-      // Iluminar dinámicamente el botón por el que va pasando
+      // Detectar botón activo y sonar al saltar de escalón
       const buttons = Array.from(ytResChips.querySelectorAll('.chip-btn'));
       const gliderCenter = newLeft + (gliderEl.offsetWidth / 2);
       let closestBtn = buttons[0];
@@ -565,7 +681,11 @@ window.initYoutubeModule = function() {
         }
       });
 
-      buttons.forEach(b => b.classList.toggle('active', b === closestBtn));
+      if (closestBtn !== lastActiveBtn) {
+        lastActiveBtn = closestBtn;
+        if (typeof window.playSynth === 'function') window.playSynth('click');
+        buttons.forEach(b => b.classList.toggle('active', b === closestBtn));
+      }
     };
 
     const stopDrag = () => {
@@ -573,10 +693,8 @@ window.initYoutubeModule = function() {
       isDragging = false;
       if (gliderEl) gliderEl.classList.remove('is-dragging');
 
-      // Al soltar el ratón, encajar de forma magnética en el botón más cercano
       const currentActive = ytResChips.querySelector('.chip-btn.active') || ytResChips.querySelector('.chip-btn');
       if (currentActive) {
-        if (typeof window.playSynth === 'function') window.playSynth('origami');
         snapGliderToBtn(ytResChips, currentActive, false);
       }
     };
