@@ -2,6 +2,10 @@ import os
 import sys
 import shutil
 import threading
+import time
+import gc
+import stat
+import atexit
 from urllib.parse import urlparse
 from concurrent.futures import ThreadPoolExecutor
 import yt_dlp
@@ -42,25 +46,69 @@ class AurionDownloader:
         print(f"[Core] Estado del sistema -> aria2c: {status_aria} | FFmpeg: {status_ffmpeg}")
         self._cleanup_orphaned_temp_dirs()
 
+    def _force_remove_temp_dir(self, target_path):
+        """Elimina de forma contundente una carpeta temporal en Windows desbloqueando permisos y matando bloqueos."""
+        if not target_path or not os.path.exists(target_path):
+            return
+
+        import gc
+        import subprocess
+
+        # Forzar liberación de descriptores de Python
+        gc.collect()
+
+        def _on_rm_error(func, path, exc_info):
+            try:
+                os.chmod(path, stat.S_IWRITE)
+                func(path)
+            except Exception:
+                pass
+
+        # Intento 1: shutil estándar con desbloqueo de atributos
+        for _ in range(3):
+            try:
+                shutil.rmtree(target_path, onerror=_on_rm_error)
+                if not os.path.exists(target_path):
+                    return
+            except Exception:
+                time.sleep(0.15)
+
+        # Intento 2: Comando nativo de Windows (rmdir forzado en segundo plano)
+        try:
+            cmd = f'rmdir /s /q "{os.path.abspath(target_path)}"'
+            subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=2)
+        except Exception:
+            pass
+
     def _cleanup_orphaned_temp_dirs(self):
-        """Barre cualquier carpeta residual .tmp_* que haya quedado de cierres inesperados."""
+        """Barre cualquier carpeta residual .tmp_* de cierres bruscos o caídas de corriente."""
         def run_cleanup():
-            check_dirs = ["J:\\ANIME\\animes", "J:\\ANIME\\peliculas"]
+            # Reunir todas las rutas configuradas en la app + discos comunes
+            check_dirs = set()
+            try:
+                cfg = getattr(self.bridge, 'config', {}) or {}
+                for m in ['anime', 'movie', 'youtube']:
+                    d = cfg.get(m, {}).get('dir')
+                    if d and os.path.exists(d):
+                        check_dirs.add(os.path.abspath(d))
+            except Exception:
+                pass
+
+            check_dirs.update(["J:\\ANIME\\animes", "J:\\ANIME\\peliculas", "J:\\ANIME"])
+
             for base in check_dirs:
                 if not os.path.exists(base):
                     continue
                 try:
-                    for root, dirs, _ in os.walk(base):
+                    for root, dirs, _ in os.walk(base, topdown=False):
                         for d in list(dirs):
                             if d.startswith(".tmp_"):
                                 target_path = os.path.join(root, d)
-                                try:
-                                    shutil.rmtree(target_path, ignore_errors=True)
-                                    print(f"[Core Limpieza] Carpeta temporal residual eliminada: {target_path}")
-                                except Exception:
-                                    pass
+                                self._force_remove_temp_dir(target_path)
+                                print(f"[Core Limpieza] Carpeta temporal residual purgada: {target_path}")
                 except Exception:
                     pass
+
         threading.Thread(target=run_cleanup, daemon=True).start()
 
     def cancel_task(self, task_id):
@@ -318,8 +366,17 @@ class AurionDownloader:
         anime_title = config.get("title", "").strip()
         clean_title = "".join(c for c in anime_title if c not in r'\/:*?"<>|').strip()
 
+        # Limpiar etiquetas de temporada del nombre para que coincida exactamente con la raíz de los episodios
+        import re
+        root_anime_folder = clean_title
         if clean_title and clean_title != "Esperando consulta...":
-            root_anime_dir = os.path.join(base_dir, clean_title)
+            root_anime_folder = re.sub(
+                r'[\s\-_]*(?:(?:\d+(?:st|nd|rd|th|da|ra)?\s*(?:season|temporada))|(?:(?:season|temporada)\s*\d+)|(?:\bS\d+\b)).*$',
+                '',
+                clean_title,
+                flags=re.IGNORECASE
+            ).strip() or clean_title
+            root_anime_dir = os.path.join(base_dir, root_anime_folder)
         else:
             root_anime_dir = base_dir
 
@@ -346,6 +403,7 @@ class AurionDownloader:
 
         print(f"\n[Core] Iniciando pool de descargas: {simul_workers} simultáneas en '{dest_folder}'")
 
+        any_success = False
         with ThreadPoolExecutor(max_workers=simul_workers) as executor:
             futures = [
                 executor.submit(self._download_single_task, task, dest_folder, config)
@@ -353,26 +411,24 @@ class AurionDownloader:
             ]
             for f in futures:
                 try:
-                    f.result()
+                    if f.result() is True:
+                        any_success = True
                 except Exception as e:
                     print(f"[Core] Error no capturado en worker: {e}")
 
         self.is_downloading = False
         print("\n[Core] Todas las tareas del lote han concluido.")
 
-        if config.get("open_folder", True):
+        # Abrir el explorador ÚNICAMENTE si al menos una descarga se completó con éxito
+        if any_success and config.get("open_folder", True):
             try:
-                abs_dest = os.path.abspath(dest_folder)
-                has_files = os.path.exists(abs_dest) and any(not f.startswith('.') for f in os.listdir(abs_dest))
-                if has_files:
+                parent_folder = os.path.dirname(dest_folder)
+                target_open = parent_folder if os.path.basename(dest_folder).lower().startswith("temporada") else dest_folder
+                abs_dest = os.path.abspath(target_open if os.path.exists(target_open) else dest_folder)
+
+                if os.path.exists(abs_dest):
                     print(f"[Core] Abriendo carpeta en explorador: {abs_dest}")
                     os.startfile(abs_dest)
-                else:
-                    if os.path.exists(abs_dest) and not os.listdir(abs_dest):
-                        try:
-                            os.rmdir(abs_dest)
-                        except Exception:
-                            pass
             except Exception as e:
                 print(f"[Core] Error abriendo carpeta: {e}")
 
@@ -685,6 +741,7 @@ class AurionDownloader:
                 self.bridge._window.evaluate_js(
                     f"window.updateDownloadProgress && window.updateDownloadProgress('{task_id}', 100, '0 KB/s', 'Completado');"
                 )
+            return True
         except Exception as e:
             if "TASK_CANCELLED_BY_USER" in str(e):
                 print(f"[Core] Descarga cancelada: {title}")
@@ -692,17 +749,8 @@ class AurionDownloader:
                     self.bridge._window.evaluate_js(
                         f"window.updateDownloadProgress && window.updateDownloadProgress('{task_id}', 0, 'Cancelado', 'Cancelado');"
                     )
-                # Purga inmediata y forzada del directorio temporal tras la cancelación
-                import time, gc
-                gc.collect()
-                time.sleep(0.3)
-                for _ in range(5):
-                    try:
-                        if os.path.exists(task_temp_dir):
-                            shutil.rmtree(task_temp_dir, ignore_errors=True)
-                        break
-                    except Exception:
-                        time.sleep(0.2)
+                # Purga agresiva con desbloqueo de handles en Windows
+                self._force_remove_temp_dir(task_temp_dir)
             else:
                 import traceback
                 print(f"[Core] Error descargando {title}:")
@@ -711,8 +759,6 @@ class AurionDownloader:
                     self.bridge._window.evaluate_js(
                         f"window.updateDownloadProgress && window.updateDownloadProgress('{task_id}', 0, 'Error', 'Fallo al descargar');"
                     )
+            return False
         finally:
-            try:
-                shutil.rmtree(task_temp_dir, ignore_errors=True)
-            except Exception:
-                pass
+            self._force_remove_temp_dir(task_temp_dir)
