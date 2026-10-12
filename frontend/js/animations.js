@@ -5,6 +5,9 @@ const AudioContext = window.AudioContext || window.webkitAudioContext;
 let audioCtx;
 
 function playSynth(type) {
+  // Comprobación de silencio configurado en Ajustes
+  if (window.__aurionMuteAudio) return;
+
   if(!audioCtx) audioCtx = new AudioContext();
   if(audioCtx.state === 'suspended') audioCtx.resume();
   

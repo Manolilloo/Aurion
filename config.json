@@ -1,23 +1,23 @@
 {
   "active_mode": "anime",
   "anime": {
-    "dir": "J:\\ANIME\\animes",
-    "season": 2,
-    "start_ep": 14,
+    "dir": "",
+    "season": 1,
+    "start_ep": 1,
     "save_cover": true,
     "res": "max",
     "fmt": "mkv",
     "threads": "32",
     "simul": "20",
-    "active_title": "Yozakura-san Chi no Daisakusen 2nd Season",
-    "active_tags": "TERMINADO \u2022 \u2605 7.6",
-    "active_bg": "url('https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx182578-Te8W0EwesgrS.jpg')",
-    "accent1": "rgb(62, 226, 244)",
-    "accent2": "rgb(52, 89, 139)",
+    "active_title": "",
+    "active_tags": "SISTEMA LISTO",
+    "active_bg": "",
+    "accent1": "#ffd60a",
+    "accent2": "#ffb703",
     "open_folder": true
   },
   "movie": {
-    "dir": "J:\\ANIME\\animes",
+    "dir": "",
     "season": 1,
     "start_ep": 1,
     "save_cover": true,
@@ -34,8 +34,30 @@
   },
   "youtube": {
     "dir": "C:\\Users\\mdema\\Downloads\\yt-videos-prueba",
-    "format": "video",
-    "res": "max",
+    "format": "audio",
+    "res": "min",
     "open_folder": true
+  },
+  "settings": {
+    "sound_effects": true,
+    "perf_mode": false,
+    "check_updates": true,
+    "notify_sound": true,
+    "accent_theme": "dynamic",
+    "glow_intensity": "normal",
+    "speed_limit": "0",
+    "file_conflict": "rename",
+    "aria_connections": "16",
+    "finish_action": "open_folder",
+    "sections_order": [
+      "anime",
+      "movie",
+      "youtube"
+    ],
+    "sections_visibility": {
+      "anime": true,
+      "movie": true,
+      "youtube": true
+    }
   }
 }

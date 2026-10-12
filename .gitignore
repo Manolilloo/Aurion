@@ -1,7 +1,6 @@
 # Salidas de compilación y empaquetado (pesadas)
 build/
 dist/
-Output/
 
 # Binarios de gran tamaño (ffmpeg pesa 220MB, no debe ir en git)
 bin/
@@ -13,3 +12,7 @@ __pycache__/
 *.spec
 .vscode/
 .idea/
+
+# Ignorar instalador y script de Inno Setup para no contaminar lenguajes en GitHub
+*.iss
+Output/

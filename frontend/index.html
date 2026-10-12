@@ -58,6 +58,12 @@
       </button>
 
       <div class="window-controls-box">
+        <button class="win-btn win-settings-btn" id="win-settings" title="Ajustes de Aurion">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+        </button>
         <button class="win-btn" id="win-min" title="Minimizar">─</button>
         <button class="win-btn" id="win-max" title="Maximizar / Restaurar">□</button>
         <button class="win-btn win-btn-close" id="win-close" title="Cerrar">✕</button>
@@ -624,6 +630,309 @@
     </div>
   </div>
 
+  <!-- MODAL DE AJUSTES Y CONFIGURACIÓN -->
+  <div id="settings-modal-overlay" class="tour-modal-backdrop" style="display: none; z-index: 999999;">
+    <div class="settings-modal-card">
+      <div class="settings-sidebar">
+        <div class="settings-brand-header">
+          <div class="settings-icon-badge">⚙️</div>
+          <div>
+            <span class="settings-brand-title">AJUSTES</span>
+            <span class="settings-brand-sub">Aurion v1.1.2</span>
+          </div>
+        </div>
+        <div class="settings-nav-list">
+          <button class="settings-tab-btn active" data-tab="general">
+            <span>🛠 General</span>
+          </button>
+          <button class="settings-tab-btn" data-tab="appearance">
+            <span>🎨 Apariencia</span>
+          </button>
+          <button class="settings-tab-btn" data-tab="engine">
+            <span>⚡ Motor & Red</span>
+          </button>
+          <button class="settings-tab-btn" data-tab="about">
+            <span>ℹ Acerca de</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="settings-main-panel">
+        <div class="settings-header-bar">
+          <h3 id="settings-view-title">Configuración del Sistema</h3>
+          <button id="settings-modal-close" class="settings-close-x">✕</button>
+        </div>
+
+        <div class="settings-scroll-body">
+          <!-- TAB 1: GENERAL -->
+          <div id="tab-content-general" class="settings-tab-content active">
+            <div class="settings-row">
+              <div class="settings-row-text">
+                <strong>Efectos de Sonido</strong>
+                <span>Ruiditos suaves al tocar botones y cambiar de sección.</span>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="setting-chk-sound" checked>
+                <span class="slider"></span>
+              </label>
+            </div>
+
+            <div class="settings-row">
+              <div class="settings-row-text">
+                <strong>Modo Ahorro de Gráfica (Baja GPU)</strong>
+                <span>Apaga transparencias y desenfoques pesados para que el ordenador vuele.</span>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="setting-chk-perf">
+                <span class="slider"></span>
+              </label>
+            </div>
+
+            <div class="settings-row">
+              <div class="settings-row-text">
+                <strong>Buscar Nuevas Versiones al Entrar</strong>
+                <span>Revisa automáticamente si has sacado una actualización nueva al abrir Aurion.</span>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="setting-chk-updates" checked>
+                <span class="slider"></span>
+              </label>
+            </div>
+
+            <div class="settings-row">
+              <div class="settings-row-text">
+                <strong>Sonido de Finalización</strong>
+                <span>Emite una melodía suave cuando todos los archivos terminan de descargarse.</span>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="setting-chk-notify" checked>
+                <span class="slider"></span>
+              </label>
+            </div>
+
+            <div class="settings-row">
+              <div class="settings-row-text">
+                <strong>Limpiar Archivos Basura</strong>
+                <span>Borra cachos de descargas canceladas y temporales para ganar espacio libre.</span>
+              </div>
+              <button id="btn-clear-temp-cache" class="settings-action-btn">
+                <span class="btn-clean-ico">🧹</span>
+                <span id="txt-clean-temp">Limpiar Caché</span>
+              </button>
+            </div>
+
+            <div class="settings-row">
+              <div class="settings-row-text">
+                <strong>Configuración y Datos Locales</strong>
+                <span>Gestiona el archivo config.json o restaura los valores de fábrica de Aurion.</span>
+              </div>
+              <div style="display: flex; gap: 8px;">
+                <button id="btn-open-config-folder" class="settings-action-btn" style="background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.15);">
+                  <span>📂 Abrir Carpeta</span>
+                </button>
+                <button id="btn-reset-factory" class="settings-action-btn" style="color: #f87171; border-color: rgba(248,113,113,0.3);">
+                  <span>🔄 Reset</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 2: APARIENCIA -->
+          <div id="tab-content-appearance" class="settings-tab-content">
+            <div class="settings-row">
+              <div class="settings-row-text">
+                <strong>Color de Acento</strong>
+                <span>Elige si los colores cambian con el póster o prefieres un tono fijo.</span>
+              </div>
+              <div class="ios-dropdown" id="dropdown-accent" data-val="dynamic">
+                <button type="button" class="ios-dropdown-trigger">
+                  <span class="ios-dropdown-label">🌈 Automático (Póster)</span>
+                  <span class="ios-dropdown-arrow">▾</span>
+                </button>
+                <div class="ios-dropdown-menu">
+                  <div class="ios-dropdown-item active" data-val="dynamic">🌈 Automático (Póster)</div>
+                  <div class="ios-dropdown-item" data-val="gold">⚡ Oro Eléctrico</div>
+                  <div class="ios-dropdown-item" data-val="neon">💖 Rosa Cyberpunk</div>
+                  <div class="ios-dropdown-item" data-val="cyan">💎 Cian Diamante</div>
+                  <div class="ios-dropdown-item" data-val="purple">🔮 Púrpura Neón</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="settings-row">
+              <div class="settings-row-text">
+                <strong>Brillo Ambiental de Fondo</strong>
+                <span>Intensidad de las luces de color desenfocadas de la pantalla.</span>
+              </div>
+              <div class="ios-dropdown" id="dropdown-glow" data-val="normal">
+                <button type="button" class="ios-dropdown-trigger">
+                  <span class="ios-dropdown-label">✨ Normal (Equilibrado)</span>
+                  <span class="ios-dropdown-arrow">▾</span>
+                </button>
+                <div class="ios-dropdown-menu">
+                  <div class="ios-dropdown-item" data-val="subtle">🌙 Suave</div>
+                  <div class="ios-dropdown-item active" data-val="normal">✨ Normal (Equilibrado)</div>
+                  <div class="ios-dropdown-item" data-val="intense">🔥 Intenso</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- DOCK DE CÁPSULAS MAGNÉTICAS (DYNAMIC ISLAND STYLE) -->
+            <div class="settings-row magnetic-dock-card">
+              <div class="settings-row-text" style="max-width: 100%;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <strong>Espacio de Trabajo Modular</strong>
+                  <span class="magnetic-dock-hint">⚡ ARRASTRA PARA ORDENAR • CLIC EN CÁPSULA PARA ACTIVAR/APAGAR</span>
+                </div>
+                <span>Personaliza tu cabecera: reordena los módulos con arrastre magnético o apaga los que no utilices.</span>
+              </div>
+
+              <!-- CONTENEDOR CÁPSULA FLOTANTE -->
+              <div class="magnetic-capsule-chassis">
+                <div class="magnetic-capsule-dock" id="magnetic-capsule-dock">
+                  <!-- Se inyectan las cápsulas dinámicamente -->
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 3: MOTOR & RED -->
+          <div id="tab-content-engine" class="settings-tab-content">
+            <div class="settings-row">
+              <div class="settings-row-text">
+                <strong>Límite de Descarga</strong>
+                <span>Para no comerte todo el internet si juegas o ves directos.</span>
+              </div>
+              <div class="ios-dropdown" id="dropdown-speed" data-val="0">
+                <button type="button" class="ios-dropdown-trigger">
+                  <span class="ios-dropdown-label">⚡ Ilimitado</span>
+                  <span class="ios-dropdown-arrow">▾</span>
+                </button>
+                <div class="ios-dropdown-menu">
+                  <div class="ios-dropdown-item active" data-val="0">⚡ Ilimitado</div>
+                  <div class="ios-dropdown-item" data-val="5M">🐢 5 MB/s</div>
+                  <div class="ios-dropdown-item" data-val="10M">🚀 10 MB/s</div>
+                  <div class="ios-dropdown-item" data-val="25M">🔥 25 MB/s</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="settings-row">
+              <div class="settings-row-text">
+                <strong>Si el archivo ya existe</strong>
+                <span>Qué hacer cuando un episodio o película ya está en tu carpeta.</span>
+              </div>
+              <div class="ios-dropdown" id="dropdown-conflict" data-val="rename">
+                <button type="button" class="ios-dropdown-trigger">
+                  <span class="ios-dropdown-label">🔢 Renombrar (1)</span>
+                  <span class="ios-dropdown-arrow">▾</span>
+                </button>
+                <div class="ios-dropdown-menu">
+                  <div class="ios-dropdown-item active" data-val="rename">🔢 Renombrar (1)</div>
+                  <div class="ios-dropdown-item" data-val="skip">⏭ Omitir descarga</div>
+                  <div class="ios-dropdown-item" data-val="overwrite">🔁 Sobrescribir</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="settings-row">
+              <div class="settings-row-text">
+                <strong>Conexiones por Archivo (Aria2)</strong>
+                <span>Hilos simultáneos que abren tus descargas para maximizar la velocidad.</span>
+              </div>
+              <div class="ios-dropdown" id="dropdown-aria-conn" data-val="16">
+                <button type="button" class="ios-dropdown-trigger">
+                  <span class="ios-dropdown-label">🚀 16 Hilos (Recomendado)</span>
+                  <span class="ios-dropdown-arrow">▾</span>
+                </button>
+                <div class="ios-dropdown-menu">
+                  <div class="ios-dropdown-item" data-val="4">🐢 4 Hilos (Bajo)</div>
+                  <div class="ios-dropdown-item" data-val="8">⚡ 8 Hilos (Medio)</div>
+                  <div class="ios-dropdown-item active" data-val="16">🚀 16 Hilos (Recomendado)</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="settings-row">
+              <div class="settings-row-text">
+                <strong>Acción al Completar Lote</strong>
+                <span>Comportamiento de Windows una vez la descarga termina con éxito.</span>
+              </div>
+              <div class="ios-dropdown" id="dropdown-finish-action" data-val="open_folder">
+                <button type="button" class="ios-dropdown-trigger">
+                  <span class="ios-dropdown-label">📁 Abrir Carpeta</span>
+                  <span class="ios-dropdown-arrow">▾</span>
+                </button>
+                <div class="ios-dropdown-menu">
+                  <div class="ios-dropdown-item active" data-val="open_folder">📁 Abrir Carpeta</div>
+                  <div class="ios-dropdown-item" data-val="none">🛑 No hacer nada</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="settings-status-box">
+              <div class="settings-status-item">
+                <span>Motor de bajadas (aria2c):</span>
+                <strong id="status-bin-aria" class="status-pill">COMPROBANDO...</strong>
+              </div>
+              <div class="settings-status-item">
+                <span>Procesador de vídeo (ffmpeg):</span>
+                <strong id="status-bin-ffmpeg" class="status-pill">COMPROBANDO...</strong>
+              </div>
+              <div class="settings-status-item">
+                <span>Receptor del navegador:</span>
+                <strong style="color: #10b981;">PUERTO 6800 LISTO</strong>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 4: ACERCA DE -->
+          <div id="tab-content-about" class="settings-tab-content">
+            <div class="about-hero-box">
+              <div class="about-logo-halo">
+                <span class="halo-particle"></span>
+                <span class="about-logo-emoji">⚡</span>
+              </div>
+              <h2>Aurion Desktop</h2>
+              <div class="about-version-badge-wrap">
+                <span class="about-version-tag">Versión 1.1.2</span>
+                <span class="about-build-tag">BUILD ESTABLE</span>
+              </div>
+              <p>Centro multimedia ultrarrápido y modular para descargas directas de Anime, Películas y YouTube sin anuncios ni bloqueos.</p>
+              
+              <div class="about-update-action-cluster">
+                <button id="btn-manual-check-updates" class="btn-check-updates-god" title="Comprobar canal de GitHub Releases">
+                  <div class="update-btn-spinner" id="update-btn-spin"></div>
+                  <span class="update-btn-icon" id="update-btn-ico">🔄</span>
+                  <span class="update-btn-text" id="update-btn-txt">Buscar actualizaciones ahora</span>
+                </button>
+                <div class="update-status-feedback" id="update-status-feedback"></div>
+              </div>
+
+              <div class="about-meta-footer">
+                <span>Desarrollado para máxima eficiencia y velocidad</span>
+                <span>Aurion Engine • MIT License</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- POPUP GLASS DE CONFIRMACIÓN DE RESET -->
+      <div id="settings-confirm-dialog" class="settings-confirm-overlay" style="display: none;">
+        <div class="settings-confirm-card">
+          <div class="settings-confirm-icon">⚠️</div>
+          <h4 class="settings-confirm-title">¿Restablecer Ajustes?</h4>
+          <p class="settings-confirm-desc">Se restaurarán todos los valores originales de Aurion. Las descargas ya guardadas no se verán afectadas.</p>
+          <div class="settings-confirm-actions">
+            <button id="btn-cancel-reset" type="button" class="btn-confirm-cancel">Cancelar</button>
+            <button id="btn-do-reset" type="button" class="btn-confirm-danger">Restablecer</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- MODAL DE ACTUALIZACIÓN FLUIDO -->
   <div class="update-modal-overlay" id="update-modal-overlay">
     <div class="update-modal-card" id="update-modal-card">
@@ -832,6 +1141,7 @@
   <!-- Módulos específicos -->
   <script src="js/animations.js"></script>
   <script src="js/modules/youtube.js"></script>
+  <script src="js/modules/settings.js"></script>
   <script src="js/modules/anime.js"></script>
   <script src="js/modules/cinema.js"></script>
   <script src="js/modules/extension_bridge.js"></script>

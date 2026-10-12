@@ -561,9 +561,22 @@ function setAppMode(mode, save = true) {
   document.body.classList.remove('mode-anime', 'mode-movie', 'mode-youtube');
   document.body.classList.add(`mode-${mode}`);
 
-  if (animeOpt) animeOpt.classList.toggle('active', mode === 'anime');
-  if (movieOpt) movieOpt.classList.toggle('active', mode === 'movie');
-  if (ytOpt) ytOpt.classList.toggle('active', mode === 'youtube');
+  // Marcar activa la opción correspondiente en el switch y desplazar el thumb
+  document.querySelectorAll('#btn-switch-mode .matrix-opt').forEach(opt => {
+    opt.classList.toggle('active', opt.dataset.mode === mode || opt.id === `mode-${mode}`);
+  });
+
+  const settings = window.SettingsModule?.getSettings();
+  const visibleSections = (settings?.sectionsOrder || ['anime', 'movie', 'youtube'])
+    .filter(k => settings?.sectionsVisibility?.[k] !== false);
+
+  const thumb = document.querySelector('#btn-switch-mode .matrix-thumb');
+  if (thumb && visibleSections.length > 0) {
+    const idx = visibleSections.indexOf(mode);
+    if (idx > -1) {
+      thumb.style.transform = `translateX(${idx * 100}%)`;
+    }
+  }
 
   if (mode === 'youtube') {
     if (cockpitGrid) cockpitGrid.style.display = 'none';
@@ -796,25 +809,90 @@ window.onLinkReceived = function(data) {
 // INICIALIZACIÓN Y EVENTOS DOM
 // ========================================================
 document.addEventListener('DOMContentLoaded', () => {
-  document.querySelectorAll('.sites-dock, .matrix-switch, .window-controls-box').forEach(el => {
+  document.querySelectorAll('.sites-dock, .matrix-switch, .window-controls-box, #win-settings').forEach(el => {
     el.addEventListener('mousedown', (e) => e.stopPropagation());
   });
 
+  // Enganche directo del botón de Ajustes
+  document.getElementById('win-settings')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (window.SettingsModule?.openModal) {
+      window.SettingsModule.openModal();
+    } else {
+      const modal = document.getElementById('settings-modal-overlay');
+      if (modal) {
+        modal.classList.add('active');
+        modal.style.display = 'flex';
+      }
+    }
+  });
+
   renderSitesDock('anime');
+
+  // Actualizador dinámico del conmutador superior según visibilidad y orden modular
+  window.updateMatrixSwitchUI = function(order, visibility) {
+    const btnSwitch = document.getElementById('btn-switch-mode');
+    const thumb = btnSwitch?.querySelector('.matrix-thumb');
+    const hotkeyPill = document.querySelector('.matrix-switch-cluster .hotkey-pill');
+    if (!btnSwitch) return;
+
+    const labels = {
+      anime: 'ANIME',
+      movie: 'CINE',
+      youtube: 'YOUTUBE'
+    };
+
+    const activeOrder = order.filter(key => visibility[key] !== false);
+
+    // Si solo hay 1 sección activa, ocultamos el pill de TAB
+    if (hotkeyPill) {
+      hotkeyPill.style.display = activeOrder.length > 1 ? 'inline-block' : 'none';
+    }
+
+    // Reconstruir los botones de opciones manteniendo el thumb
+    btnSwitch.innerHTML = '<div class="matrix-thumb"></div>';
+    activeOrder.forEach(key => {
+      const opt = document.createElement('div');
+      opt.className = `matrix-opt ${currentMode === key ? 'active' : ''}`;
+      opt.id = `mode-${key}`;
+      opt.dataset.mode = key;
+      opt.textContent = labels[key] || key.toUpperCase();
+      btnSwitch.appendChild(opt);
+    });
+
+    // Ajustar ancho del contenedor y del thumb
+    const count = activeOrder.length;
+    const baseWidth = count === 3 ? 285 : (count === 2 ? 220 : 130);
+    btnSwitch.style.width = `${baseWidth}px`;
+
+    const newThumb = btnSwitch.querySelector('.matrix-thumb');
+    if (newThumb) {
+      newThumb.style.width = `calc((100% - 6px) / ${count})`;
+      const activeIdx = activeOrder.indexOf(currentMode);
+      const safeIdx = activeIdx > -1 ? activeIdx : 0;
+      newThumb.style.transform = `translateX(${safeIdx * 100}%)`;
+    }
+  };
 
   const btnSwitch = document.getElementById('btn-switch-mode');
   if (btnSwitch) {
     btnSwitch.addEventListener('click', (e) => {
       const targetOpt = e.target.closest('.matrix-opt');
-      if (targetOpt) {
-        if (targetOpt.id === 'mode-anime') setAppMode('anime', true);
-        else if (targetOpt.id === 'mode-movie') setAppMode('movie', true);
-        else if (targetOpt.id === 'mode-youtube') setAppMode('youtube', true);
+      const settings = window.SettingsModule?.getSettings();
+      const currentOrder = (settings?.sectionsOrder || ['anime', 'movie', 'youtube'])
+        .filter(k => settings?.sectionsVisibility?.[k] !== false);
+
+      if (targetOpt && targetOpt.dataset.mode) {
+        setAppMode(targetOpt.dataset.mode, true);
         return;
       }
-      const order = ['anime', 'movie', 'youtube'];
-      const nextIdx = (order.indexOf(currentMode) + 1) % order.length;
-      setAppMode(order[nextIdx], true);
+
+      if (currentOrder.length > 1) {
+        const curIdx = currentOrder.indexOf(currentMode);
+        const nextIdx = (curIdx + 1) % currentOrder.length;
+        setAppMode(currentOrder[nextIdx], true);
+      }
     });
   }
 
@@ -875,6 +953,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   if (typeof window.CinemaModule?.init === 'function') {
     window.CinemaModule.init();
+  }
+  if (typeof window.SettingsModule?.init === 'function') {
+    window.SettingsModule.init();
   }
 
   const btnClear = document.getElementById('btn-clear');
@@ -1073,6 +1154,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     modeStates.youtube.selectedVideo = null;
     modeStates.youtube.results = [];
+
+    // Carga y sincronización de Ajustes desde config.json
+    if (config.settings && window.SettingsModule?.loadSettings) {
+      window.SettingsModule.loadSettings(config.settings);
+    }
 
     const initMode = config.active_mode || 'anime';
     setAppMode(initMode, false);
@@ -2158,6 +2244,13 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
+    const isSettingsOpen = document.getElementById('settings-modal-overlay')?.classList.contains('active');
+    if (isSettingsOpen && e.key === 'Escape') {
+      e.preventDefault();
+      window.SettingsModule?.closeModal();
+      return;
+    }
+
     const isModalOpen = document.getElementById('match-modal-backdrop')?.classList.contains('active');
     if (isModalOpen) return;
 
@@ -2166,9 +2259,15 @@ document.addEventListener('DOMContentLoaded', () => {
       if (document.activeElement && typeof document.activeElement.blur === 'function') {
         document.activeElement.blur();
       }
-      const order = ['anime', 'movie', 'youtube'];
-      const nextIdx = (order.indexOf(currentMode) + 1) % order.length;
-      setAppMode(order[nextIdx], true);
+
+      const settings = window.SettingsModule?.getSettings();
+      const currentOrder = (settings?.sectionsOrder || ['anime', 'movie', 'youtube'])
+        .filter(k => settings?.sectionsVisibility?.[k] !== false);
+
+      if (currentOrder.length <= 1) return; // Si solo hay 1 sección, TAB no hace nada
+
+      const nextIdx = (currentOrder.indexOf(currentMode) + 1) % currentOrder.length;
+      setAppMode(currentOrder[nextIdx], true);
       return;
     }
 

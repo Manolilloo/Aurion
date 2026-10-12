@@ -511,18 +511,22 @@ class AurionDownloader:
         self.is_downloading = False
         print("\n[Core] Todas las tareas del lote han concluido.")
 
-        # Abrir el explorador ÚNICAMENTE si al menos una descarga se completó con éxito
+        # Abrir el explorador con retardo si al menos una descarga terminó bien
         if any_success and config.get("open_folder", True):
-            try:
-                parent_folder = os.path.dirname(dest_folder)
-                target_open = parent_folder if os.path.basename(dest_folder).lower().startswith("temporada") else dest_folder
-                abs_dest = os.path.abspath(target_open if os.path.exists(target_open) else dest_folder)
+            def _delayed_open(target_dest):
+                try:
+                    time.sleep(0.8)
+                    parent_folder = os.path.dirname(target_dest)
+                    target_open = parent_folder if os.path.basename(target_dest).lower().startswith("temporada") else target_dest
+                    abs_dest = os.path.abspath(target_open if os.path.exists(target_open) else target_dest)
 
-                if os.path.exists(abs_dest):
-                    print(f"[Core] Abriendo carpeta en explorador: {abs_dest}")
-                    os.startfile(abs_dest)
-            except Exception as e:
-                print(f"[Core] Error abriendo carpeta: {e}")
+                    if os.path.exists(abs_dest):
+                        print(f"[Core] Abriendo carpeta en explorador: {abs_dest}")
+                        os.startfile(abs_dest)
+                except Exception as e:
+                    print(f"[Core] Error abriendo carpeta: {e}")
+
+            threading.Thread(target=_delayed_open, args=(dest_folder,), daemon=True).start()
 
     def _download_single_task(self, task, dest_folder, config):
         task_id = task.get("id")
@@ -558,8 +562,8 @@ class AurionDownloader:
             q_str = str(quality).lower().strip()
             if q_str in ["max", "máx"]:
                 format_selector = "bestvideo+bestaudio/best"
-            elif q_str == "min":
-                format_selector = "worstvideo+worstaudio/worst"
+            elif q_str in ["min", "144", "144p"]:
+                format_selector = "worstvideo+bestaudio/worst"
             else:
                 if q_str == "4k":
                     h = 2160
@@ -571,6 +575,7 @@ class AurionDownloader:
                     h = int(q_str)
                 else:
                     h = 1080
+                # Selecciona la mejor calidad menor o igual a la solicitada y combina con el mejor audio
                 format_selector = f"bestvideo[height<={h}]+bestaudio/best[height<={h}]/best"
         else:
             fmt_choice = str(config.get("fmt", "mp4")).replace(".", "").lower().strip()
@@ -613,10 +618,16 @@ class AurionDownloader:
 
         task_temp_dir = os.path.join(dest_folder, f".tmp_{task_id}")
         os.makedirs(task_temp_dir, exist_ok=True)
+
+        if sys.platform == "win32":
+            try:
+                import ctypes
+                ctypes.windll.kernel32.SetFileAttributesW(str(task_temp_dir), 2)  # FILE_ATTRIBUTE_HIDDEN
+            except Exception:
+                pass
+
         with self.lock:
             self.active_temp_dirs.add(os.path.abspath(task_temp_dir))
-        with self.lock:
-            self.active_temp_dirs.add(task_temp_dir)
         out_template = os.path.join(task_temp_dir, f"{clean_file_title}.%(ext)s")
 
         parsed_url = urlparse(url)
@@ -814,26 +825,38 @@ class AurionDownloader:
                 source_temp = os.path.join(task_temp_dir, generated_files[0])
 
                 if os.path.exists(final_file_path):
-                    try:
-                        os.remove(final_file_path)
-                    except Exception as err:
-                        print(f"[Core] Sobrescribiendo archivo existente: {err}")
+                    for attempt in range(5):
+                        try:
+                            # Forzar liberación de atributos de solo lectura si los tuviera
+                            os.chmod(final_file_path, stat.S_IWRITE)
+                            os.remove(final_file_path)
+                            break
+                        except Exception as err:
+                            time.sleep(0.3)
 
+                # Si tras los reintentos sigue pillado por el reproductor o Windows, mover con nombre alternativo
                 try:
+                    if os.path.exists(final_file_path):
+                        # Si no se pudo borrar, creamos una variante para no reventar la descarga
+                        base_root, ext_part = os.path.splitext(final_file_path)
+                        final_file_path = f"{base_root}_{quality}p{ext_part}"
+
                     shutil.move(source_temp, final_file_path)
                 except Exception:
-                    shutil.copy2(source_temp, final_file_path)
                     try:
+                        shutil.copy2(source_temp, final_file_path)
                         os.remove(source_temp)
-                    except Exception:
-                        pass
+                    except Exception as move_err:
+                        print(f"[Core] Error final moviendo archivo: {move_err}")
 
             real_file_bytes = 0
             if os.path.exists(final_file_path):
                 real_file_bytes = os.path.getsize(final_file_path)
 
-            # Si el archivo final pesa menos de 3 MB, es un error HTTP o stream corrupto, NO un episodio real
-            if real_file_bytes < 3 * 1024 * 1024:
+            # En YouTube un clip o audio de 144p puede pesar < 2 MB de forma legítima. Para anime/cine mantenemos el umbral de 3 MB.
+            min_size_threshold = 50 * 1024 if is_yt else 3 * 1024 * 1024
+
+            if real_file_bytes < min_size_threshold:
                 print(f"[Core] ADVERTENCIA: Archivo generado demasiado pequeño ({real_file_bytes} bytes). Eliminando archivo fallido...")
                 try:
                     if os.path.exists(final_file_path):

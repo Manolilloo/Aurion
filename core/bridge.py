@@ -13,7 +13,7 @@ import io
 import webview
 from .downloader import AurionDownloader
 
-APP_VERSION = "1.1.0"
+APP_VERSION = "1.1.1"
 GITHUB_REPO = "Manolilloo/Aurion"
 CONFIG_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config.json")
 
@@ -132,6 +132,18 @@ class AurionBridge:
                 "format": "video",
                 "res": "1080",
                 "open_folder": True
+            },
+            "settings": {
+                "sound_effects": True,
+                "perf_mode": False,
+                "check_updates": True,
+                "notify_sound": True,
+                "accent_theme": "dynamic",
+                "glow_intensity": "normal",
+                "speed_limit": "0",
+                "file_conflict": "rename",
+                "aria_connections": "16",
+                "finish_action": "open_folder"
             }
         }
         if os.path.exists(CONFIG_FILE):
@@ -146,7 +158,10 @@ class AurionBridge:
 
     def save_config(self, new_data):
         for k, v in new_data.items():
-            if isinstance(v, dict) and k in self.config and isinstance(self.config[k], dict):
+            if k == "settings" and isinstance(v, dict):
+                # Si se actualizan o resetean los ajustes, sobreescribir la sección
+                self.config["settings"] = v
+            elif isinstance(v, dict) and k in self.config and isinstance(self.config[k], dict):
                 self.config[k].update(v)
             else:
                 self.config[k] = v
@@ -200,6 +215,48 @@ class AurionBridge:
             }
         except Exception:
             return {"drive": "N/A", "total_gb": 0, "free_gb": 0, "percent_used": 0}
+
+    def clear_temp_cache(self):
+        """Limpia archivos temporales de descarga residuales y devuelve los MB liberados."""
+        total_freed = 0
+        try:
+            import tempfile
+            temp_dir = tempfile.gettempdir()
+            # Buscar archivos temporales generados por descargas de Aurion o aria2
+            for f in os.listdir(temp_dir):
+                if f.startswith("aurion_") or f.endswith(".aria2"):
+                    full_p = os.path.join(temp_dir, f)
+                    try:
+                        if os.path.isfile(full_p):
+                            total_freed += os.path.getsize(full_p)
+                            os.remove(full_p)
+                        elif os.path.isdir(full_p):
+                            total_freed += sum(os.path.getsize(os.path.join(dirpath, filename)) for dirpath, dirnames, filenames in os.walk(full_p) for filename in filenames)
+                            shutil.rmtree(full_p, ignore_errors=True)
+                    except Exception:
+                        pass
+        except Exception as e:
+            print(f"[Core] Error limpiando temporales: {e}")
+
+        mb_freed = round(total_freed / (1024 * 1024), 1)
+        return mb_freed
+
+    def check_binaries_status(self):
+        """Comprueba si aria2c.exe y ffmpeg.exe existen físicamente en la carpeta bin."""
+        import sys
+        if getattr(sys, 'frozen', False):
+            base_dir = os.path.dirname(sys.executable)
+        else:
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+        bin_dir = os.path.join(base_dir, "bin")
+        aria_exists = os.path.isfile(os.path.join(bin_dir, "aria2c.exe"))
+        ffmpeg_exists = os.path.isfile(os.path.join(bin_dir, "ffmpeg.exe"))
+
+        return {
+            "aria2": aria_exists,
+            "ffmpeg": ffmpeg_exists
+        }
 
     def get_dominant_colors(self, image_url):
         if not image_url:
@@ -466,6 +523,11 @@ class AurionBridge:
         if not dest_dir:
             print("[BRIDGE ERROR] Intento de descarga bloqueado: no se especificó ruta de destino.")
             return False
+
+        # Inyectar límite de velocidad si se configuró en Ajustes
+        user_settings = self.config.get("settings", {})
+        if "speed_limit" in user_settings and user_settings["speed_limit"] != "0":
+            config["speed_limit"] = user_settings["speed_limit"]
 
         print(f"\n[DEBUG BRIDGE] start_downloads recibido!")
         tasks = payload.get("tasks", [])
@@ -992,7 +1054,7 @@ class AurionBridge:
             
         return opts
 
-def check_for_updates(self):
+    def check_for_updates(self):
         """Comprueba en GitHub Releases si hay una versión superior a la instalada."""
         CURRENT_VERSION = APP_VERSION
         REPO_NAME = GITHUB_REPO
@@ -1059,7 +1121,7 @@ def check_for_updates(self):
                 print(f"[check_for_updates] Error comprobando actualización: {e}")
 
         threading.Thread(target=_worker, daemon=True).start()
-        
+
     def start_auto_update(self, download_url):
         """Actualización limpia con robocopy, detección dinámica de ruta y sin UAC."""
         def download_and_run():
@@ -1070,13 +1132,9 @@ def check_for_updates(self):
                 temp_dir = tempfile.gettempdir()
                 bat_path = os.path.join(temp_dir, "aurion_restart.bat")
                 
-                # Detectar dinámicamente la ruta exacta donde está corriendo el ejecutable
-                if getattr(sys, 'frozen', False):
-                    app_exe_path = sys.executable
-                    install_dir = os.path.dirname(sys.executable)
-                else:
-                    install_dir = os.path.expandvars(r"%LOCALAPPDATA%\Programs\Aurion")
-                    app_exe_path = os.path.join(install_dir, "Aurion.exe")
+                # Detectar siempre la ruta real absoluta del ejecutable activo
+                app_exe_path = os.path.abspath(sys.executable if getattr(sys, 'frozen', False) else os.path.join(os.path.dirname(__file__), "..", "dist", "Aurion", "Aurion.exe"))
+                install_dir = os.path.dirname(app_exe_path)
 
                 staging_dir = os.path.join(temp_dir, "aurion_new_version")
                 os.makedirs(staging_dir, exist_ok=True)
@@ -1149,6 +1207,85 @@ start "" "{app_exe_path}"
 
         threading.Thread(target=download_and_run, daemon=True).start()
         return True
+
+    def reset_factory_config(self):
+        """Limpia la memoria RAM de Python y deja config.json como recién instalado."""
+        clean_config = {
+            "active_mode": "anime",
+            "anime": {
+                "dir": "",
+                "season": 1,
+                "start_ep": 1,
+                "save_cover": True,
+                "res": "max",
+                "fmt": "mkv",
+                "threads": "32",
+                "simul": "20",
+                "active_title": "",
+                "active_tags": "",
+                "active_bg": "",
+                "accent1": "#ffd60a",
+                "accent2": "#ffb703"
+            },
+            "movie": {
+                "dir": "",
+                "season": 1,
+                "start_ep": 1,
+                "save_cover": True,
+                "res": "max",
+                "fmt": "mkv",
+                "threads": "32",
+                "simul": "5",
+                "active_title": "",
+                "active_tags": "",
+                "active_bg": "",
+                "accent1": "#bf5af2",
+                "accent2": "#5e5ce6"
+            },
+            "youtube": {
+                "dir": "",
+                "format": "video",
+                "res": "1080",
+                "open_folder": True
+            },
+            "settings": {
+                "sound_effects": True,
+                "perf_mode": False,
+                "check_updates": True,
+                "notify_sound": True,
+                "accent_theme": "dynamic",
+                "glow_intensity": "normal",
+                "speed_limit": "0",
+                "file_conflict": "rename",
+                "aria_connections": "16",
+                "finish_action": "open_folder"
+            }
+        }
+        try:
+            # 1. Sobrescribir el archivo en disco
+            with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+                json.dump(clean_config, f, indent=2)
+            # 2. Machacar la memoria RAM activa de Python
+            self.config = clean_config
+            print("[Core] ¡Reset de fábrica completado en disco y en memoria RAM!")
+            return True
+        except Exception as e:
+            print(f"[Core] Error en reset_factory_config: {e}")
+            return False
+
+    def open_config_folder(self):
+        """Abre la carpeta del sistema donde reside el archivo config.json."""
+        try:
+            import subprocess
+            folder_path = os.path.dirname(CONFIG_FILE)
+            if os.path.exists(CONFIG_FILE):
+                subprocess.Popen(['explorer', f'/select,{os.path.normpath(CONFIG_FILE)}'])
+            else:
+                subprocess.Popen(['explorer', os.path.normpath(folder_path)])
+            return True
+        except Exception as e:
+            print(f"[open_config_folder] Error: {e}")
+            return False
 
     def open_extension_folder(self):
         try:

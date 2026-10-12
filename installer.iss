@@ -1,5 +1,5 @@
 #define MyAppName "Aurion"
-#define MyAppVersion "1.0.3"
+#define MyAppVersion "1.1.1"
 #define MyAppPublisher "Aurion Project"
 #define MyAppExeName "Aurion.exe"
 
