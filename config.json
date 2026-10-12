@@ -3,17 +3,17 @@
   "anime": {
     "dir": "J:\\ANIME\\animes",
     "season": 2,
-    "start_ep": 28,
+    "start_ep": 14,
     "save_cover": true,
     "res": "max",
     "fmt": "mkv",
     "threads": "32",
     "simul": "20",
-    "active_title": "Ao no Hako Season 2",
-    "active_tags": "EN EMISI\u00d3N \u2022 \u2605 8.0",
-    "active_bg": "url('https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx189123-0secXELIhkIW.jpg')",
-    "accent1": "rgb(248, 211, 136)",
-    "accent2": "rgb(222, 170, 82)",
+    "active_title": "Yozakura-san Chi no Daisakusen 2nd Season",
+    "active_tags": "TERMINADO \u2022 \u2605 7.6",
+    "active_bg": "url('https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx182578-Te8W0EwesgrS.jpg')",
+    "accent1": "rgb(62, 226, 244)",
+    "accent2": "rgb(52, 89, 139)",
     "open_folder": true
   },
   "movie": {
