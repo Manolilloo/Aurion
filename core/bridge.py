@@ -13,7 +13,7 @@ import io
 import webview
 from .downloader import AurionDownloader
 
-APP_VERSION = "1.1.2"
+APP_VERSION = "1.1.4"
 GITHUB_REPO = "Manolilloo/Aurion"
 CONFIG_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config.json")
 
