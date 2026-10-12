@@ -2,6 +2,7 @@ const tabMediaData = {};
 
 const DIRECT_VIDEO_REGEX = /\.(m3u8|mp4|webm|mpd)(\?|$)/i;
 
+// Se elimina 'saidochesto.top' para evitar capturar el contenedor de selección de servidor
 const VERIFIED_VIDEO_DOMAINS = [
   'filelions.top', 'filelions.to', 'filelions.site', 'streamwish.to', 'streamwish.com',
   'streamwish.top', 'streamwish.site', 'wishembed.pro', 'wishembed', 'vidhide.com',
@@ -9,7 +10,7 @@ const VERIFIED_VIDEO_DOMAINS = [
   'filemoon.to', 'filemoon.in', 'yourupload.com', 'doodstream.com', 'dood.',
   'ds2play', 'luluvdo.com', 'lulustream.com', 'mp4upload.com', 'vidmoly.net',
   'mega.nz/embed', 'ok.ru/videoembed', 'vk.com/video_ext', 'acek-cdn.com',
-  'saidochesto.top', 'uqload.io', 'uqload.to', 'waaw.to', 'netu.tv'
+  'uqload.io', 'uqload.to', 'waaw.to', 'netu.tv'
 ];
 
 function extractResolutionFromUrl(url) {
@@ -130,8 +131,14 @@ chrome.webRequest.onBeforeRequest.addListener(
       return;
     }
 
+    // Normalizar submanifiestos HLS a master.m3u8 para forzar máxima resolución
+    let targetUrl = url;
+    if (/index-f\d+-[^\.]+\.m3u8/i.test(targetUrl)) {
+      targetUrl = targetUrl.replace(/index-f\d+-[^\.]+\.m3u8/i, 'master.m3u8');
+    }
+
     let isMatch = false;
-    let sourceName = resolveServerName(url);
+    let sourceName = resolveServerName(targetUrl);
 
     if (DIRECT_VIDEO_REGEX.test(url)) {
       isMatch = true;
@@ -146,11 +153,26 @@ chrome.webRequest.onBeforeRequest.addListener(
 
     if (!isMatch) return;
 
+    // Si es un sub-manifiesto degradado (index-f1/v1), forzar al master.m3u8 para desbloquear 1080p
+    let effectiveUrl = url;
+    if (/index-f\d+-[^\.]+\.m3u8/i.test(effectiveUrl)) {
+      effectiveUrl = effectiveUrl.replace(/index-f\d+-[^\.]+\.m3u8/i, 'master.m3u8');
+    }
+
     if (!tabMediaData[tabId]) tabMediaData[tabId] = [];
 
     let probe = { res: 'Auto', bytes: 0 };
-    if (url.includes('.m3u8')) {
-      probe = await inspectManifest(url);
+    if (effectiveUrl.includes('.m3u8')) {
+      probe = await inspectManifest(effectiveUrl);
+    } else {
+      // Para enlaces directos (.mp4 como Mp4Upload): consulta rápida por cabecera HEAD para mostrar el peso en el HUD
+      try {
+        const headResp = await fetch(effectiveUrl, { method: 'HEAD' });
+        const cl = headResp.headers.get('content-length');
+        if (cl && parseInt(cl, 10) > 0) {
+          probe.bytes = parseInt(cl, 10);
+        }
+      } catch (_) {}
     }
 
     if (probe.res === 'Auto') {
@@ -170,11 +192,19 @@ chrome.webRequest.onBeforeRequest.addListener(
       }
     }
 
+    // Obtener la URL real de la pestaña para que Aurion configure el Referer perfecto
+    let pageUrl = details.initiator || '';
+    try {
+      const currentTab = await chrome.tabs.get(tabId);
+      if (currentTab && currentTab.url) pageUrl = currentTab.url;
+    } catch (_) {}
+
     const mediaEntry = {
-      url: url,
+      url: effectiveUrl,
       source: sourceName,
       resolution: probe.res,
       bytes: probe.bytes,
+      pageUrl: pageUrl,
       frameId: frameId,
       timestamp: Date.now()
     };

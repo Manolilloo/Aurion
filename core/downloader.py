@@ -123,19 +123,90 @@ class AurionDownloader:
             pass
         return None
 
+    def _probe_direct_m3u8_fast(self, url, headers):
+        """Sonda ultra rápida por HTTP: analiza manifiestos HLS sin latencia ni bloqueos de yt-dlp."""
+        import urllib.request
+        import re
+
+        try:
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=3.5) as resp:
+                content = resp.read().decode('utf-8', errors='ignore')
+
+            # 1. Buscar resoluciones maestras declaradas: RESOLUTION=1920x1080
+            res_matches = re.findall(r'RESOLUTION=\d+x(\d+)', content)
+            detected_res = None
+            if res_matches:
+                max_h = max(int(h) for h in res_matches)
+                detected_res = f"{max_h}p"
+
+            # 2. Estimar peso mediante duración total y BANDWIDTH medio si no es master
+            estimated_bytes = 0
+            bw_matches = re.findall(r'BANDWIDTH=(\d+)', content)
+            dur_matches = re.findall(r'#EXTINF:([\d\.]+)', content)
+
+            if dur_matches:
+                total_duration = sum(float(d) for d in dur_matches)
+                # Si tenemos bitrate asignado, calcular peso exacto
+                if bw_matches:
+                    max_bw = max(int(b) for b in bw_matches)
+                    estimated_bytes = int((max_bw * total_duration) / 8)
+                else:
+                    # Tasa estándar para 1080p Web-DL (~2200 kbps)
+                    estimated_bytes = int((2200 * 1000 * total_duration) / 8)
+
+            return estimated_bytes, detected_res
+        except Exception:
+            return 0, None
+
     def probe_media_info(self, url, page_url=""):
         if not url:
             return 0, "N/D"
 
-        parsed_url = urlparse(url)
+        import re
+
+        # Normalizar espejos de streaming hacia el master.m3u8 real
+        probe_url = url
+        if any(srv in probe_url.lower() for srv in ["filelions", "streamwish", "vidhide"]):
+            if "index-f" in probe_url.lower():
+                probe_url = re.sub(r'index-f\d+-[^\.]+\.m3u8', 'master.m3u8', probe_url)
+
+        parsed_url = urlparse(probe_url)
         origin_domain = f"{parsed_url.scheme}://{parsed_url.netloc}"
         referer = origin_domain + "/"
 
+        netloc = parsed_url.netloc.lower()
+        if "mp4upload" in netloc:
+            referer = "https://www.mp4upload.com/"
+        elif any(s in netloc for s in ["sprintcdn", "streamwish", "filelions", "vidhide", "hglamioz", "wish"]):
+            referer = origin_domain + "/"
+        elif page_url:
+            referer = page_url
+        else:
+            referer = origin_domain + "/"
+
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
             'Referer': referer,
-            'Origin': origin_domain
+            'Origin': origin_domain,
+            'Accept': '*/*'
         }
+
+        # Intento rápido preliminar: HEAD para archivos directos (.mp4) y HLS para .m3u8
+        fast_bytes, fast_res = 0, None
+        if '.m3u8' in probe_url.lower():
+            fast_bytes, fast_res = self._probe_direct_m3u8_fast(probe_url, headers)
+        else:
+            # Para servidores directos como Mp4Upload: obtener Content-Length al instante
+            try:
+                import urllib.request
+                head_req = urllib.request.Request(probe_url, headers=headers, method='HEAD')
+                with urllib.request.urlopen(head_req, timeout=3.5) as resp:
+                    cl = resp.headers.get('Content-Length')
+                    if cl and cl.isdigit():
+                        fast_bytes = int(cl)
+            except Exception:
+                pass
 
         ydl_opts = {
             'quiet': True,
@@ -143,14 +214,15 @@ class AurionDownloader:
             'nocheckcertificate': True,
             'http_headers': headers,
             'skip_download': True,
+            'socket_timeout': 5,
             'ffmpeg_location': os.path.dirname(self.ffmpeg_path) if self.ffmpeg_path else None
         }
 
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(url, download=False)
+                info = ydl.extract_info(probe_url, download=False)
                 if not info:
-                    return 0, "N/D"
+                    return fast_bytes, fast_res or "N/D"
 
                 real_height = info.get('height')
                 if not real_height and 'formats' in info:
@@ -159,15 +231,15 @@ class AurionDownloader:
                             real_height = f.get('height')
                             break
 
-                res_str = f"{real_height}p" if real_height else None
+                res_str = f"{real_height}p" if real_height else fast_res
 
                 if not res_str:
-                    res_str = self._probe_resolution_ffprobe(url, headers)
+                    res_str = self._probe_resolution_ffprobe(probe_url, headers)
 
                 if not res_str:
                     res_str = "N/D"
 
-                size_bytes = info.get('filesize') or info.get('filesize_approx') or 0
+                size_bytes = info.get('filesize') or info.get('filesize_approx') or fast_bytes
                 if size_bytes == 0:
                     duration = info.get('duration') or 0
                     tbr = info.get('tbr') or 0
@@ -177,9 +249,9 @@ class AurionDownloader:
                 return int(size_bytes), res_str
 
         except Exception as e:
-            print(f"[Core Sonda] Metadatos iniciales no disponibles en el manifiesto: {e}")
-            res_str = self._probe_resolution_ffprobe(url, headers) or "N/D"
-            return 0, res_str
+            print(f"[Core Sonda] Metadatos en fallback: {e}")
+            res_str = fast_res or self._probe_resolution_ffprobe(probe_url, headers) or "N/D"
+            return int(fast_bytes), res_str
 
     def start_engine(self, config, tasks=None):
         if self.is_downloading:
@@ -323,11 +395,22 @@ class AurionDownloader:
         out_template = os.path.join(task_temp_dir, f"{clean_file_title}.%(ext)s")
 
         parsed_url = urlparse(url)
+        netloc = parsed_url.netloc.lower()
         origin_domain = f"{parsed_url.scheme}://{parsed_url.netloc}"
-        referer = origin_domain + "/"
+
+        # Detección inteligente de Referer según el servidor de streaming
+        page_ref = task.get("pageUrl") or ""
+        if "mp4upload" in netloc:
+            referer = "https://www.mp4upload.com/"
+        elif any(s in netloc for s in ["sprintcdn", "streamwish", "filelions", "vidhide", "hglamioz", "wish"]):
+            referer = origin_domain + "/"
+        elif page_ref:
+            referer = page_ref
+        else:
+            referer = origin_domain + "/"
 
         print(f"\n[Core -> Tarea Iniciada] {title}")
-        print(f"      Formato: .{fmt_choice} | Hilos: {threads_count}")
+        print(f"      Formato: .{fmt_choice} | Hilos: {threads_count} | Host: {netloc}")
 
         setattr(self, f"_p_{task_id}", 0)
         current_stream_type = {"val": "video" if not is_audio else "audio"}
@@ -439,21 +522,25 @@ class AurionDownloader:
             ydl_opts['buffersize'] = 1024 * 1024 * 16
             ydl_opts['concurrent_fragment_downloads'] = min(16, threads_count)
 
-            if self.has_aria2 and not is_m3u8:
+            # Mp4Upload utiliza tokens efímeros que bloquean aria2c (403) y ocultan el progreso en tiempo real.
+            # En Mp4Upload usamos el descargador nativo para reportar % fluido y evitar bloqueos.
+            if self.has_aria2 and not is_m3u8 and "mp4upload" not in netloc:
+                max_aria_conns = min(16, threads_count)
                 ydl_opts['external_downloader'] = self.aria2_path
                 ydl_opts['external_downloader_args'] = {
                     'aria2c': [
-                        f'-s{threads_count}',
-                        f'-x16',
-                        f'-j{threads_count}',
+                        '--console-log-level=error',
+                        '--summary-interval=0',
+                        f'-s{max_aria_conns}',
+                        f'-x{max_aria_conns}',
                         '-k1M',
                         '--file-allocation=none',
-                        '--summary-interval=0',
                         '--optimize-concurrent-downloads=true',
-                        '--max-connection-per-server=16',
+                        f'--max-connection-per-server={max_aria_conns}',
                         '--min-split-size=1M',
                         f'--header=Referer: {referer}',
-                        f'--header=Origin: {origin_domain}'
+                        f'--header=Origin: {origin_domain}',
+                        '--header=User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36'
                     ]
                 }
 

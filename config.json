@@ -3,17 +3,17 @@
   "anime": {
     "dir": "J:\\ANIME\\animes",
     "season": 1,
-    "start_ep": 1,
+    "start_ep": 10,
     "save_cover": true,
     "res": "max",
     "fmt": "mkv",
     "threads": "32",
     "simul": "20",
-    "active_title": "Dark Summoner to Dekiteiru",
-    "active_tags": "EN EMISI\u00d3N \u2022 \u2605 6.8",
-    "active_bg": "url('https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx208025-JKvqWNr8rz8l.jpg')",
-    "accent1": "rgb(246, 206, 232)",
-    "accent2": "rgb(43, 52, 122)",
+    "active_title": "Shiguang Dailiren",
+    "active_tags": "TERMINADO \u2022 \u2605 8.6",
+    "active_bg": "url('https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx126403-BfVSRzWUtVFW.png')",
+    "accent1": "rgb(78, 149, 189)",
+    "accent2": "rgb(60, 67, 81)",
     "open_folder": true
   },
   "movie": {

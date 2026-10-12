@@ -10,10 +10,14 @@ if (window.top !== window) {
         resolution: `${currentHeight}p`,
         frameUrl: window.location.href
       }, '*');
-      chrome.runtime.sendMessage({
-        type: 'UPDATE_MEDIA_RESOLUTION',
-        resolution: `${currentHeight}p`
-      }).catch(() => {});
+      if (chrome.runtime?.id) {
+        try {
+          chrome.runtime.sendMessage({
+            type: 'UPDATE_MEDIA_RESOLUTION',
+            resolution: `${currentHeight}p`
+          }).catch(() => {});
+        } catch (_) {}
+      }
     }
   }
 
@@ -42,6 +46,27 @@ if (window.top !== window) {
     const mb = bytes / (1024 * 1024);
     if (mb >= 1024) return (mb / 1024).toFixed(2) + ' GB';
     return Math.round(mb) + ' MB';
+  }
+
+  // Limpiador avanzado de títulos de episodios para AnimeFLV, JKAnime, etc.
+  function getCleanMediaTitle() {
+    let raw = document.title || '';
+    
+    // Quitar prefijos comunes
+    raw = raw.replace(/^(Ver|Watch|Descargar|Download)\s+/i, '');
+    
+    // Quitar sufijos de portales
+    raw = raw.replace(/\s+(Sub Español|Español Latino|Castellano|HD|Online|Gratis|en AnimeFLV|en JKAnime|AnimeFLV|JKAnime|AnimeOnlineNinja).*$/i, '');
+    
+    // Normalizar "Episodio X" o "Episode X" o "Capitulo X" a " - Ep X"
+    const epMatch = raw.match(/[\s\-_]+(?:Episodio|Capitulo|Episode|Cap|Ep)[\s\-_]*(\d+)/i);
+    if (epMatch) {
+      const animeName = raw.substring(0, epMatch.index).trim();
+      const epNum = epMatch[1];
+      return `${animeName} - Ep ${epNum}`;
+    }
+
+    return raw.trim() || 'Episodio';
   }
 
   function shouldShowHUD(hostname, callback) {
@@ -225,9 +250,12 @@ if (window.top !== window) {
         const finalRes = (currentMeta !== 'Auto' && currentMeta !== '') ? currentMeta : (activeMedia?.resolution || 'Auto');
         const finalBytes = (activeMedia?.bytes && activeMedia.bytes > 0) ? activeMedia.bytes : 0;
 
+        const cleanTitle = getCleanMediaTitle();
+        const effectiveReferer = activeFrameUrl || activeMedia?.pageUrl || window.location.href;
+
         const payload = {
-          page_title: document.title,
-          page_url: window.location.href,
+          page_title: cleanTitle,
+          page_url: effectiveReferer,
           stream_url: activeMedia?.url || window.location.href,
           resolution: finalRes,
           bytes: finalBytes
@@ -270,7 +298,7 @@ if (window.top !== window) {
     const sizeTag = document.getElementById('aurion-pill-size-tag');
     const btnSend = document.getElementById('aurion-pill-send');
 
-    if (titleEl) titleEl.innerText = document.title;
+    if (titleEl) titleEl.innerText = getCleanMediaTitle();
     if (serverEl) serverEl.innerText = media.source || 'STREAM';
     if (urlEl) urlEl.innerText = media.url;
 
