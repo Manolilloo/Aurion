@@ -283,36 +283,62 @@ class AurionBridge:
               }
             }
             """
-            data = json.dumps({'query': graphql_query, 'variables': {'search': query}}).encode('utf-8')
-            req = urllib.request.Request(
-                'https://graphql.anilist.co',
-                data=data,
-                headers={'Content-Type': 'application/json', 'User-Agent': headers['User-Agent']}
-            )
-            try:
-                with urllib.request.urlopen(req, context=ctx, timeout=6) as response:
-                    res_json = json.loads(response.read().decode('utf-8'))
-                    items = res_json.get('data', {}).get('Page', {}).get('media', [])
-                    results = []
-                    for a in items:
-                        status = 'TERMINADO' if a.get('status') == 'FINISHED' else ('EN EMISIÓN' if a.get('status') == 'RELEASING' else a.get('status'))
-                        score = f"{a.get('averageScore', 0) / 10:.1f}" if a.get('averageScore') else 'N/A'
-                        titles = a.get('title', {})
-                        chosen_title = titles.get('romaji') or titles.get('english') or 'Desconocido'
-                        
-                        cover_data = a.get('coverImage', {})
-                        high_res_img = cover_data.get('extraLarge') or cover_data.get('large') or ''
+            import re
 
-                        results.append({
-                            'title': chosen_title,
-                            'alt_title': titles.get('english', ''),
-                            'image': high_res_img,
-                            'color': cover_data.get('color'),
-                            'meta': f"{status} • ★ {score}"
-                        })
-                    return results
-            except Exception:
-                return []
+            def _query_anilist(search_term):
+                if not search_term or len(search_term.strip()) < 2:
+                    return []
+                payload = json.dumps({'query': graphql_query, 'variables': {'search': search_term.strip()}}).encode('utf-8')
+                req_obj = urllib.request.Request(
+                    'https://graphql.anilist.co',
+                    data=payload,
+                    headers={'Content-Type': 'application/json', 'User-Agent': headers['User-Agent']}
+                )
+                try:
+                    with urllib.request.urlopen(req_obj, context=ctx, timeout=5) as resp:
+                        res = json.loads(resp.read().decode('utf-8'))
+                        return res.get('data', {}).get('Page', {}).get('media', [])
+                except Exception:
+                    return []
+
+            # 1. Intento primario con el término recibido exactamente como viene (ej: "Boku no Hero Academia Season 7")
+            items = _query_anilist(query)
+
+            # 2. Si viene con "Season X", probar también con "X" directa (ej: "Boku no Hero Academia 7")
+            if not items and "season" in query.lower():
+                import re
+                alt_season_query = re.sub(r'season\s*(\d+)', r'\1', query, flags=re.IGNORECASE).strip()
+                items = _query_anilist(alt_season_query)
+
+            # 3. Si no hay coincidencias y contiene múltiples nombres pegados (ej: "Ao no Hako Blue Box")
+            if not items:
+                words = query.split()
+                if len(words) > 2:
+                    sub_term = " ".join(words[:3])
+                    items = _query_anilist(sub_term)
+
+            # 3. Si aún no hay, probar con las dos primeras palabras si es compuesto
+            if not items and len(query.split()) >= 2:
+                items = _query_anilist(" ".join(query.split()[:2]))
+
+            results = []
+            for a in items:
+                status = 'TERMINADO' if a.get('status') == 'FINISHED' else ('EN EMISIÓN' if a.get('status') == 'RELEASING' else a.get('status'))
+                score = f"{a.get('averageScore', 0) / 10:.1f}" if a.get('averageScore') else 'N/A'
+                titles = a.get('title', {})
+                chosen_title = titles.get('romaji') or titles.get('english') or 'Desconocido'
+                
+                cover_data = a.get('coverImage', {})
+                high_res_img = cover_data.get('extraLarge') or cover_data.get('large') or ''
+
+                results.append({
+                    'title': chosen_title,
+                    'alt_title': titles.get('english', ''),
+                    'image': high_res_img,
+                    'color': cover_data.get('color'),
+                    'meta': f"{status} • ★ {score}"
+                })
+            return results
         else:
             clean_query = query.lower().replace(' ', '_')
             encoded_query = urllib.parse.quote(clean_query)

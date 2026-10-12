@@ -13,7 +13,10 @@ window.ExtensionBridgeModule = (function () {
   }
 
   function calculateWordMatchScore(query, candidateTitle) {
-    const normalize = (s) => s.toLowerCase().replace(/[^a-z0-9]/g, ' ').split(/\s+/).filter(Boolean);
+    // Ignorar palabras genéricas de temporada y numeraciones para comparar la raíz del anime
+    const stopWords = new Set(['season', 'temporada', 'final', 'the', 'no', 'de', 'la', 'el', 'part', 'parte', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10']);
+    const normalize = (s) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, ' ').split(/\s+/).filter(w => w && !stopWords.has(w));
+    
     const qWords = normalize(query);
     const cWords = normalize(candidateTitle);
 
@@ -30,7 +33,21 @@ window.ExtensionBridgeModule = (function () {
   function extractSearchQuery(rawTitle, rawUrl = '') {
     let text = rawTitle || '';
 
-    // Si viene vacío, es un hash o es la palabra genérica "Episodio", extraer desde la URL
+    // Rescate de temporada antes de cualquier limpieza
+    let seasonTag = '';
+    const fullSource = `${text} ${rawUrl}`;
+    const sMatch = fullSource.match(/(?:(?:temporada|season)\s*(\d+))|(?:\b(\d{1,2})[xX]\d+)|(?:\bS(\d{1,2})\b)/i);
+    const isFinalSeason = /final\s*season|temporada\s*final/i.test(fullSource);
+
+    if (isFinalSeason) {
+      seasonTag = 'FINAL SEASON';
+    } else if (sMatch) {
+      const sNum = parseInt(sMatch[1] || sMatch[2] || sMatch[3], 10);
+      if (sNum > 1) {
+        seasonTag = `Season ${sNum}`;
+      }
+    }
+
     const isHash = /^[a-zA-Z0-9_\-]{6,30}$/.test(text.trim());
     const isGeneric = !text || text.trim().length < 3 || text.trim().toLowerCase() === 'episodio';
 
@@ -51,14 +68,21 @@ window.ExtensionBridgeModule = (function () {
       } catch (e) {}
     }
 
-    return text
+    let cleaned = text
       .replace(/^(Ver|Watch|Descargar|Download)\s+/i, '')
       .replace(/\b(sub\s*español|castellano|latino|dual|audio|hd|fhd|1080p|720p|online)\b.*/gi, '')
+      .replace(/\s*-\s*(?:Ep|Cap|Episodio|Capitulo)\s*\d+.*$/i, '')
       .replace(/\b(capitulo|capítulo|episodio|episode|cap)\b[\s\-_]*\d*.*/gi, '')
-      .replace(/[-–—|•].*$/, '')
       .replace(/[\(\[\{].*?[\)\]\}]/g, '')
       .replace(/\s+/g, ' ')
       .trim();
+
+    // Si detectamos temporada específica y no está en el nombre limpio, incorporarla a la consulta
+    if (seasonTag && !new RegExp(seasonTag.replace(' ', '\\s*'), 'i').test(cleaned)) {
+      cleaned = `${cleaned} ${seasonTag}`.trim();
+    }
+
+    return cleaned;
   }
 
   function extractEpisodeNumber(rawText) {
@@ -202,30 +226,42 @@ window.ExtensionBridgeModule = (function () {
 
     const fullText = (data.page_title || '') + ' ' + (data.page_url || '');
     const detectedEp = extractEpisodeNumber(fullText);
-    const detectedSeason = typeof window.extractSeasonNumber === 'function' ? window.extractSeasonNumber(fullText) : 1;
+    let detectedSeason = typeof window.extractSeasonNumber === 'function' ? window.extractSeasonNumber(fullText) : 1;
     const cleanName = extractSearchQuery(data.page_title, data.page_url);
+
+    const activeTitle = window.modeStates[window.currentMode].title;
+    const state = window.modeStates[window.currentMode];
+    const hasActiveAnime = Boolean(activeTitle && activeTitle !== 'Esperando consulta...');
+
+    // Si ya tienes un anime cargado en pantalla, priorizar su temporada real sobre el "1x" falso de la web
+    if (hasActiveAnime && window.currentMode === 'anime') {
+      const activeSeasonMatch = activeTitle.match(/(?:season|temporada)\s*(\d+)|(\d+)(?:st|nd|rd|th)?\s*season/i);
+      if (activeSeasonMatch) {
+        detectedSeason = parseInt(activeSeasonMatch[1] || activeSeasonMatch[2], 10);
+      } else if (/final\s*season/i.test(activeTitle)) {
+        // En "FINAL SEASON", si la web marcaba temporada (ej: 8x5 de Boku no Hero), mantener esa temporada
+        const rawSeasonMatch = fullText.match(/(?:(?:temporada|season)\s*|(\d{1,2})[xX])(\d{1,2})/i);
+        if (rawSeasonMatch && (rawSeasonMatch[1] || rawSeasonMatch[2])) {
+          detectedSeason = parseInt(rawSeasonMatch[1] || rawSeasonMatch[2], 10);
+        }
+      }
+    }
 
     if (window.currentMode === 'anime') {
       if (typeof window.setStepperValue === 'function') window.setStepperValue('cfg-season', detectedSeason, 0);
       if (typeof window.updateSingleSeasonState === 'function') window.updateSingleSeasonState(detectedSeason);
     }
 
-    const activeTitle = window.modeStates[window.currentMode].title;
-    const state = window.modeStates[window.currentMode];
-
-    const hasActiveAnime = Boolean(activeTitle && activeTitle !== 'Esperando consulta...');
     const isSuspiciousHash = /^[a-zA-Z0-9_\-]{6,30}$/.test(cleanName.trim());
     const isGenericOrEmpty = !cleanName || cleanName.toLowerCase() === 'episodio' || cleanName.toLowerCase() === 'episode';
     const matchScore = hasActiveAnime ? calculateWordMatchScore(cleanName, activeTitle) : 0;
 
-    // Si ya tienes un anime puesto en Aurion, TODO lo que envíes se añade a esa serie sin abrir modales
-    const isSameSeries = hasActiveAnime && (
-      isSuspiciousHash ||
-      isGenericOrEmpty ||
-      matchScore >= 0.15 ||
-      activeTitle.toLowerCase().includes(cleanName.toLowerCase()) ||
-      cleanName.toLowerCase().includes(activeTitle.toLowerCase().split(' ')[0])
-    );
+    // Solo es la misma serie si el título entrante realmente se parece al activo,
+    // o si viene sin nombre / con hash. Si es un anime completamente distinto (ej. Blue Box vs Boku no Hero),
+    // matchScore será bajo y NO entrará aquí, permitiendo detectar la nueva serie.
+    const isSameSeries = hasActiveAnime && !isGenericOrEmpty && !isSuspiciousHash
+      ? (matchScore >= 0.55)
+      : (hasActiveAnime && (isSuspiciousHash || isGenericOrEmpty));
 
     if (isSameSeries) {
       if (typeof window.expandCenterWorkspace === 'function') window.expandCenterWorkspace();
@@ -272,8 +308,27 @@ window.ExtensionBridgeModule = (function () {
       const list = await window.pyCall('search_media', window.currentMode, cleanName);
       if (list && list.length > 0) {
         let maxScore = -1;
+        const targetSeasonStr = detectedSeason > 1 ? `${detectedSeason}` : '';
+
         list.forEach(item => {
-          const sc = calculateWordMatchScore(cleanName, item.title);
+          let sc = calculateWordMatchScore(cleanName, item.title);
+          const itemTitleLower = (item.title || '').toLowerCase();
+
+          // Bonificación si el elemento contiene explícitamente el número de temporada buscado
+          if (targetSeasonStr) {
+            if (itemTitleLower.includes(`season ${targetSeasonStr}`) ||
+                itemTitleLower.includes(`temporada ${targetSeasonStr}`) ||
+                itemTitleLower.includes(` ${targetSeasonStr}`) ||
+                new RegExp(`\\b${targetSeasonStr}\\b`).test(itemTitleLower)) {
+              sc += 0.5;
+            }
+          }
+
+          // Bonificación para Final Season
+          if (/final\s*season/i.test(cleanName) && itemTitleLower.includes('final season')) {
+            sc += 0.6;
+          }
+
           if (sc > maxScore) {
             maxScore = sc;
             bestProposal = item;

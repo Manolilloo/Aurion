@@ -33,7 +33,11 @@ class AurionDownloader:
         self.queue = []
         self.is_downloading = False
         self.cancelled_tasks = set()
+        self.active_temp_dirs = set()
         self.lock = threading.Lock()
+
+        # Registrar limpieza forzada al salir del proceso de Python
+        atexit.register(self._cleanup_on_exit)
 
         self.aria2_path = get_binary_path("aria2c")
         self.ffmpeg_path = get_binary_path("ffmpeg")
@@ -46,7 +50,49 @@ class AurionDownloader:
         print(f"[Core] Estado del sistema -> aria2c: {status_aria} | FFmpeg: {status_ffmpeg}")
         self._cleanup_orphaned_temp_dirs()
 
+    def _cleanup_on_exit(self):
+        """Se ejecuta automáticamente cuando la app se cierra por cualquier motivo."""
+        with self.lock:
+            dirs_to_clean = list(self.active_temp_dirs)
+        for d in dirs_to_clean:
+            self._force_remove_temp_dir(d)
+
     def _force_remove_temp_dir(self, target_path):
+        """Elimina de forma contundente una carpeta temporal en Windows desbloqueando permisos y matando bloqueos."""
+        if not target_path or not os.path.exists(target_path):
+            return
+
+        import gc
+        import subprocess
+
+        # Quitar de la lista de directorios activos
+        with self.lock:
+            self.active_temp_dirs.discard(target_path)
+
+        gc.collect()
+
+        def _on_rm_error(func, path, exc_info):
+            try:
+                os.chmod(path, stat.S_IWRITE)
+                func(path)
+            except Exception:
+                pass
+
+        # Intento 1: shutil estándar
+        for _ in range(3):
+            try:
+                shutil.rmtree(target_path, onerror=_on_rm_error)
+                if not os.path.exists(target_path):
+                    return
+            except Exception:
+                time.sleep(0.1)
+
+        # Intento 2: rmdir forzado por Windows
+        try:
+            cmd = f'rmdir /s /q "{os.path.abspath(target_path)}"'
+            subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=2)
+        except Exception:
+            pass
         """Elimina de forma contundente una carpeta temporal en Windows desbloqueando permisos y matando bloqueos."""
         if not target_path or not os.path.exists(target_path):
             return
@@ -521,6 +567,8 @@ class AurionDownloader:
 
         task_temp_dir = os.path.join(dest_folder, f".tmp_{task_id}")
         os.makedirs(task_temp_dir, exist_ok=True)
+        with self.lock:
+            self.active_temp_dirs.add(task_temp_dir)
         out_template = os.path.join(task_temp_dir, f"{clean_file_title}.%(ext)s")
 
         parsed_url = urlparse(url)
@@ -625,7 +673,7 @@ class AurionDownloader:
             'fragment_retries': 20,
             'skip_unavailable_fragments': True,
             'socket_timeout': 15,
-            'retry_sleep_functions': {'http': lambda n: 0.5, 'fragment': lambda n: 0.5},
+            'retry_sleep_functions': {'http': lambda n: 0.1, 'fragment': lambda n: 0.1},
             'hls_use_mpegts': True,
             'fixup': 'warn',
             'postprocessors': postprocessors_list,
@@ -648,8 +696,11 @@ class AurionDownloader:
                 'Accept': '*/*',
                 'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8'
             }
-            ydl_opts['buffersize'] = 1024 * 1024 * 16
-            ydl_opts['concurrent_fragment_downloads'] = min(16, threads_count)
+            ydl_opts['buffersize'] = 1024 * 1024 * 32
+            ydl_opts['concurrent_fragment_downloads'] = threads_count
+            ydl_opts['fragment_retries'] = 30
+            ydl_opts['skip_unavailable_fragments'] = True
+            ydl_opts['http_chunk_size'] = 10485760
 
             # Mp4Upload utiliza tokens efímeros que bloquean aria2c (403) y ocultan el progreso en tiempo real.
             # En Mp4Upload usamos el descargador nativo para reportar % fluido y evitar bloqueos.
@@ -733,11 +784,24 @@ class AurionDownloader:
             if os.path.exists(final_file_path):
                 real_file_bytes = os.path.getsize(final_file_path)
 
-            if self.bridge and self.bridge._window:
-                if real_file_bytes > 0:
+            # Si el archivo final pesa menos de 3 MB, es un error HTTP o stream corrupto, NO un episodio real
+            if real_file_bytes < 3 * 1024 * 1024:
+                print(f"[Core] ADVERTENCIA: Archivo generado demasiado pequeño ({real_file_bytes} bytes). Eliminando archivo fallido...")
+                try:
+                    if os.path.exists(final_file_path):
+                        os.remove(final_file_path)
+                except Exception:
+                    pass
+                if self.bridge and self.bridge._window:
                     self.bridge._window.evaluate_js(
-                        f"window.updateRealSizeOnly && window.updateRealSizeOnly('{task_id}', {real_file_bytes});"
+                        f"window.updateDownloadProgress && window.updateDownloadProgress('{task_id}', 0, 'Fallo', 'Stream inválido');"
                     )
+                return False
+
+            if self.bridge and self.bridge._window:
+                self.bridge._window.evaluate_js(
+                    f"window.updateRealSizeOnly && window.updateRealSizeOnly('{task_id}', {real_file_bytes});"
+                )
                 self.bridge._window.evaluate_js(
                     f"window.updateDownloadProgress && window.updateDownloadProgress('{task_id}', 100, '0 KB/s', 'Completado');"
                 )

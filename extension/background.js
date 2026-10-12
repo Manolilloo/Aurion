@@ -1,17 +1,7 @@
 const tabMediaData = {};
 
-const DIRECT_VIDEO_REGEX = /\.(m3u8|mp4|webm|mpd)(\?|$)/i;
-
-// Se elimina 'saidochesto.top' para evitar capturar el contenedor de selección de servidor
-const VERIFIED_VIDEO_DOMAINS = [
-  'earnvids', 'filelions.top', 'filelions.to', 'filelions.site', 'streamwish.to', 'streamwish.com',
-  'streamwish.top', 'streamwish.site', 'wishembed.pro', 'wishembed', 'vidhide.com',
-  'vidhidepro.com', 'vidhidepre.com', 'streamtape.com', 'voe.sx', 'filemoon.sx',
-  'filemoon.to', 'filemoon.in', 'yourupload.com', 'doodstream.com', 'dood.',
-  'ds2play', 'luluvdo.com', 'lulustream.com', 'mp4upload.com', 'vidmoly.net',
-  'mega.nz/embed', 'ok.ru/videoembed', 'vk.com/video_ext', 'acek-cdn.com',
-  'uqload.io', 'uqload.to', 'waaw.to', 'netu.tv'
-];
+const VIDEO_STREAM_REGEX = /\.(m3u8|mpd)(\?|$)|[\/=](playlist|master|manifest|chunklist|index-f\d+)[^\/]*\.(m3u8|txt|mpd)/i;
+const DIRECT_VIDEO_REGEX = /\.(mp4|webm|mkv)(\?|$)/i;
 
 function extractResolutionFromUrl(url) {
   const u = url.toLowerCase();
@@ -24,14 +14,23 @@ function extractResolutionFromUrl(url) {
   return null;
 }
 
-async function inspectManifest(url) {
+async function inspectManifest(url, pageUrl = '') {
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 3000);
+    const timeout = setTimeout(() => controller.abort(), 3500);
+
+    const headers = { 'Accept': '*/*' };
+    if (pageUrl) {
+      try {
+        const u = new URL(pageUrl);
+        headers['Referer'] = u.origin + '/';
+        headers['Origin'] = u.origin;
+      } catch (_) {}
+    }
 
     const resp = await fetch(url, {
       method: 'GET',
-      headers: { 'Accept': '*/*' },
+      headers: headers,
       signal: controller.signal
     });
     clearTimeout(timeout);
@@ -39,46 +38,22 @@ async function inspectManifest(url) {
     if (!resp.ok) return { res: 'Auto', bytes: 0 };
     const text = await resp.text();
 
-    // 1. Extraer resoluciones estándar (RESOLUTION=1920x1080)
-    const resMatches = [...text.matchAll(/RESOLUTION=\d+x(\d+)/gi)];
     let bestHeight = 0;
-    if (resMatches.length > 0) {
-      for (const m of resMatches) {
-        const h = parseInt(m[1], 10);
-        if (h > bestHeight) bestHeight = h;
-      }
+    const resMatches = [...text.matchAll(/RESOLUTION=\d+x(\d+)/gi)];
+    for (const m of resMatches) {
+      const h = parseInt(m[1], 10);
+      if (h > bestHeight) bestHeight = h;
     }
 
-    // 2. Extraer variantes nombradas propias de Streamwish (NAME="720p", "1080p", etc.)
-    if (bestHeight === 0) {
-      const nameMatches = [...text.matchAll(/(?:NAME|LABEL)="?(\d{3,4})p?"?/gi)];
-      for (const m of nameMatches) {
-        const h = parseInt(m[1], 10);
-        if (h > bestHeight) bestHeight = h;
-      }
-    }
-
-    // 3. Extraer Bandwidth
-    const bwMatches = [...text.matchAll(/BANDWIDTH=(\d+)/gi)];
     let bestBw = 0;
-    if (bwMatches.length > 0) {
-      for (const b of bwMatches) {
-        const val = parseInt(b[1], 10);
-        if (val > bestBw) bestBw = val;
-      }
+    const bwMatches = [...text.matchAll(/BANDWIDTH=(\d+)/gi)];
+    for (const b of bwMatches) {
+      const val = parseInt(b[1], 10);
+      if (val > bestBw) bestBw = val;
     }
 
-    // Heurística de altura por bitrate si Streamwish omite la resolución explícita
-    if (bestHeight === 0 && bestBw > 0) {
-      if (bestBw >= 2800000) bestHeight = 1080;
-      else if (bestBw >= 1400000) bestHeight = 720;
-      else if (bestBw >= 700000) bestHeight = 480;
-      else if (bestBw >= 250000) bestHeight = 360;
-    }
-
-    // 4. Calcular duración y peso (24 min = 1440 s si el manifiesto no lista fragmentos)
-    const durMatches = [...text.matchAll(/#EXTINF:([\d\.]+)/gi)];
     let totalSec = 0;
+    const durMatches = [...text.matchAll(/#EXTINF:([\d\.]+)/gi)];
     durMatches.forEach(d => { totalSec += parseFloat(d[1]); });
 
     let bytes = 0;
@@ -87,16 +62,15 @@ async function inspectManifest(url) {
     } else if (bestBw > 0) {
       bytes = Math.round((bestBw * 1440) / 8);
     } else if (bestHeight > 0) {
-      const bitrates = { 1080: 2800000, 720: 1600000, 480: 800000, 360: 450000 };
-      const estBw = bitrates[bestHeight] || 1600000;
-      bytes = Math.round((estBw * 1440) / 8);
+      const bitrates = { 1080: 2500000, 720: 1400000, 480: 750000, 360: 400000 };
+      bytes = Math.round(((bitrates[bestHeight] || 1600000) * 1440) / 8);
     }
 
     return {
       res: bestHeight > 0 ? `${bestHeight}p` : 'Auto',
       bytes: bytes
     };
-  } catch (e) {
+  } catch (_) {
     return { res: 'Auto', bytes: 0 };
   }
 }
@@ -108,17 +82,10 @@ function resolveServerName(url) {
   if (u.includes('streamwish') || u.includes('wishembed') || u.includes('wish')) return 'STREAMWISH';
   if (u.includes('filelions') || u.includes('lion')) return 'FILELIONS';
   if (u.includes('vidhide')) return 'VIDHIDE';
-  if (u.includes('streamtape')) return 'STREAMTAPE';
-  if (u.includes('voe.sx') || u.includes('voe')) return 'VOE';
-  if (u.includes('filemoon')) return 'FILEMOON';
-  if (u.includes('yourupload')) return 'YOURUPLOAD';
-  if (u.includes('dood')) return 'DOODSTREAM';
   if (u.includes('mp4upload')) return 'MP4UPLOAD';
-  if (u.includes('vidmoly')) return 'VIDMOLY';
-  if (u.includes('uqload')) return 'UQLOAD';
-  if (u.includes('acek-cdn')) return 'ACEK (HLS)';
-  if (u.includes('.m3u8')) return 'HLS (m3u8)';
-  return 'STREAM DIRECTO';
+  if (u.includes('sprintcdn') || u.includes('hglamioz')) return 'EARNVIDS (CDN)';
+  if (u.includes('.m3u8')) return 'HLS STREAM';
+  return 'DIRECT STREAM';
 }
 
 chrome.webRequest.onBeforeRequest.addListener(
@@ -128,94 +95,58 @@ chrome.webRequest.onBeforeRequest.addListener(
 
     const u = url.toLowerCase();
 
-    // Descartar recursos estáticos, anuncios, telemetría y fragmentos individuales
+    // Filtrar recursos irrelevantes, fragmentos de transporte individuales y anuncios
     if (
       u.includes('.ts') || u.includes('.m4s') || u.includes('.key') || 
-      u.includes('.js') || u.includes('.css') ||
+      u.includes('.css') || u.includes('.png') || u.includes('.jpg') ||
       u.includes('doubleclick') || u.includes('google') || u.includes('/ad/') ||
-      u.includes('/heartbeat') || u.includes('/ping') || u.includes('/beacon') ||
-      u.includes('/analytics') || u.endsWith('/api/s') || u.includes('/api/s?')
+      u.includes('/embed/') || u.includes('/e/') || u.includes('embed.html') ||
+      u.includes('/analytics') || u.includes('/ping')
     ) {
       return;
     }
 
-    // Normalizar submanifiestos HLS a master.m3u8 para forzar máxima resolución
-    let targetUrl = url;
-    if (/index-f\d+-[^\.]+\.m3u8/i.test(targetUrl)) {
-      targetUrl = targetUrl.replace(/index-f\d+-[^\.]+\.m3u8/i, 'master.m3u8');
+    const isHls = VIDEO_STREAM_REGEX.test(url) || u.includes('.m3u8');
+    const isDirect = DIRECT_VIDEO_REGEX.test(url);
+
+    // Solo admitir flujos de vídeo
+    if (!isHls && !isDirect) {
+      return;
     }
 
-    let isMatch = false;
-    let sourceName = resolveServerName(targetUrl);
-
-    if (DIRECT_VIDEO_REGEX.test(url)) {
-      isMatch = true;
-    } else {
-      for (const domain of VERIFIED_VIDEO_DOMAINS) {
-        if (url.includes(domain)) {
-          isMatch = true;
-          break;
-        }
-      }
-    }
-
-    if (!isMatch) return;
-
-    // Normalizar sub-manifiestos degradados (index-f1/v1) a master.m3u8
     let effectiveUrl = url;
     if (/index-f\d+-[^\.]+\.m3u8/i.test(effectiveUrl)) {
       effectiveUrl = effectiveUrl.replace(/index-f\d+-[^\.]+\.m3u8/i, 'master.m3u8');
     }
 
-    // Solo capturar si es manifiesto HLS o contenedor directo (evita capturar páginas HTML como /embed/)
-    const hasMediaExt = DIRECT_VIDEO_REGEX.test(effectiveUrl);
-    if (!hasMediaExt) {
-      return;
-    }
-
-    if (!tabMediaData[tabId]) tabMediaData[tabId] = [];
-
-    let probe = { res: 'Auto', bytes: 0 };
-    if (effectiveUrl.includes('.m3u8')) {
-      probe = await inspectManifest(effectiveUrl);
-    } else {
-      // Para enlaces directos (.mp4 como Mp4Upload): consulta rápida por cabecera HEAD para mostrar el peso en el HUD
-      try {
-        const headResp = await fetch(effectiveUrl, { method: 'HEAD' });
-        const cl = headResp.headers.get('content-length');
-        if (cl && parseInt(cl, 10) > 0) {
-          probe.bytes = parseInt(cl, 10);
-        }
-      } catch (_) {}
-    }
-
-    if (probe.res === 'Auto') {
-      const urlRes = extractResolutionFromUrl(url);
-      if (urlRes) probe.res = urlRes;
-    }
-
-    // BLINDAJE ANTIDEGRADACIÓN: Si ya hay una calidad detectada superior (ej. 1080p),
-    // ninguna petición secundaria menor (480p/360p) la rebajará
-    const lastEntry = tabMediaData[tabId] ? tabMediaData[tabId][0] : null;
-    if (lastEntry && lastEntry.resolution && lastEntry.resolution !== 'Auto') {
-      const currentH = parseInt(probe.res, 10) || 0;
-      const prevH = parseInt(lastEntry.resolution, 10) || 0;
-      if (prevH > currentH) {
-        probe.res = lastEntry.resolution;
-        if (probe.bytes === 0) probe.bytes = lastEntry.bytes;
-      }
-    }
-
-    // Obtener la URL real de la pestaña para que Aurion configure el Referer perfecto
+    // 1. Obtener primero la URL de la página
     let pageUrl = details.initiator || '';
     try {
       const currentTab = await chrome.tabs.get(tabId);
       if (currentTab && currentTab.url) pageUrl = currentTab.url;
     } catch (_) {}
 
+    // 2. Calcular resolución y tamaño (probe)
+    let probe = { res: 'Auto', bytes: 0 };
+    if (isHls) {
+      probe = await inspectManifest(effectiveUrl, pageUrl);
+    } else {
+      try {
+        const headResp = await fetch(effectiveUrl, { method: 'HEAD' });
+        const cl = headResp.headers.get('content-length');
+        if (cl && parseInt(cl, 10) > 0) probe.bytes = parseInt(cl, 10);
+      } catch (_) {}
+    }
+
+    if (probe.res === 'Auto') {
+      const urlRes = extractResolutionFromUrl(effectiveUrl);
+      if (urlRes) probe.res = urlRes;
+    }
+
+    // 3. Crear el objeto con todos los datos ya resueltos
     const mediaEntry = {
       url: effectiveUrl,
-      source: sourceName,
+      source: resolveServerName(effectiveUrl),
       resolution: probe.res,
       bytes: probe.bytes,
       pageUrl: pageUrl,
@@ -223,13 +154,10 @@ chrome.webRequest.onBeforeRequest.addListener(
       timestamp: Date.now()
     };
 
-    const existIdx = tabMediaData[tabId].findIndex(item => item.url === url);
-    if (existIdx > -1) {
-      tabMediaData[tabId][existIdx] = mediaEntry;
-    } else {
-      tabMediaData[tabId].unshift(mediaEntry);
-    }
+    if (!tabMediaData[tabId]) tabMediaData[tabId] = [];
+    tabMediaData[tabId].unshift(mediaEntry);
 
+    // 4. Enviar señal al content script
     chrome.tabs.sendMessage(tabId, {
       type: 'AURION_MEDIA_DETECTED',
       media: mediaEntry,
@@ -241,25 +169,13 @@ chrome.webRequest.onBeforeRequest.addListener(
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === 'GET_MEDIA_INFO') {
-    const list = tabMediaData[msg.tabId] || [];
-    sendResponse({ mediaList: list });
-  } else if (msg.type === 'UPDATE_MEDIA_RESOLUTION') {
-    const list = tabMediaData[msg.tabId];
-    if (list && list[0] && msg.resolution && msg.resolution !== 'Auto') {
-      const currentH = parseInt(msg.resolution, 10) || 0;
-      const prevH = parseInt(list[0].resolution, 10) || 0;
-      if (currentH >= prevH) {
-        list[0].resolution = msg.resolution;
-      }
-    }
+    sendResponse({ mediaList: tabMediaData[msg.tabId] || [] });
   }
   return true;
 });
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
-  if (changeInfo.status === 'loading') {
-    delete tabMediaData[tabId];
-  }
+  if (changeInfo.status === 'loading') delete tabMediaData[tabId];
 });
 
 chrome.tabs.onRemoved.addListener((tabId) => {

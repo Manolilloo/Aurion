@@ -1,43 +1,24 @@
 if (window.top !== window) {
-  // EJECUCIÓN DENTRO DE LOS IFRAMES DE LOS REPRODUCTORES
+  // EJECUCIÓN EN IFRAMES: Avisar a la ventana padre si el reproductor arranca
   function checkNativeVideoResolution() {
     const v = document.querySelector('video');
     if (v && v.videoHeight > 0) {
-      const currentHeight = v.videoHeight;
       window.top.postMessage({
         aurionType: 'NATIVE_RES_DETECTED',
-        height: currentHeight,
-        resolution: `${currentHeight}p`,
+        height: v.videoHeight,
+        resolution: `${v.videoHeight}p`,
         frameUrl: window.location.href
       }, '*');
-      if (chrome.runtime?.id) {
-        try {
-          chrome.runtime.sendMessage({
-            type: 'UPDATE_MEDIA_RESOLUTION',
-            resolution: `${currentHeight}p`
-          }).catch(() => {});
-        } catch (_) {}
-      }
     }
   }
 
   document.addEventListener('loadedmetadata', checkNativeVideoResolution, true);
   document.addEventListener('play', checkNativeVideoResolution, true);
   document.addEventListener('playing', checkNativeVideoResolution, true);
-  setInterval(checkNativeVideoResolution, 1200);
-
-  chrome.runtime.onMessage.addListener((msg) => {
-    if (msg.type === 'AURION_MEDIA_DETECTED') {
-      window.top.postMessage({
-        aurionType: 'FORWARD_MEDIA_DETECTED',
-        media: msg.media,
-        frameUrl: window.location.href
-      }, '*');
-    }
-  });
+  setInterval(checkNativeVideoResolution, 1500);
 
 } else {
-  // EJECUCIÓN EN LA VENTANA PRINCIPAL DE LA PÁGINA
+  // EJECUCIÓN EN LA VENTANA PRINCIPAL
   let activeMedia = null;
   let activeFrameUrl = null;
 
@@ -48,129 +29,102 @@ if (window.top !== window) {
     return Math.round(mb) + ' MB';
   }
 
-  function getCleanMediaTitle() {
+function getCleanMediaTitle() {
     let raw = '';
 
-    // 1. Extraer del DOM o del documento principal
-    const headingEl = document.querySelector('h1.Title, h1.title, .breadcrumb li.active, .breadcrumb .current, h1, .entry-title');
-    if (headingEl && headingEl.innerText && headingEl.innerText.trim().length > 2) {
-      raw = headingEl.innerText.trim();
-    }
+    // 1. Extraer desde el slug de la URL canónica (evita basura del DOM como "Fuentes de vídeo")
+    try {
+      const path = (window.top?.location?.pathname || window.location.pathname || '');
+      const epMatch = path.match(/(?:episodio|ver|watch)\/([a-zA-Z0-9\-]+?)(?:\/|$)/i);
+      if (epMatch) {
+        let slug = epMatch[1];
+        
+        let seasonNum = null;
+        let epNum = null;
 
-    if (!raw) {
-      try {
-        if (window.top && window.top.document) {
-          raw = window.top.document.title;
+        const sMatch = slug.match(/[-_](?:s|temporada[-_]?)(\d+)/i);
+        if (sMatch) seasonNum = parseInt(sMatch[1], 10);
+
+        const xMatch = slug.match(/[-_](\d+)x(\d+)/i);
+        if (xMatch) {
+          seasonNum = parseInt(xMatch[1], 10);
+          epNum = parseInt(xMatch[2], 10);
+        } else {
+          const cMatch = slug.match(/[-_](?:cap|ep|episodio)?[-_]?(\d+)$/i);
+          if (cMatch) epNum = parseInt(cMatch[1], 10);
         }
-      } catch (_) {}
-    }
 
+        let baseName = slug
+          .replace(/[-_](?:s|temporada[-_]?)\d+/gi, '')
+          .replace(/[-_]\d+x\d+/gi, '')
+          .replace(/[-_](?:cap|ep|episodio)?[-_]?\d+$/gi, '')
+          .replace(/[-_]+/g, ' ')
+          .trim();
+
+        baseName = baseName.replace(/\b\w/g, c => c.toUpperCase());
+
+        if (seasonNum && seasonNum > 1) {
+          baseName = `${baseName} Season ${seasonNum}`;
+        }
+
+        if (baseName.length > 2 && epNum !== null) {
+          return `${baseName} - Ep ${epNum}`;
+        } else if (baseName.length > 2) {
+          raw = baseName;
+        }
+      }
+    } catch (_) {}
+
+    // 2. Fallback: document.title de la pestaña
     if (!raw) {
       raw = document.title || '';
     }
 
-    // Limpiar prefijos y sufijos de servidores/portales
-    raw = raw.replace(/^(Ver|Watch|Descargar|Download)\s+/i, '');
+    raw = raw.replace(/^(Ver\s*Anime|Ver|Watch|Descargar|Download)\s+/i, '');
     raw = raw.replace(/\s+(Sub Español|Español Latino|Castellano|HD|FHD|Online|Gratis|en AnimeFLV|en JKAnime|AnimeFLV|JKAnime|AnimeOnlineNinja|Anime Online Ninja).*$/i, '');
+    raw = raw.replace(/\s*\([^)]*\)\s*/g, ' ').trim();
 
-    // 2. Extraer número de episodio (soporta formatos: - Ep 2, Cap 2, 1x2, S01E02)
-    const epRegex = /(?:[\s\-_:]+(?:(?:Episodio|Capitulo|Episode|Cap|Ep)[\s\-_]*|(?:\d{1,2}[xX]))|(?:\bS\d+E))(\d+)/i;
-    const epMatch = raw.match(epRegex);
+    const seasonExplicit = raw.match(/(?:(\d{1,2})[xX](\d+))|(?:(?:temporada|season)\s*(\d{1,2}))/i);
+    let sNum = seasonExplicit ? (seasonExplicit[1] || seasonExplicit[3]) : null;
 
-    if (epMatch) {
-      let animeName = raw.substring(0, epMatch.index).trim();
-      animeName = animeName.replace(/[:\-_]+$/, '').trim();
-      const epNum = parseInt(epMatch[1], 10);
-      if (animeName.length > 1) {
-        return `${animeName} - Ep ${epNum}`;
+    const epMatchTitle = raw.match(/(?:[\s\-_:]+(?:(?:Episodio|Capitulo|Episode|Cap|Ep)[\s\-_]*|(?:\d{1,2}[xX]))|(?:\bS\d+E))(\d+)/i);
+    if (epMatchTitle) {
+      let animeName = raw.substring(0, epMatchTitle.index).trim().replace(/[:\-_]+$/, '').trim();
+      const epN = parseInt(epMatchTitle[1], 10);
+
+      if (sNum && parseInt(sNum, 10) > 1 && !new RegExp(`season\\s*${sNum}|\\b${sNum}\\b`, 'i').test(animeName)) {
+        animeName = `${animeName} Season ${sNum}`;
       }
+
+      if (animeName.length > 1) return `${animeName} - Ep ${epN}`;
     }
 
-    // 3. Fallback inteligente desde la URL canónica de la página
-    try {
-      const fullUrl = (window.top && window.top.location ? window.top.location.pathname : window.location.pathname) || '';
-      // Casos tipo: /episodio/kanojo-no-tomodachi-cap-1/ o /ver/tank-chair-1/
-      const urlMatch = fullUrl.match(/(?:episodio|ver|watch)\/([a-zA-Z0-9\-]+?)(?:-(?:cap|ep|episodio)?-?(\d+))(?:\/|$)/i);
-      if (urlMatch) {
-        let slugName = urlMatch[1].replace(/[-_]+/g, ' ').trim();
-        // Capitalizar palabras del slug
-        slugName = slugName.replace(/\b\w/g, c => c.toUpperCase());
-        const ep = urlMatch[2] || '1';
-        return `${slugName} - Ep ${ep}`;
-      }
-    } catch (_) {}
-
-    const cleanRaw = raw.replace(/[:\-_]+$/, '').trim();
-    if (cleanRaw && !/^[a-zA-Z0-9_\-]{6,25}$/.test(cleanRaw)) {
-      return cleanRaw;
-    }
-
-    return '';
-  }
-
-  function shouldShowHUD(hostname, callback) {
-    if (!chrome.runtime?.id) return;
-    try {
-      chrome.storage.local.get(['disabledHosts'], (res) => {
-        if (chrome.runtime.lastError) return;
-        const disabled = res?.disabledHosts || [];
-        if (disabled.includes(hostname)) return callback(false);
-        callback(true);
-      });
-    } catch (e) {}
+    return raw.replace(/[:\-_]+$/, '').trim() || 'Episodio';
   }
 
   function findSurgicalPlayerElement() {
-    if (activeFrameUrl) {
-      try {
-        const targetHost = new URL(activeFrameUrl).hostname;
-        const iframes = document.querySelectorAll('iframe');
-        for (const f of iframes) {
-          if (f.src && f.src.includes(targetHost) && isElementVisible(f)) {
-            return f;
-          }
-        }
-      } catch (err) {}
-    }
-
     const specificSelectors = [
       '#video_player', '#player_div', '#reproductor', '#embed_holder',
       '.video-player-container', '.player-container', '.embed-responsive',
-      '.play-box', '#player', '.player', '.vbox'
+      '.play-box', '#player', '.player', '.vbox', '#playex'
     ];
 
     for (const sel of specificSelectors) {
       const container = document.querySelector(sel);
-      if (container && isElementVisible(container)) {
-        const sub = container.querySelector('iframe, video');
-        if (sub && isElementVisible(sub)) return sub;
+      if (container && container.offsetWidth > 0 && container.offsetHeight > 0) {
         return container;
       }
     }
 
-    const candidates = document.querySelectorAll('iframe, video');
-    for (const el of candidates) {
-      const src = (el.src || '').toLowerCase();
-      if (src.includes('google') || src.includes('doubleclick') || src.includes('banner') || src.includes('ads')) {
-        continue;
-      }
-      const r = el.getBoundingClientRect();
-      if (r.width >= 280 && r.height >= 160 && isElementVisible(el)) {
-        return el;
-      }
+    const iframes = document.querySelectorAll('iframe');
+    for (const f of iframes) {
+      const r = f.getBoundingClientRect();
+      if (r.width >= 260 && r.height >= 140) return f;
     }
     return null;
   }
 
-  function isElementVisible(el) {
-    if (!el || !el.isConnected) return false;
-    const s = window.getComputedStyle(el);
-    if (s.display === 'none' || s.visibility === 'hidden' || s.opacity === '0') return false;
-    const r = el.getBoundingClientRect();
-    return (r.width > 0 && r.height > 0);
-  }
-
-  function positionHUDNearPlayer(pill) {
+  function positionHUD(pill) {
     const player = findSurgicalPlayerElement();
     const pillWidth = 310;
     const gap = 12;
@@ -181,52 +135,27 @@ if (window.top !== window) {
       const scrollY = window.pageYOffset || document.documentElement.scrollTop;
       const spaceRight = window.innerWidth - (rect.right + gap);
 
-      let targetLeft = 0;
-      let targetTop = 0;
-
-      if (spaceRight >= pillWidth) {
-        targetLeft = rect.right + gap + scrollX;
-        targetTop = rect.top + scrollY + 8;
-      } else if (rect.left >= (pillWidth + gap)) {
-        targetLeft = rect.left - pillWidth - gap + scrollX;
-        targetTop = rect.top + scrollY + 8;
-      } else {
-        targetLeft = rect.right - pillWidth - 14 + scrollX;
-        targetTop = rect.top + scrollY + 14;
-      }
+      let targetLeft = spaceRight >= pillWidth 
+        ? rect.right + gap + scrollX 
+        : Math.max(10, rect.left - pillWidth - gap + scrollX);
+      let targetTop = rect.top + scrollY + 8;
 
       pill.style.position = 'absolute';
-      pill.style.left = `${Math.max(10, Math.round(targetLeft))}px`;
-      pill.style.top = `${Math.max(10, Math.round(targetTop))}px`;
-      pill.style.bottom = 'auto';
-      pill.style.right = 'auto';
+      pill.style.left = `${Math.round(targetLeft)}px`;
+      pill.style.top = `${Math.round(targetTop)}px`;
     } else {
       pill.style.position = 'fixed';
-      pill.style.top = '80px';
+      pill.style.top = '85px';
       pill.style.right = '24px';
       pill.style.left = 'auto';
-      pill.style.bottom = 'auto';
     }
   }
 
-  function showHUD() {
-    const pill = document.getElementById('aurion-floating-pill');
-    if (!pill) return;
-    positionHUDNearPlayer(pill);
-    pill.classList.add('aurion-visible');
-  }
-
-  function hideHUD() {
-    const pill = document.getElementById('aurion-floating-pill');
-    if (pill) pill.classList.remove('aurion-visible');
-  }
-
-  function createOrUpdateHUD(media, frameUrl = null) {
+  function createOrUpdateHUD(media) {
     if (!media || !media.url) return;
-    if (frameUrl) activeFrameUrl = frameUrl;
+    activeMedia = media;
 
     let pill = document.getElementById('aurion-floating-pill');
-
     if (!pill) {
       pill = document.createElement('div');
       pill.id = 'aurion-floating-pill';
@@ -237,72 +166,36 @@ if (window.top !== window) {
             <span class="aurion-pill-badge">VÍDEO DETECTADO</span>
           </div>
           <div class="aurion-pill-actions">
-            <button class="aurion-pill-btn-icon" id="aurion-ignore-site" title="Silenciar en este sitio">🚫</button>
             <button class="aurion-pill-btn-icon" id="aurion-close-hud" title="Cerrar">✕</button>
           </div>
         </div>
         <div class="aurion-pill-title" id="aurion-pill-title"></div>
-        
         <div class="aurion-pill-preview-box">
           <div class="aurion-pill-preview-top">
             <span class="aurion-pill-server-tag" id="aurion-pill-server">SERVIDOR</span>
-            <div style="display: flex; gap: 5px; align-items: center;">
-              <span class="aurion-pill-server-tag" id="aurion-pill-size-tag" style="background: rgba(0,255,170,0.12); color: #00ffaa; border-color: rgba(0,255,170,0.3); display: none;"></span>
-              <span class="aurion-pill-server-tag" id="aurion-pill-meta-tag" style="background: rgba(255, 255, 255, 0.1); color: #fff; border-color: rgba(255,255,255,0.2);">Auto</span>
-            </div>
+            <span class="aurion-pill-server-tag" id="aurion-pill-meta-tag" style="background: rgba(255,255,255,0.1); color: #fff;">Auto</span>
           </div>
           <div class="aurion-pill-url-preview" id="aurion-pill-url">...</div>
         </div>
-
-        <button class="aurion-pill-btn-send" id="aurion-pill-send">
-          ENVIAR A AURION ⚡
-        </button>
+        <button class="aurion-pill-btn-send" id="aurion-pill-send">ENVIAR A AURION ⚡</button>
       `;
-
       document.body.appendChild(pill);
 
       document.getElementById('aurion-close-hud').addEventListener('click', (e) => {
         e.stopPropagation();
-        hideHUD();
-      });
-
-      document.getElementById('aurion-ignore-site').addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (!chrome.runtime?.id) return;
-        const host = window.location.hostname;
-        try {
-          chrome.storage.local.get(['disabledHosts'], (res) => {
-            const list = res?.disabledHosts || [];
-            if (!list.includes(host)) list.push(host);
-            chrome.storage.local.set({ disabledHosts: list }, () => {
-              hideHUD();
-            });
-          });
-        } catch (err) {}
+        pill.classList.remove('aurion-visible');
       });
 
       document.getElementById('aurion-pill-send').addEventListener('click', async () => {
         const btn = document.getElementById('aurion-pill-send');
         btn.innerText = 'CONECTANDO...';
 
-        const currentMeta = document.getElementById('aurion-pill-meta-tag')?.innerText || 'Auto';
-        const finalRes = (currentMeta !== 'Auto' && currentMeta !== '') ? currentMeta : (activeMedia?.resolution || 'Auto');
-        const finalBytes = (activeMedia?.bytes && activeMedia.bytes > 0) ? activeMedia.bytes : 0;
-
-        let cleanTitle = getCleanMediaTitle();
-        if (!cleanTitle) {
-          const domTitle = document.querySelector('h1, .title, .breadcrumb')?.innerText?.trim();
-          cleanTitle = domTitle || 'Episodio';
-        }
-
-        const effectiveReferer = activeFrameUrl || activeMedia?.pageUrl || window.location.href;
-
         const payload = {
-          page_title: cleanTitle,
-          page_url: effectiveReferer,
+          page_title: getCleanMediaTitle(),
+          page_url: activeFrameUrl || activeMedia?.pageUrl || window.location.href,
           stream_url: activeMedia?.url || window.location.href,
-          resolution: finalRes,
-          bytes: finalBytes
+          resolution: activeMedia?.resolution || 'Auto',
+          bytes: activeMedia?.bytes || 0
         };
 
         try {
@@ -311,111 +204,53 @@ if (window.top !== window) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
           });
-
           if (resp.ok) {
             btn.innerText = '¡ENVIADO A AURION! ✔';
             btn.classList.add('aurion-success');
-            setTimeout(() => { hideHUD(); }, 1000);
+            setTimeout(() => { pill.classList.remove('aurion-visible'); }, 1200);
           }
-        } catch (err) {
+        } catch (_) {
           btn.innerText = 'AURION NO CONECTADA';
-          setTimeout(() => { btn.innerText = 'ENVIAR A AURION ⚡'; }, 2200);
+          setTimeout(() => { btn.innerText = 'ENVIAR A AURION ⚡'; }, 2000);
         }
       });
     }
-
-    // Blindaje de calidad máxima: no degradar si la nueva es menor
-    const currentH = parseInt(media.resolution, 10) || 0;
-    const prevH = parseInt(activeMedia?.resolution, 10) || 0;
-
-    if (activeMedia && currentH < prevH && prevH > 0) {
-      media.resolution = activeMedia.resolution;
-      if (!media.bytes || media.bytes === 0) media.bytes = activeMedia.bytes;
-    }
-
-    activeMedia = media;
 
     const titleEl = document.getElementById('aurion-pill-title');
     const serverEl = document.getElementById('aurion-pill-server');
     const urlEl = document.getElementById('aurion-pill-url');
     const metaTag = document.getElementById('aurion-pill-meta-tag');
-    const sizeTag = document.getElementById('aurion-pill-size-tag');
-    const btnSend = document.getElementById('aurion-pill-send');
 
     if (titleEl) titleEl.innerText = getCleanMediaTitle();
     if (serverEl) serverEl.innerText = media.source || 'STREAM';
     if (urlEl) urlEl.innerText = media.url;
+    if (metaTag) metaTag.innerText = media.resolution || 'Auto';
 
-    if (metaTag) {
-      metaTag.innerText = media.resolution || 'Auto';
-    }
-
-    if (sizeTag) {
-      if (media.bytes && media.bytes > 0) {
-        sizeTag.style.display = 'inline-block';
-        sizeTag.innerText = formatBytes(media.bytes);
-      } else {
-        sizeTag.style.display = 'none';
-      }
-    }
-
-    if (btnSend) {
-      btnSend.classList.remove('aurion-success');
-      btnSend.innerText = 'ENVIAR A AURION ⚡';
-      btnSend.style.pointerEvents = 'auto';
-    }
-
-    showHUD();
+    positionHUD(pill);
+    pill.classList.add('aurion-visible');
   }
 
-  window.addEventListener('resize', () => {
-    const pill = document.getElementById('aurion-floating-pill');
-    if (pill && pill.classList.contains('aurion-visible')) {
-      positionHUDNearPlayer(pill);
-    }
-  });
-
+  // Comprobar posición sin ocultar la píldora si no encuentra el reproductor
   setInterval(() => {
     const pill = document.getElementById('aurion-floating-pill');
-    if (!pill || !pill.classList.contains('aurion-visible')) return;
-
-    const player = findSurgicalPlayerElement();
-    if (!player) {
-      hideHUD();
-    } else {
-      positionHUDNearPlayer(pill);
+    if (pill && pill.classList.contains('aurion-visible')) {
+      positionHUD(pill);
     }
-  }, 1200);
+  }, 1500);
 
   chrome.runtime.onMessage.addListener((msg) => {
     if (msg.type === 'AURION_MEDIA_DETECTED') {
-      shouldShowHUD(window.location.hostname, (allowed) => {
-        if (!allowed) return;
-        createOrUpdateHUD(msg.media);
-      });
+      createOrUpdateHUD(msg.media);
     }
   });
 
   window.addEventListener('message', (event) => {
-    if (event.data?.aurionType === 'FORWARD_MEDIA_DETECTED') {
-      shouldShowHUD(window.location.hostname, (allowed) => {
-        if (!allowed) return;
-        createOrUpdateHUD(event.data.media, event.data.frameUrl);
-      });
-    } else if (event.data?.aurionType === 'NATIVE_RES_DETECTED') {
+    if (event.data?.aurionType === 'NATIVE_RES_DETECTED') {
       const metaTag = document.getElementById('aurion-pill-meta-tag');
-      const prevH = parseInt(metaTag?.innerText, 10) || 0;
-      const newH = event.data.height || 0;
-
-      // Solo ascender en resolución
-      if (newH >= prevH && newH > 0) {
-        if (metaTag) metaTag.innerText = event.data.resolution;
+      if (metaTag && event.data.resolution) {
+        metaTag.innerText = event.data.resolution;
         if (activeMedia) activeMedia.resolution = event.data.resolution;
       }
     }
-  });
-
-  window.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') hideHUD();
   });
 }

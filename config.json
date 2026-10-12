@@ -2,8 +2,8 @@
   "active_mode": "anime",
   "anime": {
     "dir": "J:\\ANIME\\animes",
-    "season": 1,
-    "start_ep": 1,
+    "season": 2,
+    "start_ep": 28,
     "save_cover": true,
     "res": "max",
     "fmt": "mkv",
