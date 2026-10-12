@@ -4,7 +4,7 @@ const DIRECT_VIDEO_REGEX = /\.(m3u8|mp4|webm|mpd)(\?|$)/i;
 
 // Se elimina 'saidochesto.top' para evitar capturar el contenedor de selección de servidor
 const VERIFIED_VIDEO_DOMAINS = [
-  'filelions.top', 'filelions.to', 'filelions.site', 'streamwish.to', 'streamwish.com',
+  'earnvids', 'filelions.top', 'filelions.to', 'filelions.site', 'streamwish.to', 'streamwish.com',
   'streamwish.top', 'streamwish.site', 'wishembed.pro', 'wishembed', 'vidhide.com',
   'vidhidepro.com', 'vidhidepre.com', 'streamtape.com', 'voe.sx', 'filemoon.sx',
   'filemoon.to', 'filemoon.in', 'yourupload.com', 'doodstream.com', 'dood.',
@@ -103,11 +103,13 @@ async function inspectManifest(url) {
 
 function resolveServerName(url) {
   const u = url.toLowerCase();
-  if (u.includes('streamwish') || u.includes('wishembed')) return 'STREAMWISH';
-  if (u.includes('filelions')) return 'FILELIONS';
+  if (u.includes('earnvids') || u.includes('earn')) return 'EARNVIDS';
+  if (u.includes('playmate') || u.includes('mate')) return 'PLAYMATE';
+  if (u.includes('streamwish') || u.includes('wishembed') || u.includes('wish')) return 'STREAMWISH';
+  if (u.includes('filelions') || u.includes('lion')) return 'FILELIONS';
   if (u.includes('vidhide')) return 'VIDHIDE';
   if (u.includes('streamtape')) return 'STREAMTAPE';
-  if (u.includes('voe.sx')) return 'VOE';
+  if (u.includes('voe.sx') || u.includes('voe')) return 'VOE';
   if (u.includes('filemoon')) return 'FILEMOON';
   if (u.includes('yourupload')) return 'YOURUPLOAD';
   if (u.includes('dood')) return 'DOODSTREAM';
@@ -124,10 +126,16 @@ chrome.webRequest.onBeforeRequest.addListener(
     const { url, tabId, frameId } = details;
     if (tabId < 0) return;
 
-    // Descartar fragmentos, anuncios y archivos de código/scripts que confunden a Streamwish
-    if (url.includes('.ts') || url.includes('.m4s') || url.includes('.key') || 
-        url.includes('.js') || url.includes('.css') || url.includes('/player/') ||
-        url.includes('doubleclick') || url.includes('google') || url.includes('/ad/')) {
+    const u = url.toLowerCase();
+
+    // Descartar recursos estáticos, anuncios, telemetría y fragmentos individuales
+    if (
+      u.includes('.ts') || u.includes('.m4s') || u.includes('.key') || 
+      u.includes('.js') || u.includes('.css') ||
+      u.includes('doubleclick') || u.includes('google') || u.includes('/ad/') ||
+      u.includes('/heartbeat') || u.includes('/ping') || u.includes('/beacon') ||
+      u.includes('/analytics') || u.endsWith('/api/s') || u.includes('/api/s?')
+    ) {
       return;
     }
 
@@ -153,10 +161,16 @@ chrome.webRequest.onBeforeRequest.addListener(
 
     if (!isMatch) return;
 
-    // Si es un sub-manifiesto degradado (index-f1/v1), forzar al master.m3u8 para desbloquear 1080p
+    // Normalizar sub-manifiestos degradados (index-f1/v1) a master.m3u8
     let effectiveUrl = url;
     if (/index-f\d+-[^\.]+\.m3u8/i.test(effectiveUrl)) {
       effectiveUrl = effectiveUrl.replace(/index-f\d+-[^\.]+\.m3u8/i, 'master.m3u8');
+    }
+
+    // Solo capturar si es manifiesto HLS o contenedor directo (evita capturar páginas HTML como /embed/)
+    const hasMediaExt = DIRECT_VIDEO_REGEX.test(effectiveUrl);
+    if (!hasMediaExt) {
+      return;
     }
 
     if (!tabMediaData[tabId]) tabMediaData[tabId] = [];

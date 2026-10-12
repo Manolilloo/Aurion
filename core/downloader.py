@@ -40,6 +40,28 @@ class AurionDownloader:
         status_aria = f"DISPONIBLE ({self.aria2_path})" if self.has_aria2 else "NO DETECTADO"
         status_ffmpeg = f"DISPONIBLE ({self.ffmpeg_path})" if self.has_ffmpeg else "NO DETECTADO"
         print(f"[Core] Estado del sistema -> aria2c: {status_aria} | FFmpeg: {status_ffmpeg}")
+        self._cleanup_orphaned_temp_dirs()
+
+    def _cleanup_orphaned_temp_dirs(self):
+        """Barre cualquier carpeta residual .tmp_* que haya quedado de cierres inesperados."""
+        def run_cleanup():
+            check_dirs = ["J:\\ANIME\\animes", "J:\\ANIME\\peliculas"]
+            for base in check_dirs:
+                if not os.path.exists(base):
+                    continue
+                try:
+                    for root, dirs, _ in os.walk(base):
+                        for d in list(dirs):
+                            if d.startswith(".tmp_"):
+                                target_path = os.path.join(root, d)
+                                try:
+                                    shutil.rmtree(target_path, ignore_errors=True)
+                                    print(f"[Core Limpieza] Carpeta temporal residual eliminada: {target_path}")
+                                except Exception:
+                                    pass
+                except Exception:
+                    pass
+        threading.Thread(target=run_cleanup, daemon=True).start()
 
     def cancel_task(self, task_id):
         with self.lock:
@@ -67,20 +89,39 @@ class AurionDownloader:
             else:
                 final_dir = base_dir
         else:
-            # MODO ANIME: Conserva su estructura original
+            # MODO ANIME: Detección automática de temporada por regex en el título
             is_single = config.get("is_single_season", False)
             season_num = config.get("season_num", 1)
 
+            import re
+            detected_season = None
+            if clean_title:
+                # Patrones tipo: 2nd Season, Season 2, Temporada 2, 2da Temporada, S2
+                m = re.search(r'(?:(\d+)(?:st|nd|rd|th|da|ra)?\s*(?:season|temporada))|(?:(?:season|temporada)\s*(\d+))|(?:\bS(\d+)\b)', clean_title, re.IGNORECASE)
+                if m:
+                    num_str = m.group(1) or m.group(2) or m.group(3)
+                    if num_str and num_str.isdigit():
+                        detected_season = int(num_str)
+
+            effective_season = detected_season if detected_season is not None else season_num
+
+            # Normalizar nombre raíz del anime retirando la etiqueta de temporada para no duplicar carpetas
+            root_anime_folder = clean_title
+            if detected_season is not None:
+                root_anime_folder = re.sub(r'[\s\-_]*(?:(?:\d+(?:st|nd|rd|th|da|ra)?\s*(?:season|temporada))|(?:(?:season|temporada)\s*\d+)|(?:\bS\d+\b)).*$', '', clean_title, flags=re.IGNORECASE).strip()
+                if not root_anime_folder:
+                    root_anime_folder = clean_title
+
             if is_single:
-                if clean_title and clean_title != "Esperando consulta...":
-                    final_dir = os.path.join(base_dir, clean_title)
+                if root_anime_folder and root_anime_folder != "Esperando consulta...":
+                    final_dir = os.path.join(base_dir, root_anime_folder)
                 else:
                     final_dir = base_dir
             else:
-                if clean_title and clean_title != "Esperando consulta...":
-                    final_dir = os.path.join(base_dir, clean_title, f"Temporada {season_num}")
+                if root_anime_folder and root_anime_folder != "Esperando consulta...":
+                    final_dir = os.path.join(base_dir, root_anime_folder, f"Temporada {effective_season}")
                 else:
-                    final_dir = os.path.join(base_dir, f"Temporada {season_num}")
+                    final_dir = os.path.join(base_dir, f"Temporada {effective_season}")
 
         try:
             os.makedirs(final_dir, exist_ok=True)
@@ -167,7 +208,7 @@ class AurionDownloader:
 
         # Normalizar espejos de streaming hacia el master.m3u8 real
         probe_url = url
-        if any(srv in probe_url.lower() for srv in ["filelions", "streamwish", "vidhide"]):
+        if any(srv in probe_url.lower() for srv in ["filelions", "streamwish", "vidhide", "playmate", "earnvids"]):
             if "index-f" in probe_url.lower():
                 probe_url = re.sub(r'index-f\d+-[^\.]+\.m3u8', 'master.m3u8', probe_url)
 
@@ -389,7 +430,39 @@ class AurionDownloader:
                 fmt_choice = "mp4"
             format_selector = "bestvideo[height<=1080]+bestaudio/best[height<=1080]/bestvideo+bestaudio/best"
 
+        import re
+
         clean_file_title = "".join(c for c in title if c not in r'\/:*?"<>|').strip() or "video"
+
+        # Estandarización automática de nombres para Anime (formato Plex / Jellyfin)
+        mode = config.get("active_mode", "anime")
+        is_yt = config.get("is_youtube", False)
+
+        if mode == "anime" and not is_yt:
+            # Buscar número de episodio (ej: - Ep 15, Ep. 15, E15, Capitulo 15)
+            ep_match = re.search(r'(?:[\s\-_]+(?:Episodio|Capitulo|Episode|Cap|Ep|E)[\s\-_]*|#\s*)(\d+)', clean_file_title, re.IGNORECASE)
+            # Buscar número de temporada si existe en el título o configuración
+            sea_match = re.search(r'(?:(\d+)(?:st|nd|rd|th|da|ra)?\s*(?:season|temporada))|(?:(?:season|temporada)\s*(\d+))|(?:\bS(\d+)\b)', clean_file_title, re.IGNORECASE)
+
+            if ep_match:
+                ep_num = int(ep_match.group(1))
+                detected_season = None
+                if sea_match:
+                    s_str = sea_match.group(1) or sea_match.group(2) or sea_match.group(3)
+                    if s_str and s_str.isdigit():
+                        detected_season = int(s_str)
+
+                # Priorizar temporada del título, luego de configuración, por defecto 1
+                final_s = detected_season if detected_season is not None else int(config.get("season_num", 1))
+
+                # Extraer nombre base del anime sin la etiqueta del episodio ni de temporada
+                raw_base_name = clean_file_title[:ep_match.start()].strip()
+                clean_anime_base = re.sub(r'[\s\-_]*(?:(?:\d+(?:st|nd|rd|th|da|ra)?\s*(?:season|temporada))|(?:(?:season|temporada)\s*\d+)|(?:\bS\d+\b)).*$', '', raw_base_name, flags=re.IGNORECASE).strip()
+                if not clean_anime_base:
+                    clean_anime_base = raw_base_name or "Episodio"
+
+                clean_file_title = f"{clean_anime_base} - S{final_s:02d}E{ep_num:02d}"
+
         task_temp_dir = os.path.join(dest_folder, f".tmp_{task_id}")
         os.makedirs(task_temp_dir, exist_ok=True)
         out_template = os.path.join(task_temp_dir, f"{clean_file_title}.%(ext)s")
@@ -402,7 +475,7 @@ class AurionDownloader:
         page_ref = task.get("pageUrl") or ""
         if "mp4upload" in netloc:
             referer = "https://www.mp4upload.com/"
-        elif any(s in netloc for s in ["sprintcdn", "streamwish", "filelions", "vidhide", "hglamioz", "wish"]):
+        elif any(s in netloc for s in ["sprintcdn", "streamwish", "filelions", "vidhide", "hglamioz", "wish", "playmate", "earnvids"]):
             referer = origin_domain + "/"
         elif page_ref:
             referer = page_ref
@@ -619,6 +692,17 @@ class AurionDownloader:
                     self.bridge._window.evaluate_js(
                         f"window.updateDownloadProgress && window.updateDownloadProgress('{task_id}', 0, 'Cancelado', 'Cancelado');"
                     )
+                # Purga inmediata y forzada del directorio temporal tras la cancelación
+                import time, gc
+                gc.collect()
+                time.sleep(0.3)
+                for _ in range(5):
+                    try:
+                        if os.path.exists(task_temp_dir):
+                            shutil.rmtree(task_temp_dir, ignore_errors=True)
+                        break
+                    except Exception:
+                        time.sleep(0.2)
             else:
                 import traceback
                 print(f"[Core] Error descargando {title}:")

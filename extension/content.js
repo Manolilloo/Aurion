@@ -48,25 +48,64 @@ if (window.top !== window) {
     return Math.round(mb) + ' MB';
   }
 
-  // Limpiador avanzado de títulos de episodios para AnimeFLV, JKAnime, etc.
   function getCleanMediaTitle() {
-    let raw = document.title || '';
-    
-    // Quitar prefijos comunes
-    raw = raw.replace(/^(Ver|Watch|Descargar|Download)\s+/i, '');
-    
-    // Quitar sufijos de portales
-    raw = raw.replace(/\s+(Sub Español|Español Latino|Castellano|HD|Online|Gratis|en AnimeFLV|en JKAnime|AnimeFLV|JKAnime|AnimeOnlineNinja).*$/i, '');
-    
-    // Normalizar "Episodio X" o "Episode X" o "Capitulo X" a " - Ep X"
-    const epMatch = raw.match(/[\s\-_]+(?:Episodio|Capitulo|Episode|Cap|Ep)[\s\-_]*(\d+)/i);
-    if (epMatch) {
-      const animeName = raw.substring(0, epMatch.index).trim();
-      const epNum = epMatch[1];
-      return `${animeName} - Ep ${epNum}`;
+    let raw = '';
+
+    // 1. Extraer del DOM o del documento principal
+    const headingEl = document.querySelector('h1.Title, h1.title, .breadcrumb li.active, .breadcrumb .current, h1, .entry-title');
+    if (headingEl && headingEl.innerText && headingEl.innerText.trim().length > 2) {
+      raw = headingEl.innerText.trim();
     }
 
-    return raw.trim() || 'Episodio';
+    if (!raw) {
+      try {
+        if (window.top && window.top.document) {
+          raw = window.top.document.title;
+        }
+      } catch (_) {}
+    }
+
+    if (!raw) {
+      raw = document.title || '';
+    }
+
+    // Limpiar prefijos y sufijos de servidores/portales
+    raw = raw.replace(/^(Ver|Watch|Descargar|Download)\s+/i, '');
+    raw = raw.replace(/\s+(Sub Español|Español Latino|Castellano|HD|FHD|Online|Gratis|en AnimeFLV|en JKAnime|AnimeFLV|JKAnime|AnimeOnlineNinja|Anime Online Ninja).*$/i, '');
+
+    // 2. Extraer número de episodio (soporta formatos: - Ep 2, Cap 2, 1x2, S01E02)
+    const epRegex = /(?:[\s\-_:]+(?:(?:Episodio|Capitulo|Episode|Cap|Ep)[\s\-_]*|(?:\d{1,2}[xX]))|(?:\bS\d+E))(\d+)/i;
+    const epMatch = raw.match(epRegex);
+
+    if (epMatch) {
+      let animeName = raw.substring(0, epMatch.index).trim();
+      animeName = animeName.replace(/[:\-_]+$/, '').trim();
+      const epNum = parseInt(epMatch[1], 10);
+      if (animeName.length > 1) {
+        return `${animeName} - Ep ${epNum}`;
+      }
+    }
+
+    // 3. Fallback inteligente desde la URL canónica de la página
+    try {
+      const fullUrl = (window.top && window.top.location ? window.top.location.pathname : window.location.pathname) || '';
+      // Casos tipo: /episodio/kanojo-no-tomodachi-cap-1/ o /ver/tank-chair-1/
+      const urlMatch = fullUrl.match(/(?:episodio|ver|watch)\/([a-zA-Z0-9\-]+?)(?:-(?:cap|ep|episodio)?-?(\d+))(?:\/|$)/i);
+      if (urlMatch) {
+        let slugName = urlMatch[1].replace(/[-_]+/g, ' ').trim();
+        // Capitalizar palabras del slug
+        slugName = slugName.replace(/\b\w/g, c => c.toUpperCase());
+        const ep = urlMatch[2] || '1';
+        return `${slugName} - Ep ${ep}`;
+      }
+    } catch (_) {}
+
+    const cleanRaw = raw.replace(/[:\-_]+$/, '').trim();
+    if (cleanRaw && !/^[a-zA-Z0-9_\-]{6,25}$/.test(cleanRaw)) {
+      return cleanRaw;
+    }
+
+    return '';
   }
 
   function shouldShowHUD(hostname, callback) {
@@ -250,7 +289,12 @@ if (window.top !== window) {
         const finalRes = (currentMeta !== 'Auto' && currentMeta !== '') ? currentMeta : (activeMedia?.resolution || 'Auto');
         const finalBytes = (activeMedia?.bytes && activeMedia.bytes > 0) ? activeMedia.bytes : 0;
 
-        const cleanTitle = getCleanMediaTitle();
+        let cleanTitle = getCleanMediaTitle();
+        if (!cleanTitle) {
+          const domTitle = document.querySelector('h1, .title, .breadcrumb')?.innerText?.trim();
+          cleanTitle = domTitle || 'Episodio';
+        }
+
         const effectiveReferer = activeFrameUrl || activeMedia?.pageUrl || window.location.href;
 
         const payload = {

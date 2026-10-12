@@ -28,23 +28,27 @@ window.ExtensionBridgeModule = (function () {
   }
 
   function extractSearchQuery(rawTitle, rawUrl = '') {
-    let text = '';
-    if (rawUrl && typeof rawUrl === 'string') {
+    let text = rawTitle || '';
+
+    // Si viene vacío, es un hash o es la palabra genérica "Episodio", extraer desde la URL
+    const isHash = /^[a-zA-Z0-9_\-]{6,30}$/.test(text.trim());
+    const isGeneric = !text || text.trim().length < 3 || text.trim().toLowerCase() === 'episodio';
+
+    if ((isGeneric || isHash) && rawUrl && typeof rawUrl === 'string') {
       try {
         const urlObj = new URL(rawUrl);
-        const segments = urlObj.pathname.split('/').filter(Boolean);
-        let slug = segments[segments.length - 1] || segments[0] || '';
-        slug = slug.replace(/^ver[-_]/i, '')
-                   .replace(/[-_](cap|episodio|episode)[-_]?\d+.*$/i, '')
-                   .replace(/[-_]\d+$/, '');
-        if (slug && slug.length > 3 && !slug.includes('.')) {
-          text = slug.replace(/[-_]/g, ' ');
+        const match = urlObj.pathname.match(/(?:episodio|ver|watch)\/([a-zA-Z0-9\-]+)/i);
+        if (match) {
+          text = match[1].replace(/-(?:cap|ep|episodio)?-?\d+.*$/i, '').replace(/[-_]+/g, ' ');
+        } else {
+          const segments = urlObj.pathname.split('/').filter(Boolean);
+          let slug = segments[segments.length - 1] || segments[0] || '';
+          slug = slug.replace(/^ver[-_]/i, '').replace(/[-_](cap|episodio|episode)[-_]?\d+.*$/i, '').replace(/[-_]\d+$/, '');
+          if (slug && slug.length > 3 && !slug.includes('.') && !/^[a-zA-Z0-9_\-]{6,30}$/.test(slug)) {
+            text = slug.replace(/[-_]/g, ' ');
+          }
         }
       } catch (e) {}
-    }
-
-    if (!text || text.length < 3) {
-      text = rawTitle || '';
     }
 
     return text
@@ -209,11 +213,16 @@ window.ExtensionBridgeModule = (function () {
     const activeTitle = window.modeStates[window.currentMode].title;
     const state = window.modeStates[window.currentMode];
 
-    const hasActiveAnime = activeTitle && activeTitle !== 'Esperando consulta...';
+    const hasActiveAnime = Boolean(activeTitle && activeTitle !== 'Esperando consulta...');
+    const isSuspiciousHash = /^[a-zA-Z0-9_\-]{6,30}$/.test(cleanName.trim());
+    const isGenericOrEmpty = !cleanName || cleanName.toLowerCase() === 'episodio' || cleanName.toLowerCase() === 'episode';
     const matchScore = hasActiveAnime ? calculateWordMatchScore(cleanName, activeTitle) : 0;
 
+    // Si ya tienes un anime puesto en Aurion, TODO lo que envíes se añade a esa serie sin abrir modales
     const isSameSeries = hasActiveAnime && (
-      matchScore >= 0.25 ||
+      isSuspiciousHash ||
+      isGenericOrEmpty ||
+      matchScore >= 0.15 ||
       activeTitle.toLowerCase().includes(cleanName.toLowerCase()) ||
       cleanName.toLowerCase().includes(activeTitle.toLowerCase().split(' ')[0])
     );
@@ -272,6 +281,15 @@ window.ExtensionBridgeModule = (function () {
         });
       }
     } catch (e) {}
+
+    // Bloqueo final de seguridad: nunca mostrar modal si el candidato es un hash ininteligible
+    if (/^[a-zA-Z0-9_\-]{6,30}$/.test(bestProposal.title.trim())) {
+      if (hasActiveAnime) {
+        bestProposal.title = activeTitle;
+      } else {
+        return;
+      }
+    }
 
     modalTargetMode = window.currentMode;
     showMatchModal(bestProposal, data, detectedEp);

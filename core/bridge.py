@@ -77,6 +77,19 @@ class AurionBridge:
 
     def on_extension_link(self, data):
         """Envía el enlace capturado desde la extensión al frontend de la app"""
+        if not isinstance(data, dict):
+            return
+
+        import re
+        page_title = str(data.get("page_title") or "").strip()
+        active_anime = self.config.get("anime", {}).get("active_title", "").strip()
+
+        # Si el título recibido es un hash alfanumérico sin sentido (ej. 'wl2bdbhqi7s')
+        # y ya tenemos un anime fijado en Aurion, usamos el título del anime activo
+        is_suspicious_hash = bool(re.match(r'^[a-zA-Z0-9_\-]{6,25}$', page_title))
+        if (not page_title or is_suspicious_hash) and active_anime:
+            data["page_title"] = active_anime
+
         if self._window:
             safe_data = json.dumps(data)
             self._window.evaluate_js(f"window.onLinkReceived && window.onLinkReceived({safe_data});")
@@ -244,6 +257,11 @@ class AurionBridge:
 
     def search_media(self, mode, query):
         if not query or len(query.strip()) < 2:
+            return []
+
+        clean_q = query.strip().lower()
+        # Evitar consultar términos genéricos que devuelven el ID 1 de AniList
+        if clean_q in ["episodio", "episode", "capitulo", "cap", "video", "anime"]:
             return []
 
         query = query.strip()
