@@ -1,7 +1,7 @@
 {
   "active_mode": "anime",
   "anime": {
-    "dir": "",
+    "dir": "J:\\ANIME\\animes",
     "season": 1,
     "start_ep": 1,
     "save_cover": true,
@@ -9,11 +9,11 @@
     "fmt": "mkv",
     "threads": "32",
     "simul": "20",
-    "active_title": "",
-    "active_tags": "SISTEMA LISTO",
-    "active_bg": "",
-    "accent1": "#ffd60a",
-    "accent2": "#ffb703",
+    "active_title": "Kanojo no Tomodachi",
+    "active_tags": "EN EMISI\u00d3N \u2022 \u2605 5.0",
+    "active_bg": "url('https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx211877-yWQ2r7XmWvG6.jpg')",
+    "accent1": "rgb(254, 150, 29)",
+    "accent2": "rgb(244, 205, 128)",
     "open_folder": true
   },
   "movie": {
@@ -34,8 +34,8 @@
   },
   "youtube": {
     "dir": "C:\\Users\\mdema\\Downloads\\yt-videos-prueba",
-    "format": "audio",
-    "res": "min",
+    "format": "video",
+    "res": "1080",
     "open_folder": true
   },
   "settings": {
@@ -44,9 +44,11 @@
     "check_updates": true,
     "notify_sound": true,
     "accent_theme": "dynamic",
-    "glow_intensity": "normal",
+    "glow_intensity": "intense",
+    "spinning_cover": true,
+    "spin_speed": "normal",
     "speed_limit": "0",
-    "file_conflict": "rename",
+    "file_conflict": "overwrite",
     "aria_connections": "16",
     "finish_action": "open_folder",
     "sections_order": [

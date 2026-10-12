@@ -172,14 +172,13 @@ async function updateDiskTelemetry(path) {
 // 3. GLIDERS DESLIZANTES PROTEGIDOS
 function updateChipGlider(group, targetBtn) {
   if (!group || !targetBtn) return;
-  
-  if (group.offsetParent === null || targetBtn.offsetWidth <= 0) return;
-
   const glider = group.querySelector('.chip-glider');
   if (!glider) return;
 
-  const leftOffset = targetBtn.offsetLeft;
   const width = targetBtn.offsetWidth;
+  const leftOffset = targetBtn.offsetLeft;
+
+  if (width <= 0) return;
 
   glider.style.width = `${width}px`;
   glider.style.transform = `translateX(${leftOffset}px)`;
@@ -189,9 +188,19 @@ function refreshAllGliders() {
   document.querySelectorAll('.chip-group').forEach(group => {
     if (!group.offsetParent || group.offsetWidth <= 0) return;
     const activeBtn = group.querySelector('.chip-btn.active');
-    if (activeBtn && activeBtn.offsetWidth > 0) {
+    if (activeBtn) {
       updateChipGlider(group, activeBtn);
     }
+  });
+}
+
+// Observador para recalcular la posición ante cualquier cambio de layout
+if (window.ResizeObserver) {
+  const gliderResizeObserver = new ResizeObserver(() => {
+    refreshAllGliders();
+  });
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.chip-group').forEach(el => gliderResizeObserver.observe(el));
   });
 }
 
@@ -376,6 +385,27 @@ function updateTotalQueueSize() {
   }
 }
 
+function syncCockpitPipelineVisibility(mode = currentMode) {
+  if (mode === 'youtube') return;
+  const cockpit = document.getElementById('cockpit-grid');
+  if (!cockpit) return;
+
+  const currentQueue = modeStates[mode]?.queue || [];
+  const isIdle = currentQueue.length === 0;
+
+  cockpit.classList.toggle('pipeline-idle', isIdle);
+  cockpit.classList.toggle('pipeline-active', !isIdle);
+
+  // Recalcular gliders al instante y al finalizar la transición elástica de la columna
+  requestAnimationFrame(() => {
+    refreshAllGliders();
+  });
+  setTimeout(refreshAllGliders, 50);
+  setTimeout(refreshAllGliders, 250);
+  setTimeout(refreshAllGliders, 480);
+}
+window.syncCockpitPipelineVisibility = syncCockpitPipelineVisibility;
+
 function renderFullQueue(mode) {
   const container = document.getElementById('queue-list');
   if (!container) return;
@@ -397,6 +427,7 @@ function renderFullQueue(mode) {
     list.forEach(task => renderQueueCard(task));
   }
   updateTotalQueueSize();
+  syncCockpitPipelineVisibility(mode);
 }
 
 function renderQueueCard(task) {
@@ -406,20 +437,28 @@ function renderQueueCard(task) {
   const emptyPlaceholder = container.querySelector('div[style*="text-align: center"]');
   if (emptyPlaceholder) emptyPlaceholder.remove();
 
+  // Asegura que en cuanto entra una tarjeta, el pipeline emerja y el botón maestro poppee
+  syncCockpitPipelineVisibility(currentMode);
+
   const isCompleted = task.status === 'Completado' || (task.progress >= 100);
   const sizeBytes = task.bytes || 0;
   const sizeStr = sizeBytes > 0 ? formatBytes(sizeBytes) : '-- MB';
   const resStr = task.resolution || 'N/D';
   const percent = task.progress !== undefined ? task.progress : 0;
 
+  const isError = task.status === 'Error' || task.status === 'Fallo al descargar';
+
   const card = document.createElement('div');
-  card.className = `pipeline-card ${isCompleted ? 'completed' : ''}`;
+  card.className = `pipeline-card ${isCompleted ? 'completed' : ''} ${isError ? 'is-error' : ''}`;
   card.id = task.id;
 
   card.innerHTML = `
     <div class="pipeline-card-top">
       <span class="pipeline-card-title" title="${task.title}">${task.title}</span>
-      <button class="pipeline-card-btn-del" title="Eliminar">✕</button>
+      <div class="pipeline-card-actions">
+        <button class="pipeline-card-btn-retry" id="btn-retry-${task.id}" title="Reintentar descarga" style="display: ${isError ? 'inline-flex' : 'none'};">🔄</button>
+        <button class="pipeline-card-btn-del" title="Eliminar">✕</button>
+      </div>
     </div>
     <div class="pipeline-card-meta">
       <div class="pipeline-tags-cluster">
@@ -432,6 +471,48 @@ function renderQueueCard(task) {
       <div class="pipeline-progress-fill" id="task-progress-${task.id}" style="width: ${percent}%;"></div>
     </div>
   `;
+
+  // Listener del botón de reintento
+  const retryBtn = card.querySelector(`#btn-retry-${task.id}`);
+  if (retryBtn) {
+    retryBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (typeof playSynth === 'function') playSynth('click');
+      retryBtn.classList.add('spinning');
+      
+      task.status = 'Iniciando...';
+      task.progress = 0;
+      card.classList.remove('is-error');
+      retryBtn.style.display = 'none';
+
+      const statusEl = document.getElementById(`task-status-${task.id}`);
+      if (statusEl) statusEl.innerText = 'Reintentando...';
+
+      const currentManualDir = (document.getElementById('cfg-dir')?.value || modeStates[currentMode].dir || '').trim();
+      const rawFmt = document.querySelector('.chip-group[data-cfg="fmt"] .chip-btn.active')?.getAttribute('data-val') || modeStates[currentMode].fmt;
+      const rawThreads = document.querySelector('.chip-group[data-cfg="threads"] .chip-btn.active')?.getAttribute('data-val') || modeStates[currentMode].threads;
+      const rawSimul = document.querySelector('.chip-group[data-cfg="simul"] .chip-btn.active')?.getAttribute('data-val') || modeStates[currentMode].simul;
+      const activeSeasonNum = parseInt(document.getElementById('cfg-season')?.value, 10) || modeStates[currentMode].season || 1;
+
+      pyCall('start_downloads', {
+        tasks: [task],
+        config: {
+          ...modeStates[currentMode],
+          active_mode: currentMode,
+          title: modeStates[currentMode].title,
+          cover_url: '',
+          save_cover: false,
+          dir: currentManualDir,
+          is_single_season: !!modeStates[currentMode].singleSeason,
+          season_num: activeSeasonNum,
+          open_folder: false,
+          fmt: String(rawFmt).replace('.', '').toLowerCase().trim(),
+          threads: parseInt(rawThreads, 10) || 32,
+          simul: 1
+        }
+      });
+    });
+  }
 
   card.querySelector('.pipeline-card-btn-del').addEventListener('click', () => {
     if (typeof playSynth === 'function') playSynth('click');
@@ -450,6 +531,7 @@ function renderQueueCard(task) {
       `;
     }
     updateTotalQueueSize();
+    syncCockpitPipelineVisibility(currentMode);
   });
 
   container.appendChild(card);
@@ -669,6 +751,7 @@ function setAppMode(mode, save = true) {
     if (cockpitGrid) cockpitGrid.style.display = 'flex';
     if (sInput) sInput.placeholder = mode === 'movie' ? 'Buscar película...' : 'Invoca un anime...';
     loadState(mode);
+    syncCockpitPipelineVisibility(mode);
     const dInput = document.getElementById('cfg-dir');
     if (dInput) dInput.value = modeStates[mode].dir || '';
 
@@ -972,6 +1055,7 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
       }
       updateTotalQueueSize();
+      syncCockpitPipelineVisibility(currentMode);
     });
   }
 
@@ -1170,10 +1254,18 @@ document.addEventListener('DOMContentLoaded', () => {
     if (ytInput) ytInput.value = modeStates.youtube.dir || '';
   }
 
-  pyCall('get_initial_state')?.then(applyLoadedConfig);
+  pyCall('get_initial_state')?.then((cfg) => {
+    applyLoadedConfig(cfg);
+    setTimeout(refreshAllGliders, 60);
+    setTimeout(refreshAllGliders, 200);
+  });
 
   window.addEventListener('pywebviewready', function() {
-    pyCall('get_initial_state')?.then(applyLoadedConfig);
+    pyCall('get_initial_state')?.then((cfg) => {
+      applyLoadedConfig(cfg);
+      setTimeout(refreshAllGliders, 80);
+      setTimeout(refreshAllGliders, 300);
+    });
     // Comprobación real de actualizaciones en producción
     setTimeout(() => {
       pyCall('check_for_updates');
@@ -2332,11 +2424,26 @@ window.updateDownloadProgress = function(taskId, progress, speed, status) {
   if (fill) fill.style.width = `${progress}%`;
   if (statusEl) statusEl.innerText = `${status} ${speed ? '• ' + speed : ''}`;
 
-  if (card && (status === 'Completado' || progress >= 100)) {
-    card.classList.add('completed');
-    
+  if (card) {
+    const isError = (status === 'Error' || status === 'Fallo al descargar' || status === 'Stream inválido');
+    const retryBtn = document.getElementById(`btn-retry-${taskId}`);
+
+    if (isError) {
+      card.classList.add('is-error');
+      card.classList.remove('completed');
+      if (retryBtn) {
+        retryBtn.style.display = 'inline-flex';
+        retryBtn.classList.remove('spinning');
+      }
+      if (typeof playSynth === 'function') playSynth('click');
+    } else if (status === 'Completado' || progress >= 100) {
+      card.classList.add('completed');
+      card.classList.remove('is-error');
+      if (retryBtn) retryBtn.style.display = 'none';
+    }
+
     const currentQueue = modeStates[currentMode].queue || [];
-    const hasActiveTasks = currentQueue.some(t => t.status !== 'Completado' && t.status !== 'Cancelado');
+    const hasActiveTasks = currentQueue.some(t => t.status !== 'Completado' && t.status !== 'Cancelado' && t.status !== 'Error');
     if (!hasActiveTasks && typeof window.setMasterDownloadState === 'function') {
       window.setMasterDownloadState(false);
     }

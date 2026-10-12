@@ -13,7 +13,7 @@ import io
 import webview
 from .downloader import AurionDownloader
 
-APP_VERSION = "1.1.1"
+APP_VERSION = "1.1.2"
 GITHUB_REPO = "Manolilloo/Aurion"
 CONFIG_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config.json")
 
@@ -140,6 +140,8 @@ class AurionBridge:
                 "notify_sound": True,
                 "accent_theme": "dynamic",
                 "glow_intensity": "normal",
+                "spinning_cover": False,
+                "spin_speed": "normal",
                 "speed_limit": "0",
                 "file_conflict": "rename",
                 "aria_connections": "16",

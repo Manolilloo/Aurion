@@ -603,9 +603,11 @@ window.initYoutubeModule = function() {
     }
   }
 
-  // SELECTOR DE RESOLUCIÓN (Sonidos al cambiar de paso y tope magnético fijo)
+  // SELECTOR DE RESOLUCIÓN TÁCTIL 1:1 CON ANCLAJE AL RATÓN
   const ytResChips = document.getElementById('yt-res-chips');
-  function snapGliderToBtn(group, targetBtn, withJelly = false, direction = 0) {
+  let activeYtDownloadTaskId = null; // Variable para trackear y cancelar la descarga activa real
+
+  function snapGliderToBtn(group, targetBtn) {
     if (!group || !targetBtn) return;
     const glider = group.querySelector('.chip-glider');
     group.querySelectorAll('.chip-btn').forEach(b => b.classList.remove('active'));
@@ -615,7 +617,7 @@ window.initYoutubeModule = function() {
     const width = targetBtn.offsetWidth;
 
     if (glider) {
-      glider.style.transition = 'transform 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.2), width 0.2s ease';
+      glider.style.transition = 'transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), width 0.2s ease';
       glider.style.width = `${width}px`;
       glider.style.transform = `translateX(${leftOffset}px)`;
     }
@@ -628,53 +630,33 @@ window.initYoutubeModule = function() {
 
   if (ytResChips) {
     let isDragging = false;
-    let startMouseX = 0;
-    let initialGliderLeft = 0;
     let lastActiveBtn = null;
     const gliderEl = ytResChips.querySelector('.chip-glider');
 
-    ytResChips.querySelectorAll('.chip-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        if (isDragging) return;
-        if (typeof window.playSynth === 'function') window.playSynth('click');
-        snapGliderToBtn(ytResChips, btn, false);
-      });
-    });
-
-    const startDrag = (e) => {
-      const activeBtn = ytResChips.querySelector('.chip-btn.active') || ytResChips.querySelector('.chip-btn');
-      if (!activeBtn || !gliderEl) return;
-
-      isDragging = true;
-      lastActiveBtn = activeBtn;
-      startMouseX = e.clientX || (e.touches && e.touches[0].clientX) || 0;
-      initialGliderLeft = activeBtn.offsetLeft;
-
-      gliderEl.style.transition = 'none';
-      gliderEl.classList.add('is-dragging');
-    };
-
-    const moveDrag = (e) => {
-      if (!isDragging || !gliderEl) return;
-      const currentMouseX = e.clientX || (e.touches && e.touches[0].clientX) || 0;
-      const deltaX = currentMouseX - startMouseX;
-
-      // Topes absolutos para no salirse de la barra
-      const minLeft = 0;
-      const maxLeft = ytResChips.clientWidth - gliderEl.offsetWidth;
-      let newLeft = Math.max(minLeft, Math.min(maxLeft, initialGliderLeft + deltaX));
-
-      gliderEl.style.transform = `translateX(${newLeft}px)`;
-
-      // Detectar botón activo y sonar al saltar de escalón
+    function updateGliderPosAtCursor(clientX, isInitial = false) {
+      const rect = ytResChips.getBoundingClientRect();
       const buttons = Array.from(ytResChips.querySelectorAll('.chip-btn'));
-      const gliderCenter = newLeft + (gliderEl.offsetWidth / 2);
+      if (buttons.length === 0 || !gliderEl) return;
+
+      const gliderW = buttons[0].offsetWidth;
+      gliderEl.style.width = `${gliderW}px`;
+
+      // Centrar exactamente la pastilla en la posición horizontal del ratón
+      const mouseRelX = clientX - rect.left;
+      const targetLeft = mouseRelX - (gliderW / 2);
+      const minLeft = 0;
+      const maxLeft = ytResChips.clientWidth - gliderW;
+      const clampedLeft = Math.max(minLeft, Math.min(maxLeft, targetLeft));
+
+      gliderEl.style.transition = isInitial ? 'transform 0.1s ease-out' : 'none';
+      gliderEl.style.transform = `translateX(${clampedLeft}px)`;
+
+      // Detectar botón activo en tiempo real
       let closestBtn = buttons[0];
       let minDistance = Infinity;
-
       buttons.forEach(btn => {
         const btnCenter = btn.offsetLeft + (btn.offsetWidth / 2);
-        const dist = Math.abs(gliderCenter - btnCenter);
+        const dist = Math.abs(mouseRelX - btnCenter);
         if (dist < minDistance) {
           minDistance = dist;
           closestBtn = btn;
@@ -686,16 +668,28 @@ window.initYoutubeModule = function() {
         if (typeof window.playSynth === 'function') window.playSynth('click');
         buttons.forEach(b => b.classList.toggle('active', b === closestBtn));
       }
+    }
+
+    const startDrag = (e) => {
+      isDragging = true;
+      gliderEl?.classList.add('is-dragging');
+      const clientX = e.clientX || (e.touches && e.touches[0].clientX) || 0;
+      updateGliderPosAtCursor(clientX, true);
+    };
+
+    const moveDrag = (e) => {
+      if (!isDragging) return;
+      const clientX = e.clientX || (e.touches && e.touches[0].clientX) || 0;
+      updateGliderPosAtCursor(clientX, false);
     };
 
     const stopDrag = () => {
       if (!isDragging) return;
       isDragging = false;
-      if (gliderEl) gliderEl.classList.remove('is-dragging');
-
+      gliderEl?.classList.remove('is-dragging');
       const currentActive = ytResChips.querySelector('.chip-btn.active') || ytResChips.querySelector('.chip-btn');
       if (currentActive) {
-        snapGliderToBtn(ytResChips, currentActive, false);
+        snapGliderToBtn(ytResChips, currentActive);
       }
     };
 
@@ -795,8 +789,10 @@ window.initYoutubeModule = function() {
     const video = window.modeStates?.youtube?.selectedVideo;
     if (!video) return;
 
+    activeYtDownloadTaskId = 'task_yt_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
+
     const task = {
-      id: 'task_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+      id: activeYtDownloadTaskId,
       title: video.title + (isAudioOnly ? ' [MP3]' : ''),
       url: video.url,
       pageUrl: video.url,
@@ -823,17 +819,52 @@ window.initYoutubeModule = function() {
   });
 
   const ytBtnCancel = document.getElementById('yt-btn-cancel');
+  let ytCancelFadeTimeout = null;
+
   ytBtnCancel?.addEventListener('click', () => {
     if (typeof window.playSynth === 'function') window.playSynth('origami');
     const pBox = document.getElementById('yt-dl-progress-box');
     const pStatus = document.getElementById('yt-dl-status');
+    const pBar = document.getElementById('yt-dl-bar');
 
+    // Cancelar la tarea en backend
+    if (activeYtDownloadTaskId) {
+      window.pyCall('cancel_download_task', activeYtDownloadTaskId);
+    }
     window.pyCall('cancel_download_task', 'youtube_active');
 
-    if (pStatus) pStatus.innerText = 'Cancelado';
-    if (pBox) pBox.style.display = 'none';
+    // Estado visual de cancelación
+    if (pStatus) {
+      pStatus.innerText = 'Descarga cancelada ✕';
+      pStatus.style.color = '#ff3366';
+    }
+    if (pBar) {
+      pBar.style.background = '#ff3366';
+      pBar.style.boxShadow = '0 0 10px rgba(255, 51, 102, 0.5)';
+    }
 
     if (typeof window.setYtDownloadState === 'function') window.setYtDownloadState(false);
+
+    // Tras 1.8 segundos, desvanecer suavemente y juntar el disco con el resto
+    clearTimeout(ytCancelFadeTimeout);
+    ytCancelFadeTimeout = setTimeout(() => {
+      if (pBox) {
+        pBox.classList.add('is-fading-out');
+        setTimeout(() => {
+          pBox.style.display = 'none';
+          pBox.classList.remove('is-fading-out');
+          if (pBar) {
+            pBar.style.width = '0%';
+            pBar.style.background = '';
+            pBar.style.boxShadow = '';
+          }
+          if (pStatus) {
+            pStatus.innerText = 'Iniciando...';
+            pStatus.style.color = '';
+          }
+        }, 280);
+      }
+    }, 1800);
   });
 
   // VISTA DE CANAL

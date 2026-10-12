@@ -33,7 +33,7 @@ def main():
     )
     bridge.set_window(window)
 
-    webview.start(on_loaded, (window, bridge), gui='edgechromium', debug=False)
+    webview.start(on_loaded, (window, bridge), gui='edgechromium', debug=False, http_port=8085)
 
     # Limpieza final una vez que la ventana se ha destruido
     try:

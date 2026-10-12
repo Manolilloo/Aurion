@@ -566,7 +566,7 @@ class AurionDownloader:
 
         def progress_hook(d):
             with self.lock:
-                if task_id in self.cancelled_tasks:
+                if task_id in self.cancelled_tasks or (is_yt and "youtube_active" in self.cancelled_tasks):
                     raise Exception("TASK_CANCELLED_BY_USER")
 
             if d.get("status") == "downloading":

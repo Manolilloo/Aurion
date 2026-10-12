@@ -67,10 +67,10 @@ html, body {
   -webkit-app-region: no-drag !important;
 }
 
-/* FONDOS AMBIENTALES AISLADOS EN VRAM (SIN CONSUMO AL ARRASTRAR) */
+/* FONDOS AMBIENTALES AISLADOS EN VRAM CON SOPORTE SPINNING HOLOGRÁFICO */
 .ambient-layer {
   position: fixed;
-  inset: -40px;
+  inset: -60px;
   background-size: cover;
   background-position: center;
   filter: blur(60px) saturate(160%);
@@ -78,12 +78,45 @@ html, body {
   z-index: 1;
   pointer-events: none;
   transform: translateZ(0);
-  will-change: opacity;
+  will-change: opacity, transform;
+  border-radius: 50%; /* Esfera para que al rotar no corte las esquinas */
 }
 
 .ambient-secondary {
   opacity: 0.08;
   filter: blur(80px);
+}
+
+/* ANIMACIONES DE GIRO AMBIENTAL (GPU-ACCELERATED) */
+@keyframes ambientSpinOrbit {
+  from { transform: rotate(0deg) translateZ(0); }
+  to { transform: rotate(360deg) translateZ(0); }
+}
+
+body.has-spinning-cover .ambient-layer {
+  animation: ambientSpinOrbit var(--spin-duration, 30s) linear infinite;
+}
+
+/* EXPANSIÓN ULTRA-INMERSIVA EXCLUSIVA PARA VENTANA MAXIMIZADA (SIN BORDES NEGROS) */
+body.is-maximized .ambient-layer {
+  inset: auto !important;
+  width: 170vw !important;
+  height: 170vw !important;
+  left: -35vw !important;
+  top: calc(50vh - 85vw) !important;
+  filter: blur(95px) saturate(190%) !important;
+  opacity: calc(var(--ambient-opacity, 0.16) * 1.35) !important;
+}
+
+body.is-maximized .ambient-secondary {
+  filter: blur(120px) saturate(210%) !important;
+  opacity: 0.12 !important;
+}
+
+/* Si se activa el modo de ahorro de GPU, pausar rotación automáticamente */
+body.perf-mode-active .ambient-layer,
+body.has-spinning-cover.perf-mode-active .ambient-layer {
+  animation: none !important;
 }
 
 /* ELIMINACIÓN DE FLECHAS NATIVAS */
@@ -3058,6 +3091,78 @@ body.is-maximized #cockpit-grid .telemetry-card {
 }
 
 /* ==========================================================================
+   ESTADO DE ERROR EN PIPELINE CON MARCO ROJO PULSANTE Y BOTÓN REINTENTO
+   ========================================================================== */
+
+.pipeline-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pipeline-card-btn-retry {
+  background: rgba(255, 51, 102, 0.15) !important;
+  border: 1px solid rgba(255, 51, 102, 0.35) !important;
+  color: #ff3366 !important;
+  font-size: 11px !important;
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  padding: 0;
+  line-height: 1;
+}
+
+.pipeline-card-btn-retry:hover {
+  background: #ff3366 !important;
+  color: #ffffff !important;
+  transform: scale(1.12) rotate(45deg);
+  box-shadow: 0 0 12px rgba(255, 51, 102, 0.6);
+}
+
+.pipeline-card-btn-retry.spinning {
+  animation: spinRetry 0.7s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes spinRetry {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* MARCO ROJO PARPADEANTE / PULSANTE */
+.pipeline-card.is-error {
+  border-color: #ff3366 !important;
+  background: radial-gradient(130% 130% at 20% 10%, rgba(45, 12, 20, 0.9) 0%, rgba(20, 8, 12, 0.95) 100%) !important;
+  animation: errorBorderPulse 1.8s ease-in-out infinite !important;
+}
+
+@keyframes errorBorderPulse {
+  0%, 100% {
+    border-color: rgba(255, 51, 102, 0.5);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), 0 0 12px rgba(255, 51, 102, 0.2);
+  }
+  50% {
+    border-color: #ff3366;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), 0 0 22px rgba(255, 51, 102, 0.55), inset 0 0 8px rgba(255, 51, 102, 0.2);
+  }
+}
+
+.pipeline-card.is-error .pipeline-card-status {
+  color: #ff4d79 !important;
+  font-weight: 800 !important;
+}
+
+.pipeline-card.is-error .pipeline-progress-fill {
+  background: linear-gradient(90deg, #d61845 0%, #ff3366 100%) !important;
+  box-shadow: 0 0 10px rgba(255, 51, 102, 0.6) !important;
+}
+
+/* ==========================================================================
    BOTÓN MAESTRO BIFURCABLE // FUSIÓN & FISIÓN ELÁSTICA
    ========================================================================== */
 
@@ -4213,53 +4318,55 @@ body.is-maximized .yt-channel-name {
 .yt-preview-card {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
+  width: 100%;
+  flex-shrink: 0;
 }
 
 .yt-preview-media {
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 9;
-  border-radius: 16px;
+  max-height: 155px;
+  border-radius: 14px;
   overflow: hidden;
-  background: rgba(0, 0, 0, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #000000;
+  border: 1px solid rgba(255, 255, 255, 0.12);
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
 }
 
 #yt-preview-img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  display: block;
 }
 
 .yt-preview-empty {
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 800;
   letter-spacing: 1.2px;
   color: #64748b;
 }
 
+.yt-preview-meta {
+  width: 100%;
+}
+
 .yt-prev-title {
-  font-size: 13.5px;
+  font-size: 12.5px;
   font-weight: 800;
   color: #ffffff;
-  line-height: 1.35;
+  line-height: 1.3;
   white-space: normal;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-}
-
-.yt-prev-channel {
-  font-size: 11.5px;
-  font-weight: 700;
-  color: var(--color-accent-1, #ff0055);
-  margin-top: 2px;
-  text-shadow: 0 0 10px var(--color-glow-subtle);
+  text-align: left;
 }
 
 /* Ocultar las flechas directas de Anime/Cine cuando se esté en YouTube */
@@ -4391,32 +4498,60 @@ body.mode-youtube #sites-dock {
   padding: 8px 2px !important;
 }
 
-/* Panel derecho ultracompacto y simétrico */
+/* Panel derecho calibrado: 100% visible sin barras de scroll */
 .yt-sidebar-box .glass-inner {
-  overflow-y: auto !important;
+  overflow: hidden !important;
   justify-content: flex-start !important;
-  padding: 14px 18px !important;
-  gap: 8px !important;
-  scrollbar-width: none !important;
-}
-
-.yt-sidebar-box .glass-inner::-webkit-scrollbar {
-  display: none !important;
+  padding: 16px 20px !important;
+  gap: 10px !important;
+  height: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
 }
 
 .yt-sidebar-box .settings-area {
-  gap: 8px !important;
+  gap: 10px !important;
   overflow: visible !important;
-  margin-top: 6px !important;
+  margin-top: 4px !important;
   display: flex !important;
   flex-direction: column !important;
   flex: 1 1 auto !important;
-  padding-bottom: 6px !important;
+  padding-bottom: 0 !important;
+  justify-content: flex-start !important; /* Mantiene todos los elementos unidos arriba sin huecos raros */
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+/* Transición fluida al colapsar el selector de calidad */
+#yt-res-group {
+  transition: opacity 0.25s ease, transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Barra de progreso de YouTube con animación de entrada y salida */
+.yt-download-progress-box {
+  margin-top: 6px !important;
+  margin-bottom: 2px !important;
+  display: flex;
+  flex-direction: column;
+  gap: 5px !important;
+  padding: 8px 12px !important;
+  background: rgba(0, 0, 0, 0.55) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 12px !important;
+  box-sizing: border-box !important;
+  flex-shrink: 0 !important;
+  transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), margin 0.3s ease;
+}
+
+.yt-download-progress-box.is-fading-out {
+  opacity: 0 !important;
+  transform: translateY(-6px) scale(0.97) !important;
+  pointer-events: none !important;
 }
 
 .yt-sidebar-box .yt-telemetry-box {
-  margin-top: auto !important;
-  margin-bottom: 2px !important;
+  margin-top: 6px !important;
+  margin-bottom: 0 !important;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
 
 .modal-manual-section {
@@ -4527,14 +4662,17 @@ body.mode-youtube #sites-dock {
 }
 
 .yt-download-progress-box {
-  margin-top: 10px;
+  margin-top: 4px !important;
+  margin-bottom: 2px !important;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 8px 10px;
-  background: rgba(0, 0, 0, 0.45);
+  gap: 4px !important;
+  padding: 6px 10px !important;
+  background: rgba(0, 0, 0, 0.55) !important;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 14px;
+  border-radius: 12px !important;
+  box-sizing: border-box !important;
+  flex-shrink: 0 !important;
 }
 
 .yt-progress-meta {

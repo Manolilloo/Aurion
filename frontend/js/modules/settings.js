@@ -12,6 +12,8 @@ window.SettingsModule = (function() {
     notifySound: true,
     accentTheme: 'dynamic',
     glowIntensity: 'normal',
+    spinningCover: false,
+    spinSpeed: 'normal',
     speedLimit: '0',
     fileConflict: 'rename',
     ariaConnections: '16',
@@ -49,6 +51,8 @@ window.SettingsModule = (function() {
       if (backendSettings.notify_sound !== undefined) currentSettings.notifySound = !!backendSettings.notify_sound;
       if (backendSettings.accent_theme !== undefined) currentSettings.accentTheme = backendSettings.accent_theme;
       if (backendSettings.glow_intensity !== undefined) currentSettings.glowIntensity = backendSettings.glow_intensity;
+      if (backendSettings.spinning_cover !== undefined) currentSettings.spinningCover = !!backendSettings.spinning_cover;
+      if (backendSettings.spin_speed !== undefined) currentSettings.spinSpeed = backendSettings.spin_speed;
       if (backendSettings.speed_limit !== undefined) currentSettings.speedLimit = String(backendSettings.speed_limit);
       if (backendSettings.file_conflict !== undefined) currentSettings.fileConflict = backendSettings.file_conflict;
       if (backendSettings.aria_connections !== undefined) currentSettings.ariaConnections = String(backendSettings.aria_connections);
@@ -73,6 +77,8 @@ window.SettingsModule = (function() {
           notify_sound: currentSettings.notifySound,
           accent_theme: currentSettings.accentTheme,
           glow_intensity: currentSettings.glowIntensity,
+          spinning_cover: currentSettings.spinningCover,
+          spin_speed: currentSettings.spinSpeed,
           speed_limit: currentSettings.speedLimit,
           file_conflict: currentSettings.fileConflict,
           aria_connections: currentSettings.ariaConnections,
@@ -138,20 +144,35 @@ window.SettingsModule = (function() {
       }
     }
 
+    // 4.1. Carátula Giratoria Ambiental (Spinning Cover)
+    const spinDurations = { slow: '50s', normal: '26s', fast: '12s' };
+    const targetDuration = spinDurations[cfg.spinSpeed] || '26s';
+    document.documentElement.style.setProperty('--spin-duration', targetDuration);
+    document.body.classList.toggle('has-spinning-cover', !!cfg.spinningCover);
+
+    const rowSpinSpeed = document.getElementById('row-spin-speed');
+    if (rowSpinSpeed) {
+      rowSpinSpeed.style.opacity = cfg.spinningCover ? '1' : '0.4';
+      rowSpinSpeed.style.pointerEvents = cfg.spinningCover ? 'auto' : 'none';
+    }
+
     // 5. Sincronizar switches
     const chkSound = document.getElementById('setting-chk-sound');
     const chkPerf = document.getElementById('setting-chk-perf');
     const chkUpdates = document.getElementById('setting-chk-updates');
     const chkNotify = document.getElementById('setting-chk-notify');
+    const chkSpin = document.getElementById('setting-chk-spinning-cover');
 
     if (chkSound) chkSound.checked = !!cfg.soundEffects;
     if (chkPerf) chkPerf.checked = !!cfg.performanceMode;
     if (chkUpdates) chkUpdates.checked = !!cfg.checkUpdatesOnStartup;
     if (chkNotify) chkNotify.checked = !!cfg.notifySound;
+    if (chkSpin) chkSpin.checked = !!cfg.spinningCover;
 
     // 6. Sincronizar desplegables estilo iOS
     syncIosDropdown('dropdown-accent', cfg.accentTheme);
     syncIosDropdown('dropdown-glow', cfg.glowIntensity);
+    syncIosDropdown('dropdown-spin-speed', cfg.spinSpeed);
     syncIosDropdown('dropdown-speed', cfg.speedLimit);
     syncIosDropdown('dropdown-conflict', cfg.fileConflict);
     syncIosDropdown('dropdown-aria-conn', cfg.ariaConnections);
@@ -340,6 +361,7 @@ window.SettingsModule = (function() {
 
           if (dropdown.id === 'dropdown-accent') saveSettings({ accentTheme: val });
           if (dropdown.id === 'dropdown-glow') saveSettings({ glowIntensity: val });
+          if (dropdown.id === 'dropdown-spin-speed') saveSettings({ spinSpeed: val });
           if (dropdown.id === 'dropdown-speed') saveSettings({ speedLimit: val });
           if (dropdown.id === 'dropdown-conflict') saveSettings({ fileConflict: val });
           if (dropdown.id === 'dropdown-aria-conn') saveSettings({ ariaConnections: val });
@@ -452,6 +474,11 @@ window.SettingsModule = (function() {
     document.getElementById('setting-chk-notify')?.addEventListener('change', (e) => {
       saveSettings({ notifySound: e.target.checked });
       if (e.target.checked && typeof window.playSynth === 'function') window.playSynth('chord');
+    });
+
+    document.getElementById('setting-chk-spinning-cover')?.addEventListener('change', (e) => {
+      saveSettings({ spinningCover: e.target.checked });
+      if (typeof window.playSynth === 'function') window.playSynth(e.target.checked ? 'chord' : 'click');
     });
 
     // Abrir carpeta del config.json
