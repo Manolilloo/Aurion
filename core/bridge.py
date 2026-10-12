@@ -1,4 +1,4 @@
-import os
+﻿import os
 import json
 import threading
 import ssl
@@ -13,7 +13,7 @@ import io
 import webview
 from .downloader import AurionDownloader
 
-APP_VERSION = "1.0.3"
+APP_VERSION = "1.1.0"
 GITHUB_REPO = "Manolilloo/Aurion"
 CONFIG_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config.json")
 
