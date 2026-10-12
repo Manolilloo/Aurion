@@ -2332,10 +2332,29 @@ window.onUpdateAvailable = function(info) {
     verBadge.textContent = `v${info.latest || info.version || '1.1.0'}`;
   }
 
-  const descText = document.getElementById('update-desc');
-  if (descText && info.body) {
-    const summary = info.body.split('\n')[0].replace(/^#+\s*/, '').trim();
-    if (summary) descText.textContent = summary;
+  const descContainer = document.getElementById('update-desc');
+  if (descContainer && info.body) {
+    const lines = info.body.split('\n');
+    let html = '<div class="update-changelog-list">';
+    
+    lines.forEach(line => {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('---')) return;
+
+      if (trimmed.startsWith('#')) {
+        const title = trimmed.replace(/^#+\s*/, '');
+        html += `<div style="font-weight: 700; color: #a855f7; margin-top: 10px; margin-bottom: 3px; font-size: 12px;">${title}</div>`;
+      } else if (trimmed.startsWith('* ') || trimmed.startsWith('- ')) {
+        const item = trimmed.substring(2).replace(/\*\*(.*?)\*\*/g, '<b style="color: #fff;">$1</b>');
+        html += `<div style="margin-left: 6px; margin-bottom: 4px; color: rgba(255,255,255,0.75);">• ${item}</div>`;
+      } else {
+        const clean = trimmed.replace(/\*\*(.*?)\*\*/g, '<b style="color: #fff;">$1</b>');
+        html += `<div style="margin-bottom: 4px; color: rgba(255,255,255,0.6);">${clean}</div>`;
+      }
+    });
+
+    html += '</div>';
+    descContainer.innerHTML = html;
   }
 
   setTimeout(() => {

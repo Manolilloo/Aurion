@@ -992,7 +992,7 @@ class AurionBridge:
             
         return opts
 
-    def check_for_updates(self):
+def check_for_updates(self):
         """Comprueba en GitHub Releases si hay una versión superior a la instalada."""
         CURRENT_VERSION = APP_VERSION
         REPO_NAME = GITHUB_REPO
@@ -1002,6 +1002,10 @@ class AurionBridge:
                 import urllib.request
                 import json
                 import re
+                import time
+
+                # Pequeña pausa para asegurar que el DOM y app.js están 100% listos
+                time.sleep(1.5)
 
                 url = f"https://api.github.com/repos/{REPO_NAME}/releases/latest"
                 req = urllib.request.Request(
@@ -1012,7 +1016,11 @@ class AurionBridge:
                     }
                 )
 
-                with urllib.request.urlopen(req, timeout=10) as response:
+                ctx = ssl.create_default_context()
+                ctx.check_hostname = False
+                ctx.verify_mode = ssl.CERT_NONE
+
+                with urllib.request.urlopen(req, context=ctx, timeout=10) as response:
                     if response.status != 200:
                         return
                     data = json.loads(response.read().decode("utf-8"))
@@ -1024,11 +1032,12 @@ class AurionBridge:
                 def parse_version_numbers(v_str):
                     return [int(n) for n in re.findall(r"\d+", v_str)]
 
-                # Si la versión remota de GitHub es más reciente que la local
+                # Si la versión en GitHub es numéricamente superior a la que corre la app
                 if parse_version_numbers(tag_name) > parse_version_numbers(CURRENT_VERSION):
                     download_url = None
                     for asset in data.get("assets", []):
                         name = asset.get("name", "").lower()
+                        # Busca el zip distribuible
                         if name.endswith(".zip"):
                             download_url = asset.get("browser_download_url")
                             break
@@ -1044,14 +1053,13 @@ class AurionBridge:
                             "download_url": download_url,
                             "body": data.get("body", "Nueva versión disponible.")
                         }
-                        self._window.evaluate_js(f"window.onUpdateAvailable({json.dumps(payload)})")
+                        self._window.evaluate_js(f"window.onUpdateAvailable && window.onUpdateAvailable({json.dumps(payload)})")
 
             except Exception as e:
-                print(f"[check_for_updates] No se pudo consultar GitHub: {e}")
+                print(f"[check_for_updates] Error comprobando actualización: {e}")
 
-        import threading
         threading.Thread(target=_worker, daemon=True).start()
-
+        
     def start_auto_update(self, download_url):
         """Actualización limpia con robocopy, detección dinámica de ruta y sin UAC."""
         def download_and_run():

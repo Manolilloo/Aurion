@@ -6599,3 +6599,34 @@ body.is-maximized .yt-row-check-badge {
 #btn-extension-helper * {
   pointer-events: none !important; /* El clic siempre lo recibe el botón, no los SVG/iconos internos */
 }
+
+/* Scrollbar moderno para el changelog */
+.update-changelog-list {
+  max-height: 180px;
+  overflow-y: auto;
+  padding-right: 8px;
+  margin: 12px 0 16px 0;
+  text-align: left;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.85);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+.update-changelog-list::-webkit-scrollbar {
+  width: 5px;
+}
+
+.update-changelog-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.update-changelog-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+}
+
+.update-changelog-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.4);
+}
