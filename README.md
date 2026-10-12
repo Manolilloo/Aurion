@@ -25,15 +25,27 @@
 
 <div align="center">
 
-| Buscador y Fondo Reactivo (Anime) | Descargas a la carta de YouTube |
-|:---:|:---:|
-| ![Aurion Anime View](assets/screenshots/preview_anime.png) | ![Aurion YouTube View](assets/screenshots/preview_youtube.png) |
+### 🍙 Nuevo Diseño Sección Anime/Cine
+<img src="assets/screenshots/01_anime_cine.png" alt="Aurion Anime y Cine" width="100%" style="border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.5);" />
 
-| Fondo Holográfico a Pantalla Completa | Panel de Ajustes y Personalización |
-|:---:|:---:|
-| ![Aurion Ambient Max](assets/screenshots/preview_ambient.png) | ![Aurion Settings](assets/screenshots/preview_settings.png) |
+<br><br>
+
+### 🔴 Sección YouTube con Nuevas Funciones
+<img src="assets/screenshots/02_youtube_features.png" alt="Aurion YouTube Funciones" width="100%" style="border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.5);" />
+
+<br><br>
+
+### 🌌 Nuevas Listas de YT y Vista de Canal
+<img src="assets/screenshots/03_youtube_channel_playlists.png" alt="Aurion YouTube Listas y Canal" width="100%" style="border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.5);" />
+
+<br><br>
+
+### ⚙️ Nuevos Ajustes Dentro de la App
+<img src="assets/screenshots/04_settings_panel.png" alt="Aurion Ajustes" width="100%" style="border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.5);" />
 
 </div>
+
+<p align="right"><a href="#-aurion">▲ Volver arriba</a></p>
 
 ---
 
