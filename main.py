@@ -34,5 +34,14 @@ def main():
     bridge.set_window(window)
 
     webview.start(on_loaded, (window, bridge), gui='edgechromium', debug=True)
+
+    # Limpieza final una vez que la ventana se ha destruido
+    try:
+        dl = getattr(bridge, 'downloader', None) or getattr(bridge, '_downloader', None)
+        if dl:
+            dl.cleanup_all_temp()
+    except Exception:
+        pass
+
 if __name__ == '__main__':
     main()

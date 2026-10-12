@@ -429,10 +429,30 @@ class AurionBridge:
         except Exception:
             pass
 
-    def close_app(self):
+    def close_window(self):  # O el nombre que tenga en tu bridge (close_app / exit / etc.)
+        try:
+            dl = getattr(self, 'downloader', None) or getattr(self, '_downloader', None)
+            if dl:
+                import threading
+                threading.Thread(target=dl.cleanup_all_temp, daemon=True).start()
+        except Exception:
+            pass
+
         if self._window:
             self._window.destroy()
-        os._exit(0)
+
+    def close_app(self):
+        """Cierra la aplicación y asegura el borrado de las carpetas temporales activas."""
+        try:
+            dl = getattr(self, 'downloader', None) or getattr(self, '_downloader', None)
+            if dl:
+                import threading
+                threading.Thread(target=dl.cleanup_all_temp, daemon=True).start()
+        except Exception as e:
+            print(f"[Bridge] Error durante el cierre: {e}")
+
+        if self._window:
+            self._window.destroy()
 
     def cancel_download_task(self, task_id):
         """Notifica al downloader para detener la descarga de esta tarea."""

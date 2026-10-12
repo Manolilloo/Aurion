@@ -35,6 +35,9 @@ class AurionDownloader:
         self.cancelled_tasks = set()
         self.active_temp_dirs = set()
         self.lock = threading.Lock()
+        atexit.register(self.cleanup_all_temp)
+        self.active_temp_dirs = set()
+        self.lock = threading.Lock()
 
         # Registrar limpieza forzada al salir del proceso de Python
         atexit.register(self._cleanup_on_exit)
@@ -57,7 +60,50 @@ class AurionDownloader:
         for d in dirs_to_clean:
             self._force_remove_temp_dir(d)
 
+    def cleanup_all_temp(self):
+        """Elimina de disco cualquier carpeta temporal registrada o huérfana."""
+        with self.lock:
+            dirs = list(self.active_temp_dirs)
+            self.active_temp_dirs.clear()
+
+        for d in dirs:
+            self._force_remove_temp_dir(d)
+
     def _force_remove_temp_dir(self, target_path):
+        """Desbloquea permisos en Windows y borra la carpeta temporal sin dejar rastro."""
+        if not target_path or not os.path.exists(target_path):
+            return
+
+        import gc
+        import subprocess
+
+        with self.lock:
+            self.active_temp_dirs.discard(os.path.abspath(target_path))
+
+        gc.collect()
+
+        def _on_rm_error(func, path, exc_info):
+            try:
+                os.chmod(path, stat.S_IWRITE)
+                func(path)
+            except Exception:
+                pass
+
+        # Intento 1: shutil con liberación de permisos
+        for _ in range(3):
+            try:
+                shutil.rmtree(target_path, onerror=_on_rm_error)
+                if not os.path.exists(target_path):
+                    return
+            except Exception:
+                time.sleep(0.15)
+
+        # Intento 2: rmdir nativo forzado de Windows
+        try:
+            cmd = f'rmdir /s /q "{os.path.abspath(target_path)}"'
+            subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=2)
+        except Exception:
+            pass
         """Elimina de forma contundente una carpeta temporal en Windows desbloqueando permisos y matando bloqueos."""
         if not target_path or not os.path.exists(target_path):
             return
@@ -567,6 +613,8 @@ class AurionDownloader:
 
         task_temp_dir = os.path.join(dest_folder, f".tmp_{task_id}")
         os.makedirs(task_temp_dir, exist_ok=True)
+        with self.lock:
+            self.active_temp_dirs.add(os.path.abspath(task_temp_dir))
         with self.lock:
             self.active_temp_dirs.add(task_temp_dir)
         out_template = os.path.join(task_temp_dir, f"{clean_file_title}.%(ext)s")
