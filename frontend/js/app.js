@@ -1385,6 +1385,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const curQ = modeStates[currentMode]?.queue || [];
       const hasRunning = curQ.some(t => t.status !== 'Completado' && t.status !== 'Cancelado' && t.status !== 'Error');
       setMasterDownloadState(hasRunning);
+      syncCockpitPipelineVisibility(currentMode);
     }
 
     // Detener y resetear la inclinación Parallax del póster
@@ -1475,7 +1476,13 @@ document.addEventListener('DOMContentLoaded', () => {
       let centerY = rect.top + rect.height / 2;
       let dynamicRadius = Math.max(380, Math.max(rect.width, rect.height) * 0.78);
 
-      if (currentTourStep === 9) {
+      const stepObj = activeTourSteps[currentTourStep];
+      if (stepObj && stepObj.id === 'pipeline') {
+        // Spotlight enfocado en la columna izquierda de la pipeline abierta
+        centerX = rect.left + rect.width / 2;
+        centerY = rect.top + rect.height / 2;
+        dynamicRadius = Math.max(360, Math.max(rect.width, rect.height) * 0.65);
+      } else if (currentTourStep === 9) {
         // Paso 10: Spotlight amplio que cubre a la vez buscador y póster central
         const centerStage = document.getElementById('center-stage');
         if (centerStage) {
@@ -1485,10 +1492,10 @@ document.addEventListener('DOMContentLoaded', () => {
           dynamicRadius = Math.max(540, stageRect.height * 0.65);
         }
       } else if (currentTourStep === 10) {
-        // Paso 11: Triple enfoque (Pipeline + Centro + Botón maestro)
-        centerX = window.innerWidth * 0.38;
-        centerY = window.innerHeight * 0.52;
-        dynamicRadius = Math.max(720, window.innerWidth * 0.55);
+        // Paso 11: Foco en Consola de Extracción
+        centerX = rect.left + rect.width / 2;
+        centerY = rect.top + rect.height / 2;
+        dynamicRadius = Math.max(260, Math.max(rect.width, rect.height) * 0.75);
       } else if (isTargetInsideSettings) {
         dynamicRadius = Math.max(220, Math.max(rect.width, rect.height) * 0.75);
       }
@@ -1794,6 +1801,13 @@ document.addEventListener('DOMContentLoaded', () => {
                   if (tourLauncher) tourLauncher.style.display = 'none';
                   if (posterInfo) posterInfo.style.display = 'block';
 
+                  // Desplegar la columna del pipeline con animación limpia al fijar el póster
+                  const cockpit = document.getElementById('cockpit-grid');
+                  if (cockpit) {
+                    cockpit.classList.remove('pipeline-idle');
+                    cockpit.classList.add('pipeline-active');
+                  }
+
                   updatePoster(chosen.image, chosen.title, chosen.meta);
                   setUnifiedTitle(chosen.title);
 
@@ -1823,9 +1837,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 55);
         tourDemoIntervals.push(typeInterval);
       }
-    } else if (stepId === 'master_extraction' || stepId === 'pipeline') {
-      window.__tourMockRunning = true;
-      const queueList = document.getElementById('queue-list');
+    } else if (stepId === 'master_extraction') {
+      // En este paso solo mostramos la pulsación y división del botón maestro
       const splitCluster = document.getElementById('split-cluster-master');
       const mTxt = document.getElementById('mag-txt');
       const bMaster = document.getElementById('btn-master');
@@ -1834,6 +1847,18 @@ document.addEventListener('DOMContentLoaded', () => {
       if (mTxt) mTxt.innerText = 'DESCARGANDO...';
       if (bMaster) bMaster.style.pointerEvents = 'none';
 
+    } else if (stepId === 'pipeline') {
+      window.__tourMockRunning = true;
+
+      const splitCluster = document.getElementById('split-cluster-master');
+      const mTxt = document.getElementById('mag-txt');
+      const bMaster = document.getElementById('btn-master');
+
+      if (splitCluster) splitCluster.classList.add('is-split');
+      if (mTxt) mTxt.innerText = 'DESCARGANDO...';
+      if (bMaster) bMaster.style.pointerEvents = 'none';
+
+      const queueList = document.getElementById('queue-list');
       const isMovie = (currentMode === 'movie');
       const mockTasks = isMovie
         ? [
@@ -1845,7 +1870,7 @@ document.addEventListener('DOMContentLoaded', () => {
             { id: 'tour-mock-task-3', title: 'One Piece - Ep 1082', res: '1080p', size: '1,45 GB', initialProg: 0, speed: 'Conectando...' }
           ];
 
-      if (!document.getElementById('tour-mock-task-1') && queueList) {
+      if (queueList) {
         queueList.innerHTML = '';
         mockTasks.forEach((task, idx) => {
           setTimeout(() => {
@@ -1853,7 +1878,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const card = document.createElement('div');
             card.className = 'pipeline-card';
             card.id = task.id;
-            card.style.animation = 'macSlideIn 0.3s ease';
+            card.style.animation = 'macSlideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1)';
             card.innerHTML = `
               <div class="pipeline-card-top">
                 <span class="pipeline-card-title" title="${task.title}">${task.title}</span>
@@ -1872,8 +1897,22 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
             queueList.appendChild(card);
             if (typeof playSynth === 'function') playSynth('click');
-          }, idx * 280);
+          }, idx * 180);
         });
+
+        const badgeEl = document.getElementById('val-total-size');
+        if (badgeEl) badgeEl.innerText = isMovie ? '4,28 GB' : '4,25 GB';
+
+        // Centrado exacto del spotlight tras renderizar las tarjetas
+        setTimeout(() => {
+          const firstTarget = document.querySelector('.glass-box:first-child');
+          if (firstTarget && tourBackdrop) {
+            const rect = firstTarget.getBoundingClientRect();
+            tourBackdrop.style.setProperty('--spot-x', `${rect.left + rect.width / 2}px`);
+            tourBackdrop.style.setProperty('--spot-y', `${rect.top + rect.height / 2}px`);
+            tourBackdrop.style.setProperty('--spot-r', `${Math.max(340, rect.height * 0.6)}px`);
+          }
+        }, 120);
       }
 
       let simTick = 0;
@@ -1884,7 +1923,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const s1 = document.getElementById('mock-status-tour-mock-task-1');
 
         if (f1) f1.style.width = `${p1.toFixed(1)}%`;
-        if (s1) s1.innerText = p1 >= 98 ? 'Completando película...' : (isMovie ? '26.4 MB/s' : '16.4 MB/s');
+        if (s1) s1.innerText = p1 >= 98 ? 'Completando...' : (isMovie ? '26.4 MB/s' : '16.4 MB/s');
 
         if (!isMovie) {
           const p2 = (8 + simTick * 1.1) % 100;
@@ -1913,6 +1952,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     currentTourStep = stepIdx;
+
+    // Mantener la pipeline visible desde que aparece la portada hasta el final del tour
+    const shouldShowPipeline = ['workspace_center', 'master_extraction', 'pipeline'].includes(step.id);
+    const cockpit = document.getElementById('cockpit-grid');
+    if (cockpit) {
+      cockpit.classList.toggle('pipeline-idle', !shouldShowPipeline);
+      cockpit.classList.toggle('pipeline-active', shouldShowPipeline);
+    }
+
     if (tourBadge) tourBadge.textContent = `PASO ${stepIdx + 1} DE ${activeTourSteps.length}`;
     if (tourTitle) tourTitle.textContent = step.title;
     if (tourDesc) tourDesc.textContent = step.desc;
