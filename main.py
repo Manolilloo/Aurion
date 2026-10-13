@@ -14,32 +14,52 @@ import ctypes
 import webview
 from core.bridge import AurionBridge
 
+def get_base_dir():
+    if getattr(sys, 'frozen', False):
+        return getattr(sys, '_MEIPASS', os.path.dirname(sys.executable))
+    return os.path.dirname(os.path.abspath(__file__))
+
+BASE_DIR = get_base_dir()
+
 # Forzar ID de aplicación en Windows para que la barra de tareas fije el icono propio y no el de Python
 try:
-    myappid = 'manolilloo.aurion.desktop.1.1.3'
+    myappid = 'manolilloo.aurion.desktop.1.1.5'
     ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
 except Exception:
     pass
 
 def set_window_icon():
-    """Fuerza el icono redondeado directamente en el HWND nativo de Windows."""
+    """Fuerza el icono directamente en el HWND nativo de Windows."""
     try:
-        import ctypes
-        import os
-        ico_path = os.path.abspath("assets/icon.ico")
-        if not os.path.exists(ico_path):
+        candidates = [
+            os.path.join(BASE_DIR, "assets", "icon.ico"),
+            os.path.join(BASE_DIR, "icon.ico"),
+            os.path.join(os.path.dirname(sys.executable), "_internal", "assets", "icon.ico"),
+            os.path.join(os.path.dirname(sys.executable), "assets", "icon.ico")
+        ]
+        ico_path = next((p for p in candidates if os.path.exists(p)), None)
+        if not ico_path:
             return
 
-        # Cargar icono nativo de 32x32 para la barra de tareas
-        hicon = ctypes.windll.user32.LoadImageW(
-            None, ico_path, 1, 32, 32, 0x00000010
-        )
-        if hicon:
-            hwnd = ctypes.windll.user32.FindWindowW(None, "Aurion")
-            if hwnd:
-                WM_SETICON = 0x0080
-                ctypes.windll.user32.SendMessageW(hwnd, WM_SETICON, 1, hicon) # ICON_BIG
-                ctypes.windll.user32.SendMessageW(hwnd, WM_SETICON, 0, hicon) # ICON_SMALL
+        hicon_big = ctypes.windll.user32.LoadImageW(None, ico_path, 1, 32, 32, 0x00000010)
+        hicon_small = ctypes.windll.user32.LoadImageW(None, ico_path, 1, 16, 16, 0x00000010)
+
+        WM_SETICON = 0x0080
+
+        EnumWindowsProc = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p)
+        current_pid = os.getpid()
+
+        def enum_windows_callback(hwnd, lParam):
+            lpdwProcessId = ctypes.c_ulong()
+            ctypes.windll.user32.GetWindowThreadProcessId(hwnd, ctypes.byref(lpdwProcessId))
+            if lpdwProcessId.value == current_pid:
+                if hicon_big:
+                    ctypes.windll.user32.SendMessageW(hwnd, WM_SETICON, 1, hicon_big)
+                if hicon_small:
+                    ctypes.windll.user32.SendMessageW(hwnd, WM_SETICON, 0, hicon_small)
+            return True
+
+        ctypes.windll.user32.EnumWindows(EnumWindowsProc(enum_windows_callback), 0)
     except Exception:
         pass
 
