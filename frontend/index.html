@@ -305,7 +305,7 @@
               <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
             </svg>
             <input type="text" class="search-input yt-input" id="yt-search-input"
-              placeholder="Buscar o pegar enlace de YouTube..." autocomplete="off">
+              placeholder="Buscar vídeo, canal, playlist o pegar URL de YouTube..." autocomplete="off">
             <button class="yt-clear-btn" id="yt-clear-btn" style="display: none;">✕</button>
           </div>
 
@@ -320,61 +320,32 @@
 
       <!-- TELÓN DE FONDO BLUR Y TUTORIAL YOUTUBE -->
       <div class="yt-tutorial-backdrop" id="yt-tutorial-backdrop"></div>
-
-      <!-- TUTORIAL RÁPIDO DEDICADO YOUTUBE -->
-      <div class="welcome-card yt-welcome-card" id="yt-welcome-card" style="display: none;">
-        <h2 class="shimmer-text">TUTORIAL YOUTUBE</h2>
-
-        <p class="welcome-desc">
-          Aquí vas a poder bajarte cualquier vídeo o audio de YouTube sin
-          rollos de anuncios raros ni páginas que te meten 20 virus.
-        </p>
-
-        <p class="welcome-desc">
-          Puedes escribir <b>el nombre del vídeo</b> directamente en el
-          buscador o si tienes el link a mano, <b>pegas la URL completa</b> y
-          le das al Enter. Sale al instante con su miniatura y su duración en
-          horas y minutos para que no te líes.
-        </p>
-
-        <p class="welcome-subdesc">
-          En el panel de la derecha eliges si quieres el <b>VÍDEO (MP4)</b>
-          con calidades desde <b>MIN</b> hasta <b>4K</b> o si prefieres solo
-          el audio en <b>MP3</b> para meterlo al móvil o donde te dé la gana.
-          Cada vídeo se guarda limpio en su propia carpetita.
-        </p>
-
-        <p class="welcome-desc">
-          Recuerda pulsar en <b>DESCARGAR</b> y verás la barra rellenándose en
-          vivo sin saltos raros.
-        </p>
-
-        <div class="welcome-footer-tag" id="yt-tutorial-close-btn" style="cursor: pointer;">
-          ¡Entendido, a descargar! 😼
-        </div>
-      </div>
+      <div class="welcome-card yt-welcome-card" id="yt-welcome-card" style="display: none;"></div>
 
       <!-- LISTA DESPLEGABLE GRANDE CON ESTILO FLUIDO -->
       <div class="yt-results-dock" id="yt-results-dock" style="display: none;">
         <div class="yt-results-scroll" id="yt-results-list"></div>
       </div>
 
-      <!-- NUEVA PANTALLA COMPLETA: VISTA DEL CANAL DE YOUTUBE -->
+      <!-- PANTALLA COMPLETA REDISEÑADA: VISTA DEL CANAL DE YOUTUBE (STUDIO SPATIAL) -->
       <div class="yt-channel-view" id="yt-channel-view" style="display: none;">
-        <div class="yt-channel-top-bar">
+        <div class="yt-channel-top-bar" style="justify-content: space-between; gap: 12px;">
           <button class="btn-channel-back" id="btn-channel-back" title="Volver a los resultados de búsqueda">
             <span class="btn-back-arrow">←</span>
             <span>VOLVER A BÚSQUEDA</span>
           </button>
+          <div class="yt-internal-filter-box">
+            <input type="text" id="yt-channel-filter-input" class="search-input yt-mini-filter" placeholder="🔍 Filtrar vídeos en este canal...">
+          </div>
         </div>
 
         <div class="yt-channel-loading-box" id="yt-channel-loading" style="display: none;">
           <div class="yt-orbital-spinner"></div>
-          <span class="yt-loading-txt">CARGANDO CANAL Y VÍDEOS...</span>
+          <span class="yt-loading-txt">SINCRONIZANDO CANAL Y CATÁLOGO...</span>
         </div>
 
         <div class="yt-channel-content-scroll" id="yt-channel-content" style="display: none;">
-          <!-- CABECERA HERO ÚNICA Y COMPACTA -->
+          <!-- CABECERA CINEMA HERO DEL CANAL -->
           <div class="yt-channel-hero-card" id="yt-channel-hero">
             <div class="yt-channel-banner" id="yt-channel-banner"></div>
             <div class="yt-channel-identity-cluster">
@@ -382,21 +353,28 @@
                 <img id="yt-channel-avatar-img" src="" alt="Avatar" style="display: block;">
               </div>
               <div class="yt-channel-meta-box">
-                <h2 class="yt-channel-name" id="yt-channel-name">Canal</h2>
-                <div class="yt-channel-bio" id="yt-channel-bio"></div>
-                <div class="yt-channel-badges-row">
-                  <div class="yt-stat-pill" title="Suscriptores del canal">
-                    <span class="stat-pill-label">SUSCRIPTORES</span>
-                    <span class="stat-pill-val" id="yt-channel-subs">--</span>
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+                  <h2 class="yt-channel-name" id="yt-channel-name">Canal</h2>
+                  <div class="yt-channel-badges-row">
+                    <div class="yt-stat-pill" title="Suscriptores del canal">
+                      <span class="stat-pill-label">SUSCRIPTORES</span>
+                      <span class="stat-pill-val" id="yt-channel-subs">--</span>
+                    </div>
+                    <div class="yt-stat-pill" title="Vídeos cargados en vista">
+                      <span class="stat-pill-label">EN PANTALLA</span>
+                      <span class="stat-pill-val" id="yt-channel-loaded-count">0</span>
+                    </div>
                   </div>
                 </div>
+                <div class="yt-channel-bio" id="yt-channel-bio"></div>
               </div>
             </div>
           </div>
 
           <!-- SECCIÓN DE VÍDEOS RECIENTES -->
-          <div class="yt-channel-videos-header">
-            <span class="box-header" style="border: none; margin: 0; padding: 0;">VÍDEOS RECIENTES</span>
+          <div class="yt-channel-videos-header" style="justify-content: space-between;">
+            <span class="box-header" style="border: none; margin: 0; padding: 0;">CATÁLOGO DEL CREADOR</span>
+            <span style="font-size: 10px; font-weight: 800; color: #64748b;">HAZ CLIC EN CUALQUIER VÍDEO PARA CONFIGURAR SU EXTRACCIÓN</span>
           </div>
 
           <div class="yt-channel-videos-grid" id="yt-channel-videos-grid"></div>
@@ -405,28 +383,30 @@
           <div class="yt-channel-load-more-box" id="yt-channel-load-more-box">
             <button class="btn-channel-load-more" id="btn-channel-load-more">
               <span class="btn-load-more-spinner" id="spin-load-more" style="display: none;"></span>
-              <span id="txt-load-more">CARGAR MÁS VÍDEOS ▾</span>
+              <span id="txt-load-more">CARGAR MÁS VÍDEOS DEL CANAL ▾</span>
             </button>
           </div>
         </div>
       </div>
 
-      <!-- VISTA DE LISTA DE REPRODUCCIÓN (PLAYLIST) -->
+      <!-- VISTA DE LISTA DE REPRODUCCIÓN (PLAYLIST SPLIT-DECK) -->
       <div class="yt-channel-view" id="yt-playlist-view" style="display: none;">
-        <div class="yt-channel-top-bar" style="justify-content: space-between;">
+        <div class="yt-channel-top-bar" style="justify-content: space-between; flex-wrap: wrap; gap: 8px;">
           <button class="btn-channel-back" id="btn-playlist-back" title="Volver a los resultados de búsqueda">
             <span class="btn-back-arrow">←</span>
             <span>VOLVER A BÚSQUEDA</span>
           </button>
-          <div style="display: flex; gap: 8px;">
-            <button class="btn-neu" id="btn-playlist-toggle-panel" style="border-radius: 10px; font-size: 11px; padding: 6px 14px;">⚙ OPCIONES</button>
-            <button class="btn-neu" id="btn-playlist-select-all" style="border-radius: 10px; font-size: 11px; padding: 6px 14px;">✔ SELECCIONAR TODOS</button>
+          <div style="display: flex; align-items: center; gap: 8px; flex: 1; justify-content: flex-end;">
+            <input type="text" id="yt-playlist-filter-input" class="search-input yt-mini-filter" placeholder="🔍 Filtrar pista en la lista..." style="max-width: 210px;">
+            <button class="btn-neu" id="btn-playlist-invert" style="border-radius: 10px; font-size: 10.5px; padding: 6px 12px;" title="Invertir selección actual">⇄ INVERTIR</button>
+            <button class="btn-neu" id="btn-playlist-select-all" style="border-radius: 10px; font-size: 10.5px; padding: 6px 12px;">✕ DESMARCAR TODOS</button>
+            <button class="btn-neu" id="btn-playlist-toggle-panel" style="border-radius: 10px; font-size: 10.5px; padding: 6px 12px;">⚙ PANEL</button>
           </div>
         </div>
 
         <div class="yt-channel-loading-box" id="yt-playlist-loading" style="display: none;">
           <div class="yt-orbital-spinner"></div>
-          <span class="yt-loading-txt">EXTRAYENDO LISTA DE REPRODUCCIÓN...</span>
+          <span class="yt-loading-txt">EXTRAYENDO PISTAS DE LA PLAYLIST...</span>
         </div>
 
         <div class="yt-channel-content-scroll" id="yt-playlist-content" style="display: none;">
@@ -435,20 +415,25 @@
               <img id="yt-playlist-thumb-img" src="" alt="Thumbnail" class="yt-playlist-main-thumb">
             </div>
             <div class="yt-playlist-header-details">
+              <span style="font-size: 9.5px; font-weight: 900; letter-spacing: 1.5px; color: var(--color-accent-1);">COLECCIÓN DE REPRODUCCIÓN</span>
               <h2 class="yt-playlist-main-title" id="yt-playlist-title">Lista de Reproducción</h2>
               <div class="yt-playlist-main-uploader" id="yt-playlist-uploader">Canal</div>
-              <div class="yt-channel-badges-row">
+              <div class="yt-channel-badges-row" style="margin-top: 4px;">
                 <div class="yt-stat-pill">
-                  <span class="stat-pill-label">TOTAL ELEMENTOS</span>
+                  <span class="stat-pill-label">PISTAS</span>
                   <span class="stat-pill-val" id="yt-playlist-count">0 vídeos</span>
+                </div>
+                <div class="yt-stat-pill">
+                  <span class="stat-pill-label">DURACIÓN MARCADA</span>
+                  <span class="stat-pill-val" id="yt-playlist-total-duration">--:--</span>
                 </div>
               </div>
             </div>
           </div>
 
           <div class="yt-channel-videos-header" style="justify-content: space-between; align-items: center;">
-            <span class="box-header" style="border: none; margin: 0; padding: 0;">VÍDEOS INCLUIDOS</span>
-            <span id="yt-playlist-selection-status" style="font-size: 11px; font-weight: 800; color: var(--color-accent-1);">0 SELECCIONADOS</span>
+            <span class="box-header" style="border: none; margin: 0; padding: 0;">PISTAS DE LA COLECCIÓN</span>
+            <span id="yt-playlist-selection-status" style="font-size: 11px; font-weight: 900; color: var(--color-accent-1);">0 SELECCIONADOS</span>
           </div>
 
           <div class="yt-playlist-rows-list" id="yt-playlist-videos-list"></div>
@@ -456,18 +441,22 @@
       </div>
     </div>
 
-    <!-- COLUMNA DERECHA: Panel 'X' (Opciones, Previa y Descarga) -->
+    <!-- COLUMNA DERECHA: Panel Inspector Studio (Opciones, Previa, Recorte y Descarga) -->
     <div class="glass-box yt-sidebar-box" id="yt-sidebar-box">
       <div class="glass-inner">
         <div class="box-header" style="display: flex; justify-content: space-between; align-items: center;">
-          <span>PANEL YOUTUBE</span>
+          <span>STUDIO INSPECTOR</span>
           <button class="yt-panel-toggle-btn" id="yt-btn-close-panel" title="Ocultar panel lateral">✕</button>
         </div>
 
-        <!-- Previsualización -->
+        <!-- Previsualización con botón de Miniatura 4K y Badges flotantes -->
         <div class="yt-preview-card">
           <div class="yt-preview-media" id="yt-preview-media">
             <img id="yt-preview-img" src alt="Thumbnail" style="display: none;">
+            <div class="yt-preview-overlay-badges" id="yt-preview-badges" style="display: none;">
+              <span class="yt-prev-pill" id="yt-prev-channel-badge">Canal</span>
+              <button class="yt-prev-save-thumb-btn" id="yt-btn-save-thumb" title="Descargar miniatura en máxima calidad (4K/HD)">🖼️ Portada 4K</button>
+            </div>
             <div class="yt-preview-empty" id="yt-preview-empty">
               <span>SELECCIONA UN VÍDEO</span>
             </div>
@@ -477,7 +466,7 @@
           </div>
         </div>
 
-        <div class="settings-area" style="margin-top: 15px;">
+        <div class="settings-area" style="margin-top: 8px;">
           <!-- Destino de descarga -->
           <div>
             <label class="section-label">DESTINO LOCAL</label>
@@ -495,19 +484,16 @@
             <label class="section-label">FORMATO DE SALIDA</label>
             <div class="chip-group" id="yt-format-chips">
               <div class="chip-glider"></div>
-              <button class="chip-btn active" data-format="video">VÍDEO
-                (MP4)</button>
-              <button class="chip-btn" data-format="audio">AUDIO
-                (MP3)</button>
+              <button class="chip-btn active" data-format="video">VÍDEO (MP4)</button>
+              <button class="chip-btn" data-format="audio">AUDIO (MP3 320K)</button>
             </div>
           </div>
 
-          <!-- Selector de resolución (solo si es vídeo) -->
+          <!-- Selector de resolución con etiqueta dinámica de rango (SD / HD / FHD / ULTRA HD) -->
           <div id="yt-res-group">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-              <label class="section-label" style="margin-bottom: 0;">CALIDAD
-                MÁXIMA</label>
-              <span class="yt-drag-hint">↔ ARRASTRA</span>
+              <label class="section-label" style="margin-bottom: 0;">CALIDAD: <span id="yt-quality-tier-badge" style="color: var(--color-accent-1);">FULL HD 1080p</span></label>
+              <span class="yt-drag-hint">↔ DESLIZA</span>
             </div>
             <div class="chip-group yt-chips-resolutions" id="yt-res-chips">
               <div class="chip-glider"></div>
@@ -524,6 +510,41 @@
             </div>
           </div>
 
+          <!-- NUEVA FUNCIÓN: RECORTE INTERACTIVO DE CLIPS CON SLIDER DUAL -->
+          <div class="yt-clip-trimmer-box" id="yt-clip-trimmer-box">
+            <div class="yt-clip-header" id="yt-clip-toggle-btn">
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <span style="font-size: 10px; font-weight: 900; color: #e2e8f0; letter-spacing: 0.5px;">✂️ RECORTAR CLIP</span>
+                <span id="yt-clip-summary-pill" class="yt-clip-summary-pill">vídeo completo</span>
+              </div>
+              <span class="yt-clip-chevron" id="yt-clip-chevron">▾</span>
+            </div>
+
+            <div class="yt-clip-body" id="yt-clip-inputs-row" style="display: none;">
+              <!-- Barra deslizable doble (Inicio y Fin) -->
+              <div class="yt-clip-slider-wrap">
+                <div class="yt-clip-slider-track"></div>
+                <div class="yt-clip-slider-fill" id="yt-clip-slider-fill"></div>
+                <input type="range" id="yt-clip-range-start" class="yt-clip-range" min="0" max="100" value="0" step="1">
+                <input type="range" id="yt-clip-range-end" class="yt-clip-range" min="0" max="100" value="100" step="1">
+              </div>
+
+              <!-- Controles de tiempo validados MM:SS -->
+              <div class="yt-clip-time-controls">
+                <div class="yt-clip-time-field">
+                  <span class="yt-clip-field-lbl">INICIO</span>
+                  <input type="text" id="yt-clip-start" class="search-input yt-clip-input" value="00:00" maxlength="8" placeholder="00:00">
+                </div>
+                <span style="color: #64748b; font-weight: 900; font-size: 11px;">➔</span>
+                <div class="yt-clip-time-field">
+                  <span class="yt-clip-field-lbl">FIN</span>
+                  <input type="text" id="yt-clip-end" class="search-input yt-clip-input" value="00:00" maxlength="8" placeholder="02:15">
+                </div>
+                <button type="button" id="yt-clip-clear-btn" class="btn-neu yt-clip-reset-btn" title="Restaurar duración completa">↺</button>
+              </div>
+            </div>
+          </div>
+
           <!-- Toggle: Abrir carpeta al finalizar (YouTube) -->
           <div class="toggle-card" id="yt-card-open-folder">
             <span class="toggle-label">ABRIR CARPETA AL FINALIZAR</span>
@@ -534,11 +555,10 @@
           </div>
 
           <!-- Botón de extracción con bifurcación elástica -->
-          <div class="mag-wrapper" style="margin-top: 18px;">
+          <div class="mag-wrapper" style="margin-top: 10px;">
             <div class="split-cluster" id="yt-split-cluster">
               <button class="btn-god btn-split-main" id="yt-btn-download">
-                <span class="btn-god-txt" id="yt-btn-txt">DESCARGAR
-                  VÍDEO</span>
+                <span class="btn-god-txt" id="yt-btn-txt">DESCARGAR VÍDEO</span>
               </button>
               <button class="btn-split-cancel" id="yt-btn-cancel" title="Cancelar descarga activa">
                 <span>⏹ CANCELAR</span>
@@ -558,7 +578,7 @@
           </div>
 
           <!-- Telemetría de disco compacta en YouTube -->
-          <div class="telemetry-card yt-telemetry-box" style="margin-top: 6px; padding: 6px 10px;">
+          <div class="telemetry-card yt-telemetry-box" style="margin-top: 4px; padding: 6px 10px;">
             <div style="display: flex; justify-content: space-between; font-size: 10px; font-weight: 800;">
               <span id="yt-disk-drive-name">DISCO</span>
               <span id="yt-disk-free-txt" style="color: var(--color-accent-1);">Calculando...</span>
@@ -574,12 +594,12 @@
   </div>
 
   <!-- ========================================================
-       MODAL HUD FLOTANTE: TOUR DE YOUTUBE
+       MODAL HUD FLOTANTE: TOUR DE YOUTUBE STUDIO
        ======================================================== -->
   <div class="modal-backdrop yt-tour-modal-backdrop" id="yt-tour-modal-backdrop">
     <div class="modal-glass-card yt-tour-card-hud" id="yt-tour-card-hud">
       <div class="modal-header">
-        <span class="modal-badge" id="yt-tour-step-badge">YOUTUBE • PASO 1 DE 5</span>
+        <span class="modal-badge" id="yt-tour-step-badge">YOUTUBE STUDIO • PASO 1 DE 6</span>
         <button class="modal-btn-close" id="yt-tour-btn-close" title="Cerrar (Esc)">✕</button>
       </div>
 
@@ -645,7 +665,7 @@
           <div class="settings-icon-badge">⚙️</div>
           <div>
             <span class="settings-brand-title">AJUSTES</span>
-            <span class="settings-brand-sub">Aurion v1.1.8</span>
+            <span class="settings-brand-sub">Aurion v1.1.9</span>
           </div>
         </div>
         <div class="settings-nav-list">
@@ -933,7 +953,7 @@
               </div>
               <h2>Aurion Desktop</h2>
               <div class="about-version-badge-wrap">
-                <span class="about-version-tag">Versión 1.1.8</span>
+                <span class="about-version-tag">Versión 1.1.9</span>
                 <span class="about-build-tag">BUILD ESTABLE</span>
               </div>
               <p>Centro multimedia ultrarrápido y modular para descargas directas de Anime, Películas y YouTube sin anuncios ni bloqueos.</p>

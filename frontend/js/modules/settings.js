@@ -574,7 +574,7 @@ window.SettingsModule = (function() {
         if (feedbackEl) {
           const isModalOpen = document.getElementById('update-modal-overlay')?.classList.contains('active');
           if (!isModalOpen) {
-            feedbackEl.textContent = '✔ ¡Aurion v1.1.8 está completamente al día!';
+            feedbackEl.textContent = '✔ ¡Aurion v1.1.9 está completamente al día!';
             feedbackEl.style.color = '#10b981';
             setTimeout(() => {
               feedbackEl.textContent = '';

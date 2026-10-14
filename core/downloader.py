@@ -479,7 +479,7 @@ class AurionDownloader:
         if not raw_url:
             return False
 
-        # Promoción directa a master.m3u8 para garantizar 1080p y máxima velocidad de CDN
+        # Promoción directa a master.m3u8 para garantizar 1080p y máxima velocidad de CDN en anime
         url = raw_url
         if "index-f" in url.lower():
             url = re.sub(r'index-f\d+-[^\.]+\.m3u8', 'master.m3u8', url)
@@ -504,6 +504,7 @@ class AurionDownloader:
         except ValueError:
             configured_aria_conns = 16
 
+        yt_target_height = None
         if is_yt and is_audio:
             fmt_choice = "mp3"
             format_selector = "bestaudio/best"
@@ -511,21 +512,23 @@ class AurionDownloader:
             fmt_choice = "mp4"
             q_str = str(quality).lower().strip()
             if q_str in ["max", "máx"]:
+                yt_target_height = 4320
                 format_selector = "bestvideo+bestaudio/best"
             elif q_str in ["min", "144", "144p"]:
+                yt_target_height = 144
                 format_selector = "worstvideo+bestaudio/worst"
             else:
                 if q_str == "4k":
-                    h = 2160
+                    yt_target_height = 2160
                 elif q_str == "2k":
-                    h = 1440
+                    yt_target_height = 1440
                 elif q_str.endswith("p") and q_str[:-1].isdigit():
-                    h = int(q_str[:-1])
+                    yt_target_height = int(q_str[:-1])
                 elif q_str.isdigit():
-                    h = int(q_str)
+                    yt_target_height = int(q_str)
                 else:
-                    h = 1080
-                format_selector = f"bestvideo[height<={h}]+bestaudio/best[height<={h}]/best"
+                    yt_target_height = 1080
+                format_selector = f"bestvideo[height<={yt_target_height}]+bestaudio/best[height<={yt_target_height}]/best"
         else:
             fmt_choice = str(config.get("fmt", "mp4")).replace(".", "").lower().strip()
             if fmt_choice not in ["mp4", "mkv"]:
@@ -706,7 +709,7 @@ class AurionDownloader:
             'hls_use_mpegts': True,
             'fixup': 'warn',
             'postprocessors': postprocessors_list,
-            'postprocessor_args': {'ffmpeg': ffmpeg_tolerant_args} if (postprocessors_list and not is_audio) else {},
+            'postprocessor_args': {'ffmpeg': ffmpeg_tolerant_args} if (postprocessors_list and not is_audio and not is_yt) else {},
             'ffmpeg_location': os.path.dirname(self.ffmpeg_path) if self.ffmpeg_path else None
         }
 
@@ -714,13 +717,36 @@ class AurionDownloader:
             ydl_opts['ratelimit'] = rate_limit_bytes
 
         if is_yt:
-            # CONFIGURACIÓN DIRECTA DE ALTA VELOCIDAD PARA YOUTUBE (MP4 y MP3)
+            # En YouTube quitamos hls_use_mpegts y http_chunk_size para evitar HTTP 403 Forbidden
+            ydl_opts.pop('hls_use_mpegts', None)
+            ydl_opts.pop('http_chunk_size', None)
             ydl_opts.update({
-                'concurrent_fragment_downloads': 8,
-                'http_chunk_size': 10485760,
-                'buffersize': 1024 * 1024 * 16,
+                'concurrent_fragment_downloads': 6,
                 'merge_output_format': 'mp4' if not is_audio else None,
             })
+
+            # Soporte para Recorte de Fragmentos / Clips (Inicio - Fin)
+            clip_start = str(config.get("clip_start") or "").strip()
+            clip_end = str(config.get("clip_end") or "").strip()
+            if clip_start or clip_end:
+                def _parse_sec(t_str):
+                    if not t_str:
+                        return None
+                    parts = [int(p) for p in t_str.split(':') if p.strip().isdigit()]
+                    if len(parts) == 3:
+                        return parts[0] * 3600 + parts[1] * 60 + parts[2]
+                    if len(parts) == 2:
+                        return parts[0] * 60 + parts[1]
+                    if len(parts) == 1:
+                        return parts[0]
+                    return None
+
+                s_sec = _parse_sec(clip_start) or 0
+                e_sec = _parse_sec(clip_end)
+                if e_sec and e_sec > s_sec:
+                    from yt_dlp.utils import download_range_func
+                    ydl_opts['download_ranges'] = download_range_func(None, [(s_sec, e_sec)])
+                    ydl_opts['force_keyframes_at_cuts'] = True
         else:
             # CONFIGURACIÓN PURA DE 32 HILOS Y BUFFERS DE 64MB (40-50 MB/s EN ANIME/CINE)
             ydl_opts['http_headers'] = {
@@ -788,39 +814,80 @@ class AurionDownloader:
                 )
 
             info = None
-            try:
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    info = ydl.extract_info(url, download=True)
-            except Exception as dl_err:
-                err_str = str(dl_err)
-                if "TASK_CANCELLED_BY_USER" in err_str:
-                    raise dl_err
+            if is_yt:
+                root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                appdata_cookie = os.path.join(os.environ.get('LOCALAPPDATA', os.path.expanduser('~')), 'Aurion', '.yt_session.dat')
+                local_cookie = os.path.join(root_dir, 'cookies.txt')
 
-                # Si es YouTube y falló al primer intento, probar con extractor_args android/web de respaldo
-                if is_yt:
-                    retry_opts = dict(ydl_opts)
-                    retry_opts['extractor_args'] = {'youtube': {'player_client': ['android', 'web']}}
-                    if not is_audio:
-                        retry_opts['format'] = 'bestvideo+bestaudio/best'
-                    with yt_dlp.YoutubeDL(retry_opts) as ydl_retry:
-                        info = ydl_retry.extract_info(url, download=True)
-                elif url != raw_url:
-                    # Si el servidor de anime dio 403 en master.m3u8, usar el raw_url original a 32 hilos
-                    print("[Core Rescate] Master rechazado, descargando stream original a 32 hilos...")
-                    with yt_dlp.YoutubeDL(ydl_opts) as ydl_orig:
-                        info = ydl_orig.extract_info(raw_url, download=True)
-                elif any(k in err_str for k in ["Conversion failed", "Postprocessing", "FFmpegPostProcessorError"]):
-                    print("[Core Rescate VIXEO] Posprocesado fallido en FFmpeg. Rescatando archivo ensamblado directamente...")
-                    existing = [
-                        f for f in os.listdir(task_temp_dir)
-                        if not f.endswith('.part') and os.path.getsize(os.path.join(task_temp_dir, f)) > 3 * 1024 * 1024
-                    ]
-                    if not existing:
+                active_cookie_file = None
+                if os.path.isfile(appdata_cookie) and os.path.getsize(appdata_cookie) > 100:
+                    active_cookie_file = appdata_cookie
+                elif os.path.isfile(local_cookie) and os.path.getsize(local_cookie) > 100:
+                    active_cookie_file = local_cookie
+
+                yt_attempts = [
+                    # 1. Directo con Sesión Sincronizada Nativa (Arranca al instante sin error 403)
+                    {'name': 'Sesión Sincronizada Nativa', 'use_cookies': True, 'clients': None},
+                    # 2. Rescate sin cookies con TV Embedded + Web (por si algún usuario no tiene la extensión activa)
+                    {'name': 'Cliente Embebido Sin Cookies', 'use_cookies': False, 'clients': ['tv_embedded', 'web']},
+                ]
+
+                last_err = None
+                for idx, strat in enumerate(yt_attempts):
+                    with self.lock:
+                        if task_id in self.cancelled_tasks or "youtube_active" in self.cancelled_tasks:
+                            raise Exception("TASK_CANCELLED_BY_USER")
+                    try:
+                        try_opts = dict(ydl_opts)
+                        if strat.get('clients'):
+                            try_opts['extractor_args'] = {'youtube': {'player_client': strat['clients']}}
+                        else:
+                            try_opts.pop('extractor_args', None)
+
+                        if strat.get('use_cookies') and active_cookie_file:
+                            try_opts['cookiefile'] = active_cookie_file
+
+                        with yt_dlp.YoutubeDL(try_opts) as ydl_yt:
+                            info = ydl_yt.extract_info(url, download=True)
+                        last_err = None
+                        break
+                    except Exception as err_yt:
+                        if "TASK_CANCELLED_BY_USER" in str(err_yt):
+                            raise err_yt
+                        last_err = err_yt
+                        print(f"[Core YouTube Retry {idx + 1}/{len(yt_attempts)} - {strat['name']}] Probando siguiente...")
+                        time.sleep(0.2)
+
+                if last_err is not None:
+                    raise last_err
+            else:
+                try:
+                    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                        info = ydl.extract_info(url, download=True)
+                except Exception as dl_err:
+                    err_str = str(dl_err)
+                    if "TASK_CANCELLED_BY_USER" in err_str:
                         raise dl_err
-                else:
-                    raise dl_err
+                    if url != raw_url:
+                        print("[Core Rescate] Master rechazado, descargando stream original a 32 hilos...")
+                        with yt_dlp.YoutubeDL(ydl_opts) as ydl_orig:
+                            info = ydl_orig.extract_info(raw_url, download=True)
+                    elif any(k in err_str for k in ["Conversion failed", "Postprocessing", "FFmpegPostProcessorError"]):
+                        print("[Core Rescate VIXEO] Posprocesado fallido en FFmpeg. Rescatando archivo ensamblado directamente...")
+                        existing = [
+                            f for f in os.listdir(task_temp_dir)
+                            if not f.endswith('.part') and os.path.getsize(os.path.join(task_temp_dir, f)) > 3 * 1024 * 1024
+                        ]
+                        if not existing:
+                            raise dl_err
+                    else:
+                        raise dl_err
 
-            height = info.get('height', 'N/A') if info else 'N/A'
+            height = 'N/A'
+            if info:
+                height = info.get('height') or 'N/A'
+                if height == 'N/A' and info.get('requested_downloads'):
+                    height = info['requested_downloads'][0].get('height') or 'N/A'
             final_res_label = f"{height}p" if height != 'N/A' else None
             clean_name_check = "".join(c for c in title if c not in r'\/:*?"<>|').strip() or "video"
 

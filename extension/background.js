@@ -247,3 +247,44 @@ chrome.tabs.onRemoved.addListener((tabId) => {
   delete tabMediaData[tabId];
   delete processedTabUrls[tabId];
 });
+
+// ========================================================
+// SINCRONIZADOR AUTOMÁTICO DE SESIÓN YOUTUBE (BYPASS DPAPI)
+// ========================================================
+async function syncYoutubeCookiesToAurion() {
+  try {
+    if (!chrome.cookies) return;
+    const ytCookies = await chrome.cookies.getAll({ domain: 'youtube.com' });
+    const googleCookies = await chrome.cookies.getAll({ domain: 'google.com' });
+    const allCookies = [...ytCookies, ...googleCookies];
+
+    if (!allCookies || allCookies.length === 0) return;
+
+    let netscapeLines = ['# Netscape HTTP Cookie File', '# Auto-synced by Aurion Extension', ''];
+    for (const c of allCookies) {
+      const domain = c.domain.startsWith('.') ? c.domain : `.${c.domain}`;
+      const flag = 'TRUE';
+      const path = c.path || '/';
+      const secure = c.secure ? 'TRUE' : 'FALSE';
+      const expiry = c.expirationDate ? Math.floor(c.expirationDate) : (Math.floor(Date.now() / 1000) + 86400 * 30);
+      netscapeLines.push(`${domain}\t${flag}\t${path}\t${secure}\t${expiry}\t${c.name}\t${c.value}`);
+    }
+
+    await fetch('http://127.0.0.1:6800/api/sync_cookies', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cookies_netscape: netscapeLines.join('\n') })
+    });
+  } catch (_) {
+    // Silencioso si Aurion Desktop está cerrado en ese momento
+  }
+}
+
+// Sincronizar al arrancar la extensión y cada vez que cambie una pestaña o cada 3 minutos
+syncYoutubeCookiesToAurion();
+setInterval(syncYoutubeCookiesToAurion, 180000);
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.status === 'complete' && tab?.url) {
+    syncYoutubeCookiesToAurion();
+  }
+});

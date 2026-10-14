@@ -8373,3 +8373,356 @@ body {
   transform: translateY(-2px) scale(1.04) !important;
   box-shadow: 0 10px 28px var(--color-glow) !important;
 }
+
+/* =========================================================================
+   YOUTUBE STUDIO SPATIAL OVERHAUL // CANALES, PLAYLISTS & INSPECTOR
+   ========================================================================= */
+
+/* Buscador interno compacto para Canales y Playlists */
+.yt-mini-filter {
+  height: 36px !important;
+  padding: 0 14px !important;
+  font-size: 11.5px !important;
+  border-radius: 18px !important;
+  min-width: 240px;
+}
+
+/* Zoom suave y overlay de inspección rápida en tarjetas de canal */
+.yt-grid-thumb-box {
+  overflow: hidden !important;
+}
+
+.yt-grid-thumb-img {
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.yt-grid-video-card:hover .yt-grid-thumb-img {
+  transform: scale(1.07) !important;
+}
+
+.yt-grid-hover-overlay {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle, rgba(3, 5, 9, 0.3) 0%, rgba(3, 5, 9, 0.75) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+}
+
+.yt-grid-hover-overlay span {
+  background: linear-gradient(135deg, var(--color-accent-1), var(--color-accent-2));
+  color: var(--color-btn-text, #000);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 1px;
+  padding: 6px 12px;
+  border-radius: 16px;
+  box-shadow: 0 4px 16px var(--color-glow);
+  transform: translateY(6px);
+  transition: transform 0.25s var(--ease-spring);
+}
+
+.yt-grid-video-card:hover .yt-grid-hover-overlay {
+  opacity: 1;
+}
+
+.yt-grid-video-card:hover .yt-grid-hover-overlay span {
+  transform: translateY(0);
+}
+
+/* Checkbox Neón en filas de Playlist */
+.yt-row-neon-check {
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  border: 1.5px solid rgba(255, 255, 255, 0.18);
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 900;
+  color: transparent;
+  flex-shrink: 0;
+  transition: all 0.2s var(--ease-spring);
+}
+
+.yt-row-neon-check.is-checked {
+  background: linear-gradient(135deg, var(--color-accent-1), var(--color-accent-2));
+  border-color: rgba(255, 255, 255, 0.5);
+  color: var(--color-btn-text, #000);
+  box-shadow: 0 0 12px var(--color-glow);
+}
+
+.yt-playlist-author-pill {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 3px 10px;
+  border-radius: 12px;
+  color: #f1f5f9;
+  font-weight: 800;
+}
+
+/* Badges flotantes sobre la previsualización del Inspector (Portada 4K) */
+.yt-preview-overlay-badges {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  right: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.yt-prev-pill {
+  background: rgba(5, 8, 14, 0.82);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #f8fafc;
+  font-size: 9.5px;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 12px;
+  max-width: 60%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.yt-prev-save-thumb-btn {
+  pointer-events: auto;
+  background: rgba(5, 8, 14, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--color-accent-1);
+  color: var(--color-accent-1);
+  font-size: 9.5px;
+  font-weight: 900;
+  padding: 4px 10px;
+  border-radius: 12px;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+  transition: all 0.2s var(--ease-spring);
+}
+
+.yt-prev-save-thumb-btn:hover {
+  background: var(--color-accent-1);
+  color: #030509;
+  transform: scale(1.06);
+  box-shadow: 0 0 14px var(--color-glow);
+}
+
+/* Cajón desplegable de Recorte de Fragmentos / Clips (✂️) */
+.yt-clip-trimmer-box {
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.03) 0%, rgba(0, 0, 0, 0.35) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 8px 12px;
+  transition: border-color 0.2s ease;
+}
+
+.yt-clip-trimmer-box:hover {
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.yt-clip-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+}
+
+.yt-clip-chevron {
+  font-size: 11px;
+  color: var(--color-accent-1);
+  transition: transform 0.25s ease;
+}
+
+.yt-clip-inputs-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.yt-clip-input {
+  flex: 1;
+  height: 30px !important;
+  padding: 0 10px !important;
+  font-size: 11px !important;
+  border-radius: 9px !important;
+  text-align: center !important;
+}
+
+/* =========================================================================
+   CORRECCIÓN DE LAYOUT STUDIO INSPECTOR & TIMELINE INTERACTIVO DE CLIPS
+   ========================================================================= */
+
+/* Permitir que el Studio Inspector acomode todos los controles sin cortar "C: DISCO" abajo */
+#yt-sidebar-box .glass-inner {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  scrollbar-width: none;
+  padding-bottom: 10px !important;
+  justify-content: flex-start !important;
+  gap: 6px !important;
+}
+
+#yt-sidebar-box .glass-inner::-webkit-scrollbar {
+  display: none;
+}
+
+#yt-sidebar-box .yt-preview-media {
+  height: 122px !important;
+  min-height: 122px !important;
+}
+
+#yt-sidebar-box .settings-area {
+  gap: 8px !important;
+  margin-top: 4px !important;
+}
+
+/* Pastilla resumen en cabecera de Recortar Clip */
+.yt-clip-summary-pill {
+  font-size: 9px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #94a3b8;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: all 0.2s ease;
+}
+
+.yt-clip-summary-pill.is-active {
+  background: rgba(255, 0, 85, 0.16);
+  color: var(--color-accent-1);
+  border-color: var(--color-accent-1);
+  box-shadow: 0 0 10px var(--color-glow-subtle);
+}
+
+.yt-clip-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Doble Slider Interactivo (Inicio - Fin) */
+.yt-clip-slider-wrap {
+  position: relative;
+  width: 100%;
+  height: 22px;
+  display: flex;
+  align-items: center;
+}
+
+.yt-clip-slider-track {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 6px;
+  background: rgba(0, 0, 0, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 99px;
+}
+
+.yt-clip-slider-fill {
+  position: absolute;
+  height: 6px;
+  background: linear-gradient(90deg, var(--color-accent-1), var(--color-accent-2));
+  border-radius: 99px;
+  box-shadow: 0 0 12px var(--color-glow);
+  pointer-events: none;
+}
+
+.yt-clip-range {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 6px;
+  background: none;
+  pointer-events: none;
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
+}
+
+.yt-clip-range::-webkit-slider-thumb {
+  pointer-events: auto;
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 2.5px solid var(--color-accent-1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.8), 0 0 10px var(--color-glow);
+  cursor: grab;
+  transition: transform 0.15s ease;
+}
+
+.yt-clip-range::-webkit-slider-thumb:hover {
+  transform: scale(1.18);
+}
+
+.yt-clip-range::-webkit-slider-thumb:active {
+  cursor: grabbing;
+  transform: scale(1.25);
+}
+
+.yt-clip-time-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.yt-clip-time-field {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  background: rgba(4, 7, 13, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 2px 8px;
+  gap: 6px;
+}
+
+.yt-clip-field-lbl {
+  font-size: 8.5px;
+  font-weight: 900;
+  color: #64748b;
+  letter-spacing: 0.6px;
+}
+
+.yt-clip-time-field .yt-clip-input {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  height: 24px !important;
+  padding: 0 !important;
+  font-size: 11.5px !important;
+  font-weight: 900 !important;
+  color: #f8fafc !important;
+  text-align: right !important;
+  width: 100%;
+}
+
+.yt-clip-reset-btn {
+  width: 28px !important;
+  height: 28px !important;
+  padding: 0 !important;
+  border-radius: 9px !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px !important;
+}

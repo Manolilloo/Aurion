@@ -23,7 +23,7 @@ BASE_DIR = get_base_dir()
 
 # Forzar ID de aplicación en Windows para que la barra de tareas fije el icono propio y no el de Python
 try:
-    myappid = 'manolilloo.aurion.desktop.1.1.8'
+    myappid = 'manolilloo.aurion.desktop.1.1.9'
     ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
 except Exception:
     pass

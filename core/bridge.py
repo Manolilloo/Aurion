@@ -17,7 +17,7 @@ import webview
 from .downloader import AurionDownloader
 from .database import AurionDatabase
 
-APP_VERSION = "1.1.8"
+APP_VERSION = "1.1.9"
 GITHUB_REPO = "Manolilloo/Aurion"
 CONFIG_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config.json")
 
@@ -35,9 +35,9 @@ class AurionHTTPHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_POST(self):
+        content_length = int(self.headers.get('Content-Length', 0))
+        body = self.rfile.read(content_length)
         if self.path == '/api/enqueue':
-            content_length = int(self.headers.get('Content-Length', 0))
-            body = self.rfile.read(content_length)
             try:
                 data = json.loads(body.decode('utf-8'))
                 if hasattr(self.server, 'bridge_instance'):
@@ -48,6 +48,30 @@ class AurionHTTPHandler(BaseHTTPRequestHandler):
                 self.send_header('Access-Control-Allow-Origin', '*')
                 self.end_headers()
                 self.wfile.write(json.dumps({"status": "ok"}).encode('utf-8'))
+            except Exception:
+                self.send_response(400)
+                self.end_headers()
+        elif self.path == '/api/sync_cookies':
+            try:
+                data = json.loads(body.decode('utf-8'))
+                raw_cookies = data.get("cookies_netscape", "")
+                if raw_cookies and "# Netscape HTTP Cookie File" in raw_cookies:
+                    appdata_dir = os.path.join(os.environ.get('LOCALAPPDATA', os.path.expanduser('~')), 'Aurion')
+                    os.makedirs(appdata_dir, exist_ok=True)
+                    cookie_file = os.path.join(appdata_dir, '.yt_session.dat')
+                    with open(cookie_file, 'w', encoding='utf-8') as f:
+                        f.write(raw_cookies)
+                    if sys.platform == 'win32':
+                        try:
+                            import ctypes
+                            ctypes.windll.kernel32.SetFileAttributesW(str(cookie_file), 2)  # Atributo oculto en Windows
+                        except Exception:
+                            pass
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps({"status": "synced"}).encode('utf-8'))
             except Exception:
                 self.send_response(400)
                 self.end_headers()
@@ -564,12 +588,14 @@ class AurionBridge:
         ydl_opts = {
             'quiet': True,
             'skip_download': True,
-            'extract_flat': True,
+            'extract_flat': 'in_playlist',
             'no_warnings': True,
+            'nocheckcertificate': True,
+            'ignoreerrors': True,
             'skip_playlist_after_errors': 0,
             'extractor_args': {
                 'youtube': {
-                    'player_client': ['web']
+                    'player_client': ['tv_embedded', 'web']
                 }
             }
         }
@@ -579,10 +605,39 @@ class AurionBridge:
             import yt_dlp
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 if is_direct_url:
-                    info = ydl.extract_info(query, download=False)
-                    raw_entries = info.get('entries', []) if 'entries' in info else [info]
-                    is_pl = ('list=' in query) or (info.get('_type') == 'playlist')
-                    targets = [('playlist' if is_pl else 'video', e) for e in raw_entries if e]
+                    is_pl = ('list=' in query and 'watch?v=' not in query) or ('/playlist?' in query)
+                    # Extraer ID limpio si es un enlace de vídeo directo (watch?v=, youtu.be/, shorts/)
+                    vid_id_match = re.search(r'(?:v=|youtu\.be/|shorts/|embed/)([a-zA-Z0-9_-]{11})', query)
+
+                    if vid_id_match and not is_pl:
+                        vid_id = vid_id_match.group(1)
+                        clean_watch_url = f"https://www.youtube.com/watch?v={vid_id}"
+                        info = ydl.extract_info(clean_watch_url, download=False)
+
+                        # Fallback instantáneo por oEmbed oficial si YouTube bloquea la consulta plana
+                        if not info or not info.get('title'):
+                            try:
+                                oembed_url = f"https://www.youtube.com/oembed?url={ urllib.parse.quote(clean_watch_url) }&format=json"
+                                req = urllib.request.Request(oembed_url, headers={'User-Agent': 'Mozilla/5.0'})
+                                with urllib.request.urlopen(req, timeout=4) as resp:
+                                    oe = json.loads(resp.read().decode('utf-8'))
+                                    info = {
+                                        'id': vid_id,
+                                        'title': oe.get('title', 'Vídeo de YouTube'),
+                                        'uploader': oe.get('author_name', 'YouTube'),
+                                        'channel_url': oe.get('author_url', ''),
+                                        'duration': 0,
+                                        'url': clean_watch_url,
+                                        'thumbnail': f"https://i.ytimg.com/vi/{vid_id}/hqdefault.jpg"
+                                    }
+                            except Exception:
+                                pass
+
+                        targets = [('video', info)] if info else []
+                    else:
+                        info = ydl.extract_info(query, download=False) or {}
+                        raw_entries = info.get('entries', []) if 'entries' in info else ([info] if info else [])
+                        targets = [('playlist' if is_pl else 'video', e) for e in raw_entries if e]
                 elif search_type == "playlist":
                     raw_playlists = []
                     try:
@@ -1344,3 +1399,34 @@ start "" "{app_exe_path}"
         except Exception as e:
             print(f"[Bridge] Error abriendo archivo de historial: {e}")
             return False
+    
+    def save_yt_thumbnail(self, video_id, title, dest_dir=""):
+        """Descarga la miniatura del vídeo de YouTube en máxima resolución (MaxRes 4K/HD) y abre su carpeta."""
+        if not video_id:
+            return False
+        target_dir = (dest_dir or "").strip() or os.path.join(os.path.expanduser("~"), "Pictures", "Aurion_Thumbnails")
+        try:
+            os.makedirs(target_dir, exist_ok=True)
+            clean_t = "".join(c for c in (title or video_id) if c not in r'\/:*?"<>|').strip() or video_id
+            out_path = os.path.abspath(os.path.join(target_dir, f"{clean_t} [Portada 4K].jpg"))
+
+            ctx = ssl.create_default_context()
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
+
+            for res_variant in ["maxresdefault.jpg", "sddefault.jpg", "hqdefault.jpg"]:
+                url = f"https://i.ytimg.com/vi/{video_id}/{res_variant}"
+                try:
+                    req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+                    with urllib.request.urlopen(req, context=ctx, timeout=5) as resp:
+                        if resp.status == 200:
+                            with open(out_path, "wb") as f:
+                                f.write(resp.read())
+                            # Abrir directamente la carpeta donde se ha guardado sin el bug de "Mis Documentos" de Windows
+                            os.startfile(os.path.abspath(target_dir))
+                            return True
+                except Exception:
+                    continue
+        except Exception as e:
+            print(f"[Bridge] Error guardando miniatura: {e}")
+        return False
