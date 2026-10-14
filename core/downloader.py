@@ -1,28 +1,55 @@
 import os
 import sys
+import re
+import json
 import shutil
 import threading
 import time
 import gc
 import stat
 import atexit
+import subprocess
+import urllib.request
 from urllib.parse import urlparse
 from concurrent.futures import ThreadPoolExecutor
 import yt_dlp
 
+
 def get_binary_path(binary_name):
     """Devuelve la ruta absoluta al ejecutable en bin/ tanto en desarrollo como congelado con PyInstaller."""
+    candidates = []
     if getattr(sys, 'frozen', False):
-        base_dir = getattr(sys, '_MEIPASS', os.path.dirname(sys.executable))
+        exe_dir = os.path.dirname(sys.executable)
+        meipass = getattr(sys, '_MEIPASS', exe_dir)
+        candidates.extend([
+            os.path.join(meipass, 'bin', f"{binary_name}.exe"),
+            os.path.join(exe_dir, '_internal', 'bin', f"{binary_name}.exe"),
+            os.path.join(exe_dir, 'bin', f"{binary_name}.exe"),
+        ])
     else:
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        candidates.append(os.path.join(base_dir, 'bin', f"{binary_name}.exe"))
 
-    local_exe = os.path.join(base_dir, 'bin', f"{binary_name}.exe")
-    if os.path.exists(local_exe):
-        return local_exe
+    for c in candidates:
+        if os.path.isfile(c):
+            return c
 
     system_path = shutil.which(binary_name)
     return system_path if system_path else None
+
+
+def parse_speed_limit_bytes(speed_str):
+    """Convierte cadenas como '5M', '10M', '25M' a bytes/s enteros para yt-dlp."""
+    if not speed_str or str(speed_str).strip() in ["0", "", "none", "None"]:
+        return None
+    s = str(speed_str).strip().upper()
+    m = re.match(r'^(\d+(?:\.\d+)?)\s*([KMG])?B?$', s)
+    if not m:
+        return None
+    val = float(m.group(1))
+    unit = m.group(2) or 'M'
+    multipliers = {'K': 1024, 'M': 1024 * 1024, 'G': 1024 * 1024 * 1024}
+    return int(val * multipliers.get(unit, 1024 * 1024))
 
 
 class AurionDownloader:
@@ -41,35 +68,31 @@ class AurionDownloader:
 
         self.has_aria2 = self.aria2_path is not None
         self.has_ffmpeg = self.ffmpeg_path is not None
-        
+
         status_aria = f"DISPONIBLE ({self.aria2_path})" if self.has_aria2 else "NO DETECTADO"
         status_ffmpeg = f"DISPONIBLE ({self.ffmpeg_path})" if self.has_ffmpeg else "NO DETECTADO"
         print(f"[Core] Estado del sistema -> aria2c: {status_aria} | FFmpeg: {status_ffmpeg}")
         self._cleanup_orphaned_temp_dirs()
 
+    def _get_fallback_default_dir(self):
+        return os.path.join(os.path.expanduser("~"), "Videos", "Aurion")
+
     def _cleanup_on_exit(self):
-        """Se ejecuta automáticamente cuando la app se cierra por cualquier motivo."""
         with self.lock:
             dirs_to_clean = list(self.active_temp_dirs)
         for d in dirs_to_clean:
             self._force_remove_temp_dir(d)
 
     def cleanup_all_temp(self):
-        """Elimina de disco cualquier carpeta temporal registrada o huérfana."""
         with self.lock:
             dirs = list(self.active_temp_dirs)
             self.active_temp_dirs.clear()
-
         for d in dirs:
             self._force_remove_temp_dir(d)
 
     def _force_remove_temp_dir(self, target_path):
-        """Desbloquea permisos en Windows y borra la carpeta temporal sin dejar rastro."""
         if not target_path or not os.path.exists(target_path):
             return
-
-        import gc
-        import subprocess
 
         with self.lock:
             self.active_temp_dirs.discard(os.path.abspath(target_path))
@@ -98,7 +121,6 @@ class AurionDownloader:
             pass
 
     def _cleanup_orphaned_temp_dirs(self):
-        """Barre cualquier carpeta residual .tmp_* de cierres bruscos o caídas de corriente."""
         def run_cleanup():
             check_dirs = set()
             try:
@@ -110,7 +132,9 @@ class AurionDownloader:
             except Exception:
                 pass
 
-            check_dirs.update(["J:\\ANIME\\animes", "J:\\ANIME\\peliculas", "J:\\ANIME"])
+            default_vids = self._get_fallback_default_dir()
+            if os.path.exists(default_vids):
+                check_dirs.add(default_vids)
 
             for base in check_dirs:
                 if not os.path.exists(base):
@@ -121,7 +145,6 @@ class AurionDownloader:
                             if d.startswith(".tmp_"):
                                 target_path = os.path.join(root, d)
                                 self._force_remove_temp_dir(target_path)
-                                print(f"[Core Limpieza] Carpeta temporal residual purgada: {target_path}")
                 except Exception:
                     pass
 
@@ -133,7 +156,7 @@ class AurionDownloader:
         print(f"[Core] Cancelando tarea: {task_id}")
 
     def resolve_destination_folder(self, config):
-        base_dir = config.get("dir", "J:\\ANIME\\animes")
+        base_dir = (config.get("dir") or "").strip() or self._get_fallback_default_dir()
         mode = config.get("active_mode", "anime")
         anime_title = config.get("title", "").strip()
         clean_title = "".join(c for c in anime_title if c not in r'\/:*?"<>|').strip()
@@ -141,7 +164,8 @@ class AurionDownloader:
         if config.get("is_youtube") or mode == "youtube":
             if config.get("is_playlist") and config.get("create_playlist_subfolder", True):
                 pl_title = config.get("playlist_title") or clean_title or "Playlist_YouTube"
-                final_dir = os.path.abspath(os.path.join(base_dir, pl_title))
+                clean_pl = "".join(c for c in pl_title if c not in r'\/:*?"<>|').strip() or "Playlist_YouTube"
+                final_dir = os.path.abspath(os.path.join(base_dir, clean_pl))
             else:
                 yt_folder_name = clean_title or "Video_YouTube"
                 final_dir = os.path.abspath(os.path.join(base_dir, yt_folder_name))
@@ -154,10 +178,13 @@ class AurionDownloader:
             is_single = config.get("is_single_season", False)
             season_num = config.get("season_num", 1)
 
-            import re
             detected_season = None
             if clean_title:
-                m = re.search(r'(?:(\d+)(?:st|nd|rd|th|da|ra)?\s*(?:season|temporada))|(?:(?:season|temporada)\s*(\d+))|(?:\bS(\d+)\b)', clean_title, re.IGNORECASE)
+                m = re.search(
+                    r'(?:(\d+)(?:st|nd|rd|th|da|ra)?\s*(?:season|temporada))|(?:(?:season|temporada)\s*(\d+))|(?:\bS(\d+)\b)',
+                    clean_title,
+                    re.IGNORECASE
+                )
                 if m:
                     num_str = m.group(1) or m.group(2) or m.group(3)
                     if num_str and num_str.isdigit():
@@ -167,7 +194,12 @@ class AurionDownloader:
 
             root_anime_folder = clean_title
             if detected_season is not None:
-                root_anime_folder = re.sub(r'[\s\-_]*(?:(?:\d+(?:st|nd|rd|th|da|ra)?\s*(?:season|temporada))|(?:(?:season|temporada)\s*\d+)|(?:\bS\d+\b)).*$', '', clean_title, flags=re.IGNORECASE).strip()
+                root_anime_folder = re.sub(
+                    r'[\s\-_]*(?:(?:\d+(?:st|nd|rd|th|da|ra)?\s*(?:season|temporada))|(?:(?:season|temporada)\s*\d+)|(?:\bS\d+\b)).*$',
+                    '',
+                    clean_title,
+                    flags=re.IGNORECASE
+                ).strip()
                 if not root_anime_folder:
                     root_anime_folder = clean_title
 
@@ -190,13 +222,9 @@ class AurionDownloader:
         return final_dir
 
     def _probe_resolution_ffprobe(self, media_url, headers):
-        """Usa ffprobe para leer la resolución exacta de los primeros paquetes sin inventar nada."""
         if not self.has_ffmpeg:
             return None
         try:
-            import subprocess
-            import json
-
             ffprobe_exe = self.ffmpeg_path.replace('ffmpeg.exe', 'ffprobe.exe') if self.ffmpeg_path else 'ffprobe'
             if not os.path.exists(ffprobe_exe):
                 ffprobe_exe = shutil.which('ffprobe') or 'ffprobe'
@@ -211,7 +239,7 @@ class AurionDownloader:
                 media_url
             ]
 
-            proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=4)
+            proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=4, creationflags=0x08000000 if sys.platform == 'win32' else 0)
             if proc.returncode == 0:
                 data = json.loads(proc.stdout.decode('utf-8'))
                 for s in data.get('streams', []):
@@ -224,20 +252,13 @@ class AurionDownloader:
         return None
 
     def _probe_direct_m3u8_fast(self, url, headers):
-        """Sonda ultra rápida por HTTP: analiza manifiestos HLS sin latencia ni bloqueos de yt-dlp."""
-        import urllib.request
-        import re
-
         try:
             req = urllib.request.Request(url, headers=headers)
             with urllib.request.urlopen(req, timeout=3.5) as resp:
                 content = resp.read().decode('utf-8', errors='ignore')
 
             res_matches = re.findall(r'RESOLUTION=\d+x(\d+)', content)
-            detected_res = None
-            if res_matches:
-                max_h = max(int(h) for h in res_matches)
-                detected_res = f"{max_h}p"
+            detected_res = f"{max(int(h) for h in res_matches)}p" if res_matches else None
 
             estimated_bytes = 0
             bw_matches = re.findall(r'BANDWIDTH=(\d+)', content)
@@ -256,17 +277,12 @@ class AurionDownloader:
             return 0, None
 
     def probe_media_info(self, url, page_url=""):
-        """Sonda de metadatos optimizada: instantánea para MP4Upload/Streamtape/Filemoon sin demoras."""
         if not url:
             return 0, "N/D"
 
-        import re
-        import urllib.request
-
         probe_url = url
-        if any(srv in probe_url.lower() for srv in ["filelions", "streamwish", "vidhide", "playmate", "earnvids", "vixeo"]):
-            if "index-f" in probe_url.lower():
-                probe_url = re.sub(r'index-f\d+-[^\.]+\.m3u8', 'master.m3u8', probe_url)
+        if "index-f" in probe_url.lower():
+            probe_url = re.sub(r'index-f\d+-[^\.]+\.m3u8', 'master.m3u8', probe_url)
 
         parsed_url = urlparse(probe_url)
         origin_domain = f"{parsed_url.scheme}://{parsed_url.netloc}"
@@ -277,7 +293,7 @@ class AurionDownloader:
             referer = "https://www.mp4upload.com/"
         elif "streamtape" in netloc:
             referer = "https://streamtape.com/"
-        elif any(s in netloc for s in ["sprintcdn", "streamwish", "filelions", "vidhide", "hglamioz", "wish", "vixeo"]):
+        elif any(s in netloc for s in ["sprintcdn", "streamwish", "filelions", "vidhide", "hglamioz", "wish", "vixeo", "lion", "peytone", "ryderjet"]):
             referer = origin_domain + "/"
         elif page_url:
             referer = page_url
@@ -289,10 +305,9 @@ class AurionDownloader:
             'Accept': '*/*'
         }
 
-        # 1. MP4UPLOAD & STREAMTAPE: Sonda no bloqueante con cabeceras Range
         if "mp4upload" in netloc:
             mp4_headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
+                'User-Agent': headers['User-Agent'],
                 'Referer': 'https://www.mp4upload.com/',
                 'Origin': 'https://www.mp4upload.com',
                 'Range': 'bytes=0-1'
@@ -310,7 +325,6 @@ class AurionDownloader:
                         return int(cl), "1080p"
             except Exception:
                 pass
-            # Si falla la sonda inicial, devolver valor por defecto de inmediato sin bloquear la cola
             return 160 * 1024 * 1024, "1080p"
 
         if "streamtape" in netloc or (not probe_url.lower().endswith(".m3u8") and ".mp4" in probe_url.lower()):
@@ -323,13 +337,11 @@ class AurionDownloader:
             except Exception:
                 pass
 
-        # 2. HLS FAST PROBE (.m3u8 de VIXEO, Filemoon, CDNs)
         if '.m3u8' in probe_url.lower():
             fast_bytes, fast_res = self._probe_direct_m3u8_fast(probe_url, headers)
             if fast_bytes > 0:
                 return fast_bytes, fast_res or "1080p"
 
-        # 3. Fallback solo si es estrictamente necesario
         ydl_opts = {
             'quiet': True,
             'no_warnings': True,
@@ -379,11 +391,10 @@ class AurionDownloader:
         if not cover_url or cover_url.startswith("data:"):
             return
 
-        base_dir = config.get("dir", "J:\\ANIME\\animes")
+        base_dir = (config.get("dir") or "").strip() or self._get_fallback_default_dir()
         anime_title = config.get("title", "").strip()
         clean_title = "".join(c for c in anime_title if c not in r'\/:*?"<>|').strip()
 
-        import re
         root_anime_folder = clean_title
         if clean_title and clean_title != "Esperando consulta...":
             root_anime_folder = re.sub(
@@ -401,7 +412,6 @@ class AurionDownloader:
             cover_path = os.path.join(root_anime_dir, "cover.jpg")
 
             if not os.path.exists(cover_path):
-                import urllib.request
                 req = urllib.request.Request(cover_url, headers={
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
                 })
@@ -435,34 +445,44 @@ class AurionDownloader:
         self.is_downloading = False
         print("\n[Core] Todas las tareas del lote han concluido.")
 
-        if any_success and config.get("open_folder", True):
-            def _delayed_open(target_dest):
+        if any_success:
+            if self.bridge and self.bridge._window:
                 try:
-                    time.sleep(0.8)
-                    parent_folder = os.path.dirname(target_dest)
-                    target_open = parent_folder if os.path.basename(target_dest).lower().startswith("temporada") else target_dest
-                    abs_dest = os.path.abspath(target_open if os.path.exists(target_open) else target_dest)
+                    self.bridge._window.evaluate_js("window.onBatchFinished && window.onBatchFinished();")
+                except Exception:
+                    pass
 
-                    if os.path.exists(abs_dest):
-                        print(f"[Core] Abriendo carpeta en explorador: {abs_dest}")
-                        os.startfile(abs_dest)
-                except Exception as e:
-                    print(f"[Core] Error abriendo carpeta: {e}")
+            finish_action = str(config.get("finish_action", "open_folder"))
+            should_open = bool(config.get("open_folder", True)) and (finish_action != "none")
 
-            threading.Thread(target=_delayed_open, args=(dest_folder,), daemon=True).start()
+            if should_open:
+                def _delayed_open(target_dest):
+                    try:
+                        time.sleep(0.8)
+                        parent_folder = os.path.dirname(target_dest)
+                        target_open = parent_folder if os.path.basename(target_dest).lower().startswith("temporada") else target_dest
+                        abs_dest = os.path.abspath(target_open if os.path.exists(target_open) else target_dest)
+
+                        if os.path.exists(abs_dest):
+                            print(f"[Core] Abriendo carpeta en explorador: {abs_dest}")
+                            os.startfile(abs_dest)
+                    except Exception as e:
+                        print(f"[Core] Error abriendo carpeta: {e}")
+
+                threading.Thread(target=_delayed_open, args=(dest_folder,), daemon=True).start()
 
     def _download_single_task(self, task, dest_folder, config):
         task_id = task.get("id")
         title = task.get("title", "Episodio")
-        url = task.get("url")
+        raw_url = task.get("url")
 
-        if not url:
+        if not raw_url:
             return False
 
-        import re
-        if any(srv in url.lower() for srv in ["filelions", "streamwish", "vidhide", "vixeo"]):
-            if "index-f" in url.lower():
-                url = re.sub(r'index-f\d+-[^\.]+\.m3u8', 'master.m3u8', url)
+        # Promoción directa a master.m3u8 para garantizar 1080p y máxima velocidad de CDN
+        url = raw_url
+        if "index-f" in url.lower():
+            url = re.sub(r'index-f\d+-[^\.]+\.m3u8', 'master.m3u8', url)
 
         with self.lock:
             if task_id in self.cancelled_tasks:
@@ -475,6 +495,14 @@ class AurionDownloader:
         is_yt = config.get("is_youtube", False)
         is_audio = config.get("is_audio_only", False)
         quality = str(config.get("quality", "1080"))
+
+        speed_limit_str = str(config.get("speed_limit", "0")).strip()
+        rate_limit_bytes = parse_speed_limit_bytes(speed_limit_str)
+        file_conflict_policy = str(config.get("file_conflict", "rename")).strip().lower()
+        try:
+            configured_aria_conns = int(config.get("aria_connections", 16))
+        except ValueError:
+            configured_aria_conns = 16
 
         if is_yt and is_audio:
             fmt_choice = "mp3"
@@ -509,7 +537,11 @@ class AurionDownloader:
         mode = config.get("active_mode", "anime")
         if mode == "anime" and not is_yt:
             ep_match = re.search(r'(?:[\s\-_]+(?:Episodio|Capitulo|Episode|Cap|Ep|E)[\s\-_]*|#\s*)(\d+)', clean_file_title, re.IGNORECASE)
-            sea_match = re.search(r'(?:(\d+)(?:st|nd|rd|th|da|ra)?\s*(?:season|temporada))|(?:(?:season|temporada)\s*(\d+))|(?:\bS(\d+)\b)', clean_file_title, re.IGNORECASE)
+            sea_match = re.search(
+                r'(?:(\d+)(?:st|nd|rd|th|da|ra)?\s*(?:season|temporada))|(?:(?:season|temporada)\s*(\d+))|(?:\bS(\d+)\b)',
+                clean_file_title,
+                re.IGNORECASE
+            )
 
             if ep_match:
                 ep_num = int(ep_match.group(1))
@@ -522,11 +554,28 @@ class AurionDownloader:
                 final_s = detected_season if detected_season is not None else int(config.get("season_num", 1))
 
                 raw_base_name = clean_file_title[:ep_match.start()].strip()
-                clean_anime_base = re.sub(r'[\s\-_]*(?:(?:\d+(?:st|nd|rd|th|da|ra)?\s*(?:season|temporada))|(?:(?:season|temporada)\s*\d+)|(?:\bS\d+\b)).*$', '', raw_base_name, flags=re.IGNORECASE).strip()
+                clean_anime_base = re.sub(
+                    r'[\s\-_]*(?:(?:\d+(?:st|nd|rd|th|da|ra)?\s*(?:season|temporada))|(?:(?:season|temporada)\s*\d+)|(?:\bS\d+\b)).*$',
+                    '',
+                    raw_base_name,
+                    flags=re.IGNORECASE
+                ).strip()
                 if not clean_anime_base:
                     clean_anime_base = raw_base_name or "Episodio"
 
                 clean_file_title = f"{clean_anime_base} - S{final_s:02d}E{ep_num:02d}"
+
+        expected_final_path = os.path.join(dest_folder, f"{clean_file_title}.{fmt_choice}")
+        if file_conflict_policy == "skip" and os.path.exists(expected_final_path) and os.path.getsize(expected_final_path) > 100 * 1024:
+            existing_size = os.path.getsize(expected_final_path)
+            if self.bridge and self.bridge._window:
+                self.bridge._window.evaluate_js(
+                    f"window.updateRealSizeOnly && window.updateRealSizeOnly('{task_id}', {existing_size});"
+                )
+                self.bridge._window.evaluate_js(
+                    f"window.updateDownloadProgress && window.updateDownloadProgress('{task_id}', 100, 'Omitido', 'Completado');"
+                )
+            return True
 
         task_temp_dir = os.path.join(dest_folder, f".tmp_{task_id}")
         os.makedirs(task_temp_dir, exist_ok=True)
@@ -551,7 +600,7 @@ class AurionDownloader:
             referer = "https://www.mp4upload.com/"
         elif "streamtape" in netloc:
             referer = "https://streamtape.com/"
-        elif any(s in netloc for s in ["sprintcdn", "streamwish", "filelions", "vidhide", "hglamioz", "wish", "playmate", "earnvids", "vixeo"]):
+        elif any(s in netloc for s in ["sprintcdn", "streamwish", "filelions", "vidhide", "hglamioz", "wish", "playmate", "earnvids", "vixeo", "lion", "peytone", "ryderjet", "voe"]):
             referer = origin_domain + "/"
         elif page_ref:
             referer = page_ref
@@ -620,7 +669,6 @@ class AurionDownloader:
                             f"window.updateDownloadProgress && window.updateDownloadProgress('{task_id}', 99, 'Procesando', 'Ensamblando archivo final...');"
                         )
 
-        # CONFIGURACIÓN RESILIENTE DE POSPROCESADO (BLINDAJE TOTAL VIXEO Y MP4)
         postprocessors_list = []
         if is_yt and is_audio:
             postprocessors_list.append({
@@ -629,13 +677,11 @@ class AurionDownloader:
                 'preferredquality': '320',
             })
         elif not is_yt and is_m3u8:
-            # Solo aplicamos remuxeo a streams HLS segmentados
             postprocessors_list.append({
                 'key': 'FFmpegVideoRemuxer',
                 'preferedformat': fmt_choice
             })
 
-        # Parámetros tolerantes para FFmpeg: ignora timestamps desincronizados típicos de VIXEO
         ffmpeg_tolerant_args = [
             '-c', 'copy',
             '-ignore_unknown',
@@ -660,19 +706,23 @@ class AurionDownloader:
             'hls_use_mpegts': True,
             'fixup': 'warn',
             'postprocessors': postprocessors_list,
-            'postprocessor_args': {'ffmpeg': ffmpeg_tolerant_args} if postprocessors_list else {},
+            'postprocessor_args': {'ffmpeg': ffmpeg_tolerant_args} if (postprocessors_list and not is_audio) else {},
             'ffmpeg_location': os.path.dirname(self.ffmpeg_path) if self.ffmpeg_path else None
         }
 
+        if rate_limit_bytes:
+            ydl_opts['ratelimit'] = rate_limit_bytes
+
         if is_yt:
+            # CONFIGURACIÓN DIRECTA DE ALTA VELOCIDAD PARA YOUTUBE (MP4 y MP3)
             ydl_opts.update({
-                'concurrent_fragment_downloads': 1,
+                'concurrent_fragment_downloads': 8,
                 'http_chunk_size': 10485760,
-                'buffersize': 1024 * 1024 * 8,
+                'buffersize': 1024 * 1024 * 16,
                 'merge_output_format': 'mp4' if not is_audio else None,
             })
         else:
-            # OPTIMIZACIÓN AGRESIVA PARA VIXEO Y CDNs: Chunks de 32MB y 32 hilos en paralelo
+            # CONFIGURACIÓN PURA DE 32 HILOS Y BUFFERS DE 64MB (40-50 MB/s EN ANIME/CINE)
             ydl_opts['http_headers'] = {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
                 'Referer': referer if referer and referer != "://" else 'https://animeflv.net/',
@@ -689,57 +739,49 @@ class AurionDownloader:
             ydl_opts['http_chunk_size'] = 20971520
 
             is_mp4upload = "mp4upload" in netloc
+            max_aria_conns = max(1, min(16, configured_aria_conns, threads_count))
 
-            if is_mp4upload:
-                # Mp4Upload a máxima velocidad: 8 conexiones concurrentes, chunks de 1MB y memoria mapeada
-                if self.has_aria2:
-                    ydl_opts['external_downloader'] = self.aria2_path
-                    ydl_opts['external_downloader_args'] = {
-                        'aria2c': [
-                            '--console-log-level=warn',
-                            '--summary-interval=1',
-                            '-s8',
-                            '-x8',
-                            '-j8',
-                            '-k1M',
-                            '--min-split-size=1M',
-                            '--max-connection-per-server=8',
-                            '--file-allocation=none',
-                            '--optimize-concurrent-downloads=true',
-                            '--conditional-get=true',
-                            '--enable-mmap=true',
-                            '--header=Referer: https://www.mp4upload.com/',
-                            '--header=Origin: https://www.mp4upload.com',
-                            '--header=User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
-                        ]
-                    }
-                else:
-                    ydl_opts['http_chunk_size'] = 10485760
-                    ydl_opts['buffersize'] = 1024 * 1024 * 32
-            elif self.has_aria2 and not is_m3u8:
-                max_aria_conns = min(16, threads_count)
+            if is_mp4upload and self.has_aria2:
+                aria_args = [
+                    '--console-log-level=warn',
+                    '--summary-interval=1',
+                    '-s8', '-x8', '-j8', '-k1M',
+                    '--min-split-size=1M',
+                    '--max-connection-per-server=8',
+                    '--file-allocation=none',
+                    '--optimize-concurrent-downloads=true',
+                    '--conditional-get=true',
+                    '--enable-mmap=true',
+                    '--header=Referer: https://www.mp4upload.com/',
+                    '--header=Origin: https://www.mp4upload.com',
+                    '--header=User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
+                ]
+                if speed_limit_str not in ["0", ""]:
+                    aria_args.append(f'--max-overall-download-limit={speed_limit_str}')
                 ydl_opts['external_downloader'] = self.aria2_path
-                ydl_opts['external_downloader_args'] = {
-                    'aria2c': [
-                        '--console-log-level=error',
-                        '--summary-interval=0',
-                        f'-s{max_aria_conns}',
-                        f'-x{max_aria_conns}',
-                        '-j16',
-                        '-k1M',
-                        '--file-allocation=none',
-                        '--optimize-concurrent-downloads=true',
-                        f'--max-connection-per-server={max_aria_conns}',
-                        '--min-split-size=1M',
-                        '--stream-piece-selector=geom',
-                        f'--header=Referer: {referer}',
-                        f'--header=Origin: {origin_domain}',
-                        '--header=User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
-                    ]
-                }
+                ydl_opts['external_downloader_args'] = {'aria2c': aria_args}
+            elif self.has_aria2 and not is_m3u8:
+                aria_args = [
+                    '--console-log-level=error',
+                    '--summary-interval=0',
+                    f'-s{max_aria_conns}',
+                    f'-x{max_aria_conns}',
+                    '-j16', '-k1M',
+                    '--file-allocation=none',
+                    '--optimize-concurrent-downloads=true',
+                    f'--max-connection-per-server={max_aria_conns}',
+                    '--min-split-size=1M',
+                    '--stream-piece-selector=geom',
+                    f'--header=Referer: {referer}',
+                    f'--header=Origin: {origin_domain}',
+                    '--header=User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
+                ]
+                if speed_limit_str not in ["0", ""]:
+                    aria_args.append(f'--max-overall-download-limit={speed_limit_str}')
+                ydl_opts['external_downloader'] = self.aria2_path
+                ydl_opts['external_downloader_args'] = {'aria2c': aria_args}
 
         try:
-            # Notificar al frontend inmediatamente para que no se quede congelado en "En cola"
             if self.bridge and self.bridge._window:
                 self.bridge._window.evaluate_js(
                     f"window.updateDownloadProgress && window.updateDownloadProgress('{task_id}', 1, 'Iniciando', 'Descargando...');"
@@ -751,26 +793,37 @@ class AurionDownloader:
                     info = ydl.extract_info(url, download=True)
             except Exception as dl_err:
                 err_str = str(dl_err)
-                # MECANISMO DE RESCATE AUTOMÁTICO ANTE FALLOS DE CONVERSIÓN DE VIXEO
-                if any(k in err_str for k in ["Conversion failed", "Postprocessing", "FFmpegPostProcessorError"]):
-                    print(f"[Core Rescate VIXEO] Posprocesado fallido en FFmpeg. Rescatando archivo ensamblado directamente...")
-                    existing = [f for f in os.listdir(task_temp_dir) if not f.endswith('.part') and os.path.getsize(os.path.join(task_temp_dir, f)) > 3 * 1024 * 1024]
+                if "TASK_CANCELLED_BY_USER" in err_str:
+                    raise dl_err
+
+                # Si es YouTube y falló al primer intento, probar con extractor_args android/web de respaldo
+                if is_yt:
+                    retry_opts = dict(ydl_opts)
+                    retry_opts['extractor_args'] = {'youtube': {'player_client': ['android', 'web']}}
+                    if not is_audio:
+                        retry_opts['format'] = 'bestvideo+bestaudio/best'
+                    with yt_dlp.YoutubeDL(retry_opts) as ydl_retry:
+                        info = ydl_retry.extract_info(url, download=True)
+                elif url != raw_url:
+                    # Si el servidor de anime dio 403 en master.m3u8, usar el raw_url original a 32 hilos
+                    print("[Core Rescate] Master rechazado, descargando stream original a 32 hilos...")
+                    with yt_dlp.YoutubeDL(ydl_opts) as ydl_orig:
+                        info = ydl_orig.extract_info(raw_url, download=True)
+                elif any(k in err_str for k in ["Conversion failed", "Postprocessing", "FFmpegPostProcessorError"]):
+                    print("[Core Rescate VIXEO] Posprocesado fallido en FFmpeg. Rescatando archivo ensamblado directamente...")
+                    existing = [
+                        f for f in os.listdir(task_temp_dir)
+                        if not f.endswith('.part') and os.path.getsize(os.path.join(task_temp_dir, f)) > 3 * 1024 * 1024
+                    ]
                     if not existing:
                         raise dl_err
                 else:
                     raise dl_err
 
-            # LECTURA DE RESOLUCIÓN Y METADATOS
-            width = info.get('width', 'N/A') if info else 'N/A'
             height = info.get('height', 'N/A') if info else 'N/A'
-            vcodec = info.get('vcodec', 'N/A') if info else 'N/A'
-            acodec = info.get('acodec', 'N/A') if info else 'N/A'
-            fps = info.get('fps', 'N/A') if info else 'N/A'
-
             final_res_label = f"{height}p" if height != 'N/A' else None
             clean_name_check = "".join(c for c in title if c not in r'\/:*?"<>|').strip() or "video"
 
-            # TRASLADO DEL ARCHIVO DESDE LA CARPETA TEMPORAL
             generated_files = [f for f in os.listdir(task_temp_dir) if not f.endswith('.part') and not f.startswith('.')]
             final_file_path = os.path.join(dest_folder, f"{clean_name_check}.{fmt_choice}")
 
@@ -778,32 +831,40 @@ class AurionDownloader:
                 generated_files.sort(key=lambda x: os.path.getsize(os.path.join(task_temp_dir, x)), reverse=True)
                 source_temp = os.path.join(task_temp_dir, generated_files[0])
 
-                # Si el archivo original era mp4 y no se requería remux, conservar su extensión real
                 _, source_ext = os.path.splitext(source_temp)
                 if not is_m3u8 and not is_yt and source_ext:
                     final_file_path = os.path.join(dest_folder, f"{clean_name_check}{source_ext}")
 
                 if os.path.exists(final_file_path):
-                    for attempt in range(5):
-                        try:
-                            os.chmod(final_file_path, stat.S_IWRITE)
-                            os.remove(final_file_path)
-                            break
-                        except Exception:
-                            time.sleep(0.2)
-
-                try:
-                    if os.path.exists(final_file_path):
-                        base_root, ext_part = os.path.splitext(final_file_path)
-                        final_file_path = f"{base_root}_{int(time.time())}{ext_part}"
-
-                    shutil.move(source_temp, final_file_path)
-                except Exception:
-                    try:
-                        shutil.copy2(source_temp, final_file_path)
+                    if file_conflict_policy == "skip":
                         os.remove(source_temp)
-                    except Exception as move_err:
-                        print(f"[Core] Error final moviendo archivo: {move_err}")
+                    elif file_conflict_policy == "rename":
+                        base_root, ext_part = os.path.splitext(final_file_path)
+                        counter = 1
+                        while os.path.exists(f"{base_root} ({counter}){ext_part}"):
+                            counter += 1
+                        final_file_path = f"{base_root} ({counter}){ext_part}"
+                    else:
+                        for _ in range(5):
+                            try:
+                                os.chmod(final_file_path, stat.S_IWRITE)
+                                os.remove(final_file_path)
+                                break
+                            except Exception:
+                                time.sleep(0.2)
+                        if os.path.exists(final_file_path):
+                            base_root, ext_part = os.path.splitext(final_file_path)
+                            final_file_path = f"{base_root}_{int(time.time())}{ext_part}"
+
+                if os.path.exists(source_temp):
+                    try:
+                        shutil.move(source_temp, final_file_path)
+                    except Exception:
+                        try:
+                            shutil.copy2(source_temp, final_file_path)
+                            os.remove(source_temp)
+                        except Exception as move_err:
+                            print(f"[Core] Error final moviendo archivo: {move_err}")
 
             real_file_bytes = 0
             if os.path.exists(final_file_path):
@@ -813,12 +874,12 @@ class AurionDownloader:
                     if probe_res:
                         final_res_label = probe_res
 
-            print(f"\n=======================================================")
+            print("\n=======================================================")
             print(f"[Core Telemetría] {title}")
             print(f"   -> Archivo generado: {os.path.basename(final_file_path)}")
             print(f"   -> Resolución Real: {final_res_label or '1080p'}")
             print(f"   -> Tamaño final: {round(real_file_bytes / 1024 / 1024, 2)} MB")
-            print(f"=======================================================\n")
+            print("=======================================================\n")
 
             if final_res_label and self.bridge and self.bridge._window:
                 self.bridge._window.evaluate_js(
@@ -838,6 +899,18 @@ class AurionDownloader:
                         f"window.updateDownloadProgress && window.updateDownloadProgress('{task_id}', 0, 'Fallo', 'Stream inválido');"
                     )
                 return False
+
+            if self.bridge and hasattr(self.bridge, 'db') and self.bridge.db:
+                rec_mode = "youtube" if is_yt else config.get("active_mode", "anime")
+                rec_res = "MP3" if (is_yt and is_audio) else (final_res_label or f"{quality}p")
+                self.bridge.db.log_download(
+                    title=os.path.splitext(os.path.basename(final_file_path))[0],
+                    mode=rec_mode,
+                    resolution=rec_res,
+                    size_bytes=real_file_bytes,
+                    file_path=os.path.abspath(final_file_path),
+                    source_url=url
+                )
 
             if self.bridge and self.bridge._window:
                 self.bridge._window.evaluate_js(

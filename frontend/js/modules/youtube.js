@@ -3,7 +3,7 @@
 // ========================================================
 
 window.initYoutubeModule = function() {
-  const TOUR_VERSION_KEY = 'aurion_yt_tour_v1.1.2_shown';
+  const TOUR_VERSION_KEY = 'aurion_yt_tour_v1.1.8_shown';
 
   // Función global expuesta para dispararse ÚNICAMENTE al cambiar a modo YouTube
   window.triggerYtTourWelcomeIfVirginUser = function() {

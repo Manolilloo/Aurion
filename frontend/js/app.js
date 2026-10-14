@@ -3,9 +3,11 @@ const downloadQueue = [];
 
 const portalData = {
   anime: [
-    { id: 'FLV', title: 'AnimeFLV', url: 'https://animeflv.or.at/', icon: 'assets/icons/animeflv.png' },
+    { id: 'FLV', title: 'AnimeFLV', url: 'https://www3.animeflv.net/', icon: 'assets/icons/animeflv.png' },
     { id: 'JK', title: 'JKAnime', url: 'https://jkanime.net/', icon: 'assets/icons/jkanime.png' },
-    { id: 'AON', title: 'AnimeOnlineNinja', url: 'https://ww3.animeonline.ninja/', icon: 'assets/icons/animeonlineninja.png' }
+    { id: 'AON', title: 'AnimeOnlineNinja', url: 'https://ww3.animeonline.ninja/', icon: 'assets/icons/animeonlineninja.png' },
+    { id: 'TIO', title: 'TioAnime', url: 'https://tioanime.com/', icon: '' },
+    { id: 'MC', title: 'Monoschinos', url: 'https://monoschinos2.com/', icon: '' }
   ],
   movie: [
     { id: 'PP', title: 'PelisPlus', url: 'https://pelisplushd.bz/', icon: 'assets/icons/pelisplus.png' },
@@ -1210,6 +1212,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function applyLoadedConfig(config) {
     if (!config) return;
+
+    // Sincronizar automáticamente el número de versión de Python en toda la UI
+    if (config.app_version) {
+      window.__aurionVersion = config.app_version;
+      const brandSub = document.querySelector('.settings-brand-sub');
+      const aboutVer = document.querySelector('.about-version-tag');
+      if (brandSub) brandSub.textContent = `Aurion v${config.app_version}`;
+      if (aboutVer) aboutVer.textContent = `Versión ${config.app_version}`;
+    }
 
     if (config.anime) {
       Object.assign(modeStates.anime, config.anime);
@@ -2987,3 +2998,70 @@ window.onUpdateError = function() {
     window.initYoutubeModule();
   }
 });
+
+// ========================================================
+// AURION V2.0 // ISLA DINÁMICA DE TOASTS (SIN POPUPS DE PERMISOS)
+// ========================================================
+(function initAurionSmartHUD() {
+  function getToastDock() {
+    let dock = document.getElementById('aurion-toast-Dock');
+    if (!dock) {
+      dock = document.createElement('div');
+      dock.id = 'aurion-toast-Dock';
+      document.body.appendChild(dock);
+    }
+    return dock;
+  }
+
+  window.showAurionToast = function (message, icon = '⚡', actionText = null, onAction = null, duration = 4000) {
+    const dock = getToastDock();
+    while (dock.children.length >= 2) {
+      dock.firstChild.remove();
+    }
+
+    const pill = document.createElement('div');
+    pill.className = 'aurion-toast-pill';
+    pill.innerHTML = `
+      <span class="aurion-toast-icon">${icon}</span>
+      <span>${message}</span>
+      ${actionText ? `<button class="aurion-toast-action-btn">${actionText}</button>` : ''}
+      <button class="aurion-toast-close" title="Cerrar">✕</button>
+    `;
+
+    const closeToast = () => {
+      pill.classList.remove('is-visible');
+      setTimeout(() => pill.remove(), 320);
+    };
+
+    pill.querySelector('.aurion-toast-close')?.addEventListener('click', closeToast);
+
+    if (actionText && typeof onAction === 'function') {
+      pill.querySelector('.aurion-toast-action-btn')?.addEventListener('click', () => {
+        if (typeof window.playSynth === 'function') window.playSynth('chord');
+        onAction();
+        closeToast();
+      });
+    }
+
+    dock.appendChild(pill);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => pill.classList.add('is-visible'));
+    });
+
+    if (duration > 0) {
+      setTimeout(closeToast, duration);
+    }
+  };
+
+  const origBatchFinished = window.onBatchFinished;
+  window.onBatchFinished = function () {
+    if (typeof origBatchFinished === 'function') origBatchFinished();
+    window.showAurionToast(
+      '¡Descarga completada y guardada en tu biblioteca!',
+      '🎉',
+      'Ver Historial',
+      () => window.HistoryModule?.openModal?.(),
+      5500
+    );
+  };
+})();

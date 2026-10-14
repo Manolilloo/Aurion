@@ -1,7 +1,7 @@
 /**
- * Aurion - Módulo Extension Bridge
- * Gestiona la recepción de transmisiones desde la extensión Chromium (puerto 6800),
- * cálculo heurístico de coincidencias y modal de confirmación / rescate.
+ * Aurion - Módulo Extension Bridge v2.0
+ * Recepción de transmisiones desde la extensión Chromium (puerto 6800),
+ * algoritmo de coincidencia léxica multi-título (Romaji, Inglés y Sinónimos) y rescate automático de carátulas.
  */
 
 window.ExtensionBridgeModule = (function () {
@@ -12,28 +12,64 @@ window.ExtensionBridgeModule = (function () {
     bindModalControls();
   }
 
-  function calculateWordMatchScore(query, candidateTitle) {
-    // Ignorar palabras genéricas de temporada y numeraciones para comparar la raíz del anime
-    const stopWords = new Set(['season', 'temporada', 'final', 'the', 'no', 'de', 'la', 'el', 'part', 'parte', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10']);
-    const normalize = (s) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, ' ').split(/\s+/).filter(w => w && !stopWords.has(w));
-    
-    const qWords = normalize(query);
-    const cWords = normalize(candidateTitle);
+  function normalizeTokens(str) {
+    const stopWords = new Set([
+      'season', 'temporada', 'part', 'parte', 'cour', 'the', 'animation', 'tv',
+      'sub', 'espanol', 'latino', 'castellano', 'online', 'hd', 'ver', 'episodio', 'capitulo', 'ep'
+    ]);
+    return (str || '')
+      .toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .filter(w => w.length > 1 && !stopWords.has(w));
+  }
 
+  function calculateSinglePairScore(queryStr, candidateStr) {
+    if (!queryStr || !candidateStr) return 0;
+    const qClean = queryStr.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const cClean = candidateStr.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+    if (!qClean || !cClean) return 0;
+    if (qClean === cClean) return 1.0;
+    if (cClean.includes(qClean) || qClean.includes(cClean)) {
+      const ratio = Math.min(qClean.length, cClean.length) / Math.max(qClean.length, cClean.length);
+      if (ratio >= 0.65) return 0.88;
+    }
+
+    const qWords = normalizeTokens(queryStr);
+    const cWords = normalizeTokens(candidateStr);
     if (qWords.length === 0 || cWords.length === 0) return 0;
 
-    let common = 0;
-    qWords.forEach(w => {
-      if (cWords.includes(w)) common++;
+    let matches = 0;
+    qWords.forEach(qw => {
+      if (cWords.some(cw => cw === qw || (cw.length > 3 && qw.length > 3 && (cw.startsWith(qw) || qw.startsWith(cw))))) {
+        matches++;
+      }
     });
 
-    return common / Math.max(qWords.length, cWords.length);
+    return matches / Math.max(qWords.length, cWords.length);
+  }
+
+  function calculateBestItemScore(query, item) {
+    if (!item) return 0;
+    const candidates = [
+      item.title,
+      item.alt_title,
+      ...(Array.isArray(item.synonyms) ? item.synonyms : [])
+    ].filter(Boolean);
+
+    let best = 0;
+    for (const cand of candidates) {
+      const sc = calculateSinglePairScore(query, cand);
+      if (sc > best) best = sc;
+    }
+    return best;
   }
 
   function extractSearchQuery(rawTitle, rawUrl = '') {
     let text = rawTitle || '';
 
-    // Rescate de temporada antes de cualquier limpieza
     let seasonTag = '';
     const fullSource = `${text} ${rawUrl}`;
     const sMatch = fullSource.match(/(?:(?:temporada|season)\s*(\d+))|(?:\b(\d{1,2})[xX]\d+)|(?:\bS(\d{1,2})\b)/i);
@@ -54,7 +90,7 @@ window.ExtensionBridgeModule = (function () {
     if ((isGeneric || isHash) && rawUrl && typeof rawUrl === 'string') {
       try {
         const urlObj = new URL(rawUrl);
-        const match = urlObj.pathname.match(/(?:episodio|ver|watch)\/([a-zA-Z0-9\-]+)/i);
+        const match = urlObj.pathname.match(/(?:episodio|ver|watch|anime)\/([a-zA-Z0-9\-]+)/i);
         if (match) {
           text = match[1].replace(/-(?:cap|ep|episodio)?-?\d+.*$/i, '').replace(/[-_]+/g, ' ');
         } else {
@@ -62,22 +98,21 @@ window.ExtensionBridgeModule = (function () {
           let slug = segments[segments.length - 1] || segments[0] || '';
           slug = slug.replace(/^ver[-_]/i, '').replace(/[-_](cap|episodio|episode)[-_]?\d+.*$/i, '').replace(/[-_]\d+$/, '');
           if (slug && slug.length > 3 && !slug.includes('.') && !/^[a-zA-Z0-9_\-]{6,30}$/.test(slug)) {
-            text = slug.replace(/[-_]/g, ' ');
+            text = slug.replace(/[-_]+/g, ' ');
           }
         }
       } catch (e) {}
     }
 
     let cleaned = text
-      .replace(/^(Ver|Watch|Descargar|Download)\s+/i, '')
-      .replace(/\b(sub\s*español|castellano|latino|dual|audio|hd|fhd|1080p|720p|online)\b.*/gi, '')
+      .replace(/^(Ver\s+Anime|Ver|Watch|Descargar|Download)\s+/i, '')
+      .replace(/\b(sub\s*español|castellano|latino|dual|audio|hd|fhd|1080p|720p|online|gratis)\b.*/gi, '')
       .replace(/\s*-\s*(?:Ep|Cap|Episodio|Capitulo)\s*\d+.*$/i, '')
       .replace(/\b(capitulo|capítulo|episodio|episode|cap)\b[\s\-_]*\d*.*/gi, '')
       .replace(/[\(\[\{].*?[\)\]\}]/g, '')
       .replace(/\s+/g, ' ')
       .trim();
 
-    // Si detectamos temporada específica y no está en el nombre limpio, incorporarla a la consulta
     if (seasonTag && !new RegExp(seasonTag.replace(' ', '\\s*'), 'i').test(cleaned)) {
       cleaned = `${cleaned} ${seasonTag}`.trim();
     }
@@ -116,7 +151,7 @@ window.ExtensionBridgeModule = (function () {
     };
 
     if (titleEl) titleEl.innerText = proposedItem.title;
-    if (metaEl) metaEl.innerText = proposedItem.meta || 'Coincidencia estimada';
+    if (metaEl) metaEl.innerText = proposedItem.meta || 'Coincidencia detectada';
     if (thumb) thumb.style.backgroundImage = proposedItem.image ? `url('${proposedItem.image}')` : 'none';
 
     if (typeof window.playSynth === 'function') window.playSynth('chord');
@@ -149,6 +184,7 @@ window.ExtensionBridgeModule = (function () {
 
       const state = window.modeStates[targetMode];
       state.title = chosenItem.title;
+      state.altTitle = chosenItem.alt_title || '';
       state.tags = chosenItem.meta || 'SISTEMA LISTO';
       state.bg = chosenItem.image ? `url('${chosenItem.image}')` : 'none';
 
@@ -177,8 +213,6 @@ window.ExtensionBridgeModule = (function () {
 
         fileName = `${chosenItem.title} - Ep ${epVal}`;
         if (typeof window.setStepperValue === 'function') window.setStepperValue('cfg-start-ep', epVal + 1, 0);
-      } else {
-        fileName = `${chosenItem.title}`;
       }
 
       const streamUrl = rawData.stream_url || rawData.page_url || '';
@@ -220,7 +254,7 @@ window.ExtensionBridgeModule = (function () {
     }
 
     const currentQueue = window.modeStates[window.currentMode].queue;
-    if (currentQueue.some(item => item.url === streamUrl || item.pageUrl === data.page_url)) {
+    if (currentQueue.some(item => item.url === streamUrl)) {
       return;
     }
 
@@ -229,21 +263,14 @@ window.ExtensionBridgeModule = (function () {
     let detectedSeason = typeof window.extractSeasonNumber === 'function' ? window.extractSeasonNumber(fullText) : 1;
     const cleanName = extractSearchQuery(data.page_title, data.page_url);
 
-    const activeTitle = window.modeStates[window.currentMode].title;
     const state = window.modeStates[window.currentMode];
+    const activeTitle = state.title;
     const hasActiveAnime = Boolean(activeTitle && activeTitle !== 'Esperando consulta...');
 
-    // Si ya tienes un anime cargado en pantalla, priorizar su temporada real sobre el "1x" falso de la web
     if (hasActiveAnime && window.currentMode === 'anime') {
       const activeSeasonMatch = activeTitle.match(/(?:season|temporada)\s*(\d+)|(\d+)(?:st|nd|rd|th)?\s*season/i);
       if (activeSeasonMatch) {
         detectedSeason = parseInt(activeSeasonMatch[1] || activeSeasonMatch[2], 10);
-      } else if (/final\s*season/i.test(activeTitle)) {
-        // En "FINAL SEASON", si la web marcaba temporada (ej: 8x5 de Boku no Hero), mantener esa temporada
-        const rawSeasonMatch = fullText.match(/(?:(?:temporada|season)\s*|(\d{1,2})[xX])(\d{1,2})/i);
-        if (rawSeasonMatch && (rawSeasonMatch[1] || rawSeasonMatch[2])) {
-          detectedSeason = parseInt(rawSeasonMatch[1] || rawSeasonMatch[2], 10);
-        }
       }
     }
 
@@ -254,13 +281,15 @@ window.ExtensionBridgeModule = (function () {
 
     const isSuspiciousHash = /^[a-zA-Z0-9_\-]{6,30}$/.test(cleanName.trim());
     const isGenericOrEmpty = !cleanName || cleanName.toLowerCase() === 'episodio' || cleanName.toLowerCase() === 'episode';
-    const matchScore = hasActiveAnime ? calculateWordMatchScore(cleanName, activeTitle) : 0;
+    const matchScore = hasActiveAnime
+      ? Math.max(
+          calculateSinglePairScore(cleanName, activeTitle),
+          calculateSinglePairScore(cleanName, state.altTitle || '')
+        )
+      : 0;
 
-    // Solo es la misma serie si el título entrante realmente se parece al activo,
-    // o si viene sin nombre / con hash. Si es un anime completamente distinto (ej. Blue Box vs Boku no Hero),
-    // matchScore será bajo y NO entrará aquí, permitiendo detectar la nueva serie.
     const isSameSeries = hasActiveAnime && !isGenericOrEmpty && !isSuspiciousHash
-      ? (matchScore >= 0.55)
+      ? (matchScore >= 0.58)
       : (hasActiveAnime && (isSuspiciousHash || isGenericOrEmpty));
 
     if (isSameSeries) {
@@ -305,28 +334,38 @@ window.ExtensionBridgeModule = (function () {
 
     let bestProposal = { title: cleanName, image: '', meta: 'Sin carátula disponible' };
     try {
-      const list = await window.pyCall('search_media', window.currentMode, cleanName);
+      let list = await window.pyCall('search_media', window.currentMode, cleanName);
+      // Si no encontró con "Season X", probar con el nombre base limpio
+      if ((!list || list.length === 0) && /season\s*\d+/i.test(cleanName)) {
+        const baseOnly = cleanName.replace(/season\s*\d+/gi, '').trim();
+        list = await window.pyCall('search_media', window.currentMode, baseOnly);
+      }
+
       if (list && list.length > 0) {
         let maxScore = -1;
         const targetSeasonStr = detectedSeason > 1 ? `${detectedSeason}` : '';
 
-        list.forEach(item => {
-          let sc = calculateWordMatchScore(cleanName, item.title);
-          const itemTitleLower = (item.title || '').toLowerCase();
+        list.forEach((item, index) => {
+          // Puntuación base comparando contra Romaji, Inglés y Sinónimos
+          let sc = calculateBestItemScore(cleanName, item);
+          // Ligera ventaja al primer resultado de relevancia de AniList
+          if (index === 0) sc += 0.08;
 
-          // Bonificación si el elemento contiene explícitamente el número de temporada buscado
+          const combinedTitles = `${item.title || ''} ${item.alt_title || ''}`.toLowerCase();
+
           if (targetSeasonStr) {
-            if (itemTitleLower.includes(`season ${targetSeasonStr}`) ||
-                itemTitleLower.includes(`temporada ${targetSeasonStr}`) ||
-                itemTitleLower.includes(` ${targetSeasonStr}`) ||
-                new RegExp(`\\b${targetSeasonStr}\\b`).test(itemTitleLower)) {
-              sc += 0.5;
+            if (
+              combinedTitles.includes(`season ${targetSeasonStr}`) ||
+              combinedTitles.includes(`temporada ${targetSeasonStr}`) ||
+              combinedTitles.includes(` ${targetSeasonStr}`) ||
+              new RegExp(`\\b${targetSeasonStr}(?:st|nd|rd|th)?\\b`).test(combinedTitles)
+            ) {
+              sc += 0.45;
             }
           }
 
-          // Bonificación para Final Season
-          if (/final\s*season/i.test(cleanName) && itemTitleLower.includes('final season')) {
-            sc += 0.6;
+          if (/final\s*season/i.test(cleanName) && combinedTitles.includes('final')) {
+            sc += 0.55;
           }
 
           if (sc > maxScore) {
@@ -337,7 +376,6 @@ window.ExtensionBridgeModule = (function () {
       }
     } catch (e) {}
 
-    // Bloqueo final de seguridad: nunca mostrar modal si el candidato es un hash ininteligible
     if (/^[a-zA-Z0-9_\-]{6,30}$/.test(bestProposal.title.trim())) {
       if (hasActiveAnime) {
         bestProposal.title = activeTitle;

@@ -1,26 +1,28 @@
 {
+  "app_version": "1.1.8",
   "active_mode": "anime",
   "anime": {
     "dir": "J:\\ANIME\\animes",
     "season": 1,
-    "start_ep": 1,
+    "start_ep": 2,
     "save_cover": true,
+    "open_folder": true,
     "res": "max",
     "fmt": "mkv",
     "threads": "32",
     "simul": "20",
-    "active_title": "Kanojo no Tomodachi",
-    "active_tags": "EN EMISI\u00d3N \u2022 \u2605 5.0",
-    "active_bg": "url('https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx211877-yWQ2r7XmWvG6.jpg')",
-    "accent1": "rgb(254, 150, 29)",
-    "accent2": "rgb(244, 205, 128)",
-    "open_folder": true
+    "active_title": "TANK CHAIR: Sensha Isu",
+    "active_tags": "EN EMISI\u00d3N \u2022 \u2605 6.0",
+    "active_bg": "url('https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx209499-S0sWFrCpft85.jpg')",
+    "accent1": "rgb(6, 128, 193)",
+    "accent2": "rgb(197, 17, 13)"
   },
   "movie": {
     "dir": "",
     "season": 1,
     "start_ep": 1,
     "save_cover": true,
+    "open_folder": true,
     "res": "max",
     "fmt": "mkv",
     "threads": "32",
@@ -29,13 +31,12 @@
     "active_tags": "SISTEMA LISTO",
     "active_bg": "",
     "accent1": "#bf5af2",
-    "accent2": "#5e5ce6",
-    "open_folder": true
+    "accent2": "#5e5ce6"
   },
   "youtube": {
     "dir": "C:\\Users\\mdema\\Downloads\\yt-videos-prueba",
-    "format": "video",
-    "res": "1080",
+    "format": "audio",
+    "res": "max",
     "open_folder": true
   },
   "settings": {

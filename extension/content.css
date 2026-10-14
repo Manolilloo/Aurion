@@ -207,3 +207,17 @@
   box-shadow: 0 4px 18px rgba(255, 255, 255, 0.5) !important;
   pointer-events: none !important;
 }
+
+/* Selector desplegable cuando hay múltiples servidores/calidades en la misma pestaña */
+.aurion-stream-selector {
+  width: 100% !important;
+  background: rgba(15, 23, 42, 0.9) !important;
+  border: 1px solid rgba(0, 255, 170, 0.3) !important;
+  color: #f8fafc !important;
+  font-size: 10px !important;
+  font-weight: 800 !important;
+  padding: 5px 8px !important;
+  border-radius: 10px !important;
+  outline: none !important;
+  cursor: pointer !important;
+}

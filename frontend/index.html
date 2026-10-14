@@ -52,6 +52,16 @@
         </svg>
       </button>
 
+      <!-- BOTÓN HISTORIAL Y BASE DE DATOS SQLITE -->
+      <button class="liquid-help-btn" id="btn-history-modal" title="Historial de Descargas y Estadísticas (SQLite)">
+        <span class="liquid-help-glow"></span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--color-accent-1);">
+          <path d="M3 3v5h5"></path>
+          <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"></path>
+          <path d="M12 7v5l4 2"></path>
+        </svg>
+      </button>
+
       <button class="liquid-help-btn" id="win-help" title="Guía interactiva y Tutorial">
         <span class="liquid-help-glow"></span>
         <span class="liquid-help-txt">?</span>
@@ -635,7 +645,7 @@
           <div class="settings-icon-badge">⚙️</div>
           <div>
             <span class="settings-brand-title">AJUSTES</span>
-            <span class="settings-brand-sub">Aurion v1.1.2</span>
+            <span class="settings-brand-sub">Aurion v1.1.8</span>
           </div>
         </div>
         <div class="settings-nav-list">
@@ -923,7 +933,7 @@
               </div>
               <h2>Aurion Desktop</h2>
               <div class="about-version-badge-wrap">
-                <span class="about-version-tag">Versión 1.1.2</span>
+                <span class="about-version-tag">Versión 1.1.8</span>
                 <span class="about-build-tag">BUILD ESTABLE</span>
               </div>
               <p>Centro multimedia ultrarrápido y modular para descargas directas de Anime, Películas y YouTube sin anuncios ni bloqueos.</p>
@@ -1173,6 +1183,56 @@
   <script src="js/modules/anime.js"></script>
   <script src="js/modules/cinema.js"></script>
   <script src="js/modules/extension_bridge.js"></script>
+
+  <!-- MODAL HUD: HISTORIAL DE DESCARGAS Y TELEMETRÍA SQLITE -->
+  <div id="history-modal-overlay" class="modal-backdrop" style="z-index: 999998;">
+    <div class="history-modal-card">
+      <div class="history-modal-header">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div class="settings-icon-badge">🗄️</div>
+          <div>
+            <h3 style="font-size: 16px; font-weight: 900; color: #fff; letter-spacing: 0.6px; margin: 0;">HISTORIAL DE DESCARGAS</h3>
+            <span style="font-size: 11px; font-weight: 700; color: var(--color-accent-1);">Motor SQLite3 Persistente • Biblioteca Local</span>
+          </div>
+        </div>
+        <button id="history-modal-close" class="settings-close-x">✕</button>
+      </div>
+
+      <!-- TARJETAS DE ESTADÍSTICAS GLOBALES SQL -->
+      <div class="history-stats-grid">
+        <div class="history-stat-box">
+          <span class="history-stat-label">TOTAL DESCARGADOS</span>
+          <strong class="history-stat-value" id="hist-stat-count">0</strong>
+        </div>
+        <div class="history-stat-box">
+          <span class="history-stat-label">VOLUMEN EN DISCO</span>
+          <strong class="history-stat-value" id="hist-stat-size" style="color: var(--color-accent-1);">0 MB</strong>
+        </div>
+        <div class="history-stat-box">
+          <span class="history-stat-label">ANIME / CINE / YT</span>
+          <strong class="history-stat-value" id="hist-stat-breakdown" style="font-size: 14px;">0 • 0 • 0</strong>
+        </div>
+      </div>
+
+      <!-- BARRA DE FILTROS Y BÚSQUEDA -->
+      <div class="history-toolbar">
+        <input type="text" id="history-search-input" class="search-input" placeholder="Buscar en tu biblioteca descargada..." style="flex: 1; height: 38px !important; border-radius: 12px !important;">
+        <div class="history-filter-pills" id="history-filter-pills">
+          <button class="hist-pill active" data-filter="all">TODOS</button>
+          <button class="hist-pill" data-filter="anime">ANIME</button>
+          <button class="hist-pill" data-filter="movie">CINE</button>
+          <button class="hist-pill" data-filter="youtube">YOUTUBE</button>
+        </div>
+        <button id="btn-clear-history" class="btn-neu" style="height: 38px; padding: 0 14px; border-radius: 12px !important; color: #f87171 !important;" title="Vaciar registro de base de datos">🗑 Vaciar</button>
+      </div>
+
+      <!-- LISTA DE ELEMENTOS DESCARGADOS -->
+      <div class="history-list-container" id="history-list-container"></div>
+    </div>
+  </div>
+
+  <!-- Módulo de Historial SQLite -->
+  <script src="js/modules/history.js"></script>
 
   <!-- Orquestador principal -->
   <script src="js/app.js"></script>

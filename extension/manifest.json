@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Aurion Link Sniffer",
-  "version": "2.4",
-  "description": "Detector multimedia avanzado Liquid Glass para Aurion Downloader",
+  "version": "3.0",
+  "description": "Detector multimedia universal Liquid Glass (URL + MIME Sniffer) para Aurion Desktop",
   "icons": {
     "16": "icon16.png",
     "48": "icon48.png",
@@ -10,6 +10,7 @@
   },
   "permissions": [
     "activeTab",
+    "tabs",
     "webRequest",
     "scripting",
     "storage"
@@ -34,7 +35,7 @@
   ],
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Aurion Sniffer",
+    "default_title": "Aurion Sniffer v3.0",
     "default_icon": {
       "16": "icon16.png",
       "48": "icon48.png",

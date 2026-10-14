@@ -5,45 +5,79 @@ const AudioContext = window.AudioContext || window.webkitAudioContext;
 let audioCtx;
 
 function playSynth(type) {
-  // Comprobación de silencio configurado en Ajustes
-  if (window.__aurionMuteAudio) return;
+  // Para la melodía de finalización, comprobar el ajuste específico notifySound
+  if (type === 'finish') {
+    const cfg = window.SettingsModule?.getSettings?.();
+    if (cfg && cfg.notifySound === false) return;
+  } else if (window.__aurionMuteAudio) {
+    return;
+  }
 
-  if(!audioCtx) audioCtx = new AudioContext();
-  if(audioCtx.state === 'suspended') audioCtx.resume();
-  
+  if (!audioCtx) audioCtx = new AudioContext();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+
+  const now = audioCtx.currentTime;
+
+  if (type === 'finish') {
+    // Acorde ascendente cristalino de finalización de lote (Do5 - Mi5 - Sol5 - Do6)
+    const notes = [523.25, 659.25, 783.99, 1046.50];
+    notes.forEach((freq, idx) => {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'triangle';
+      const startTime = now + idx * 0.085;
+      osc.frequency.setValueAtTime(freq, startTime);
+      gain.gain.setValueAtTime(0.001, startTime);
+      gain.gain.linearRampToValueAtTime(0.07, startTime + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0008, startTime + 0.38);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(startTime);
+      osc.stop(startTime + 0.4);
+    });
+    return;
+  }
+
   const osc = audioCtx.createOscillator();
   const gain = audioCtx.createGain();
-  
-  if(type === 'click') {
+
+  if (type === 'click') {
     osc.type = 'sine';
-    osc.frequency.setValueAtTime(900, audioCtx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.05);
-    gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
+    osc.frequency.setValueAtTime(900, now);
+    osc.frequency.exponentialRampToValueAtTime(100, now + 0.05);
+    gain.gain.setValueAtTime(0.08, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
   } else if (type === 'origami') {
     osc.type = 'triangle';
-    osc.frequency.setValueAtTime(400, audioCtx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(200, audioCtx.currentTime + 0.08);
-    gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.08);
+    osc.frequency.setValueAtTime(400, now);
+    osc.frequency.exponentialRampToValueAtTime(200, now + 0.08);
+    gain.gain.setValueAtTime(0.05, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
   } else if (type === 'chord') {
     osc.type = 'square';
-    osc.frequency.setValueAtTime(220, audioCtx.currentTime);
-    osc.frequency.linearRampToValueAtTime(880, audioCtx.currentTime + 0.15);
-    gain.gain.setValueAtTime(0.04, audioCtx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
+    osc.frequency.setValueAtTime(220, now);
+    osc.frequency.linearRampToValueAtTime(880, now + 0.15);
+    gain.gain.setValueAtTime(0.04, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
   } else if (type === 'hover') {
     osc.type = 'sine';
-    osc.frequency.setValueAtTime(1200, audioCtx.currentTime);
-    gain.gain.setValueAtTime(0.01, audioCtx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.03);
+    osc.frequency.setValueAtTime(1200, now);
+    gain.gain.setValueAtTime(0.01, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
   }
-  
+
   osc.connect(gain);
   gain.connect(audioCtx.destination);
-  osc.start();
-  osc.stop(audioCtx.currentTime + 0.15);
+  osc.start(now);
+  osc.stop(now + 0.15);
 }
+
+window.playSynth = playSynth;
+
+// Callback global invocado por Python al concluir satisfactoriamente un lote
+window.onBatchFinished = function () {
+  playSynth('finish');
+};
 
 // BLOQUEO DE MENÚ CONTEXTUAL NATIVO
 window.addEventListener('contextmenu', (e) => e.preventDefault());

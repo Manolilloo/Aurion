@@ -1,5 +1,8 @@
 ﻿import os
+import sys
 import json
+import re
+import time
 import threading
 import ssl
 import shutil
@@ -12,10 +15,12 @@ from PIL import Image
 import io
 import webview
 from .downloader import AurionDownloader
+from .database import AurionDatabase
 
-APP_VERSION = "1.1.4"
+APP_VERSION = "1.1.8"
 GITHUB_REPO = "Manolilloo/Aurion"
 CONFIG_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config.json")
+
 
 class AurionHTTPHandler(BaseHTTPRequestHandler):
     """Receptor HTTP para capturas de la extensión del navegador"""
@@ -37,7 +42,7 @@ class AurionHTTPHandler(BaseHTTPRequestHandler):
                 data = json.loads(body.decode('utf-8'))
                 if hasattr(self.server, 'bridge_instance'):
                     self.server.bridge_instance.on_extension_link(data)
-                
+
                 self.send_response(200)
                 self.send_header('Content-Type', 'application/json')
                 self.send_header('Access-Control-Allow-Origin', '*')
@@ -50,10 +55,13 @@ class AurionHTTPHandler(BaseHTTPRequestHandler):
             self.send_response(404)
             self.end_headers()
 
+
 class AurionBridge:
     def __init__(self):
         self.config = self.load_config()
         self._window = None
+        self._is_maximized = False
+        self.db = AurionDatabase()
         self.downloader = AurionDownloader(self)
         self.start_internal_server()
 
@@ -80,7 +88,6 @@ class AurionBridge:
         if not isinstance(data, dict):
             return
 
-        import re
         page_title = str(data.get("page_title") or "").strip()
         active_anime = self.config.get("anime", {}).get("active_title", "").strip()
 
@@ -94,14 +101,16 @@ class AurionBridge:
             safe_data = json.dumps(data)
             self._window.evaluate_js(f"window.onLinkReceived && window.onLinkReceived({safe_data});")
 
-    def load_config(self):
-        default_config = {
+    def _get_default_config(self):
+        return {
+            "app_version": APP_VERSION,
             "active_mode": "anime",
             "anime": {
                 "dir": "",
                 "season": 1,
                 "start_ep": 1,
                 "save_cover": True,
+                "open_folder": True,
                 "res": "max",
                 "fmt": "mkv",
                 "threads": "32",
@@ -117,6 +126,7 @@ class AurionBridge:
                 "season": 1,
                 "start_ep": 1,
                 "save_cover": True,
+                "open_folder": True,
                 "res": "max",
                 "fmt": "mkv",
                 "threads": "32",
@@ -145,28 +155,42 @@ class AurionBridge:
                 "speed_limit": "0",
                 "file_conflict": "rename",
                 "aria_connections": "16",
-                "finish_action": "open_folder"
+                "finish_action": "open_folder",
+                "sections_order": ["anime", "movie", "youtube"],
+                "sections_visibility": {"anime": True, "movie": True, "youtube": True}
             }
         }
+
+    def load_config(self):
+        default_config = self._get_default_config()
         if os.path.exists(CONFIG_FILE):
             try:
                 with open(CONFIG_FILE, "r", encoding="utf-8") as f:
                     data = json.load(f)
-                    default_config.update(data)
+                    for k, v in data.items():
+                        if isinstance(v, dict) and k in default_config and isinstance(default_config[k], dict):
+                            default_config[k].update(v)
+                        else:
+                            default_config[k] = v
+                    default_config["app_version"] = APP_VERSION
                     return default_config
             except Exception:
                 pass
         return default_config
 
     def save_config(self, new_data):
+        if not isinstance(new_data, dict):
+            return False
         for k, v in new_data.items():
             if k == "settings" and isinstance(v, dict):
-                # Si se actualizan o resetean los ajustes, sobreescribir la sección
-                self.config["settings"] = v
+                if "settings" not in self.config or not isinstance(self.config["settings"], dict):
+                    self.config["settings"] = {}
+                self.config["settings"].update(v)
             elif isinstance(v, dict) and k in self.config and isinstance(self.config[k], dict):
                 self.config[k].update(v)
             else:
                 self.config[k] = v
+        self.config["app_version"] = APP_VERSION
         try:
             with open(CONFIG_FILE, "w", encoding="utf-8") as f:
                 json.dump(self.config, f, indent=2)
@@ -176,6 +200,7 @@ class AurionBridge:
             return False
 
     def get_initial_state(self):
+        self.config["app_version"] = APP_VERSION
         return self.config
 
     def toggle_mode(self, mode):
@@ -192,7 +217,7 @@ class AurionBridge:
             return current_path
         folder = self._window.create_file_dialog(
             webview.FOLDER_DIALOG,
-            directory=current_path if os.path.exists(current_path) else os.path.expanduser("~")
+            directory=current_path if (current_path and os.path.exists(current_path)) else os.path.expanduser("~")
         )
         if folder and len(folder) > 0:
             return folder[0]
@@ -200,10 +225,16 @@ class AurionBridge:
 
     def get_disk_space(self, target_path):
         try:
-            path = target_path if os.path.exists(target_path) else os.path.splitdrive(target_path)[0] + "\\"
+            if target_path and os.path.exists(target_path):
+                path = target_path
+            elif target_path and os.path.splitdrive(target_path)[0]:
+                path = os.path.splitdrive(target_path)[0] + "\\"
+            else:
+                path = os.path.expanduser("~")
+
             if not os.path.exists(path):
                 path = os.path.abspath(os.sep)
-            
+
             total, used, free = shutil.disk_usage(path)
             gb_total = round(total / (1024 ** 3), 1)
             gb_free = round(free / (1024 ** 3), 1)
@@ -222,9 +253,7 @@ class AurionBridge:
         """Limpia archivos temporales de descarga residuales y devuelve los MB liberados."""
         total_freed = 0
         try:
-            import tempfile
             temp_dir = tempfile.gettempdir()
-            # Buscar archivos temporales generados por descargas de Aurion o aria2
             for f in os.listdir(temp_dir):
                 if f.startswith("aurion_") or f.endswith(".aria2"):
                     full_p = os.path.join(temp_dir, f)
@@ -233,31 +262,26 @@ class AurionBridge:
                             total_freed += os.path.getsize(full_p)
                             os.remove(full_p)
                         elif os.path.isdir(full_p):
-                            total_freed += sum(os.path.getsize(os.path.join(dirpath, filename)) for dirpath, dirnames, filenames in os.walk(full_p) for filename in filenames)
+                            total_freed += sum(
+                                os.path.getsize(os.path.join(dirpath, filename))
+                                for dirpath, _, filenames in os.walk(full_p)
+                                for filename in filenames
+                            )
                             shutil.rmtree(full_p, ignore_errors=True)
                     except Exception:
                         pass
+            if self.downloader:
+                self.downloader.cleanup_all_temp()
         except Exception as e:
             print(f"[Core] Error limpiando temporales: {e}")
 
-        mb_freed = round(total_freed / (1024 * 1024), 1)
-        return mb_freed
+        return round(total_freed / (1024 * 1024), 1)
 
     def check_binaries_status(self):
-        """Comprueba si aria2c.exe y ffmpeg.exe existen físicamente en la carpeta bin."""
-        import sys
-        if getattr(sys, 'frozen', False):
-            base_dir = os.path.dirname(sys.executable)
-        else:
-            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-        bin_dir = os.path.join(base_dir, "bin")
-        aria_exists = os.path.isfile(os.path.join(bin_dir, "aria2c.exe"))
-        ffmpeg_exists = os.path.isfile(os.path.join(bin_dir, "ffmpeg.exe"))
-
+        """Comprueba si aria2c y ffmpeg están disponibles a través del motor."""
         return {
-            "aria2": aria_exists,
-            "ffmpeg": ffmpeg_exists
+            "aria2": bool(self.downloader and self.downloader.has_aria2),
+            "ffmpeg": bool(self.downloader and self.downloader.has_ffmpeg)
         }
 
     def get_dominant_colors(self, image_url):
@@ -276,7 +300,7 @@ class AurionBridge:
                 colors = img.getcolors(maxcolors=3600)
                 if not colors:
                     return None
-                
+
                 def color_vibrance(rgb):
                     r, g, b = rgb
                     max_c = max(r, g, b)
@@ -292,7 +316,7 @@ class AurionBridge:
                     score = color_vibrance(rgb)
                     if score > 0:
                         valid_colors.append((score * (count ** 0.5), rgb))
-                
+
                 valid_colors.sort(key=lambda x: x[0], reverse=True)
 
                 if len(valid_colors) >= 2:
@@ -319,7 +343,6 @@ class AurionBridge:
             return []
 
         clean_q = query.strip().lower()
-        # Evitar consultar términos genéricos que devuelven el ID 1 de AniList
         if clean_q in ["episodio", "episode", "capitulo", "cap", "video", "anime"]:
             return []
 
@@ -332,17 +355,18 @@ class AurionBridge:
         if mode == 'anime':
             graphql_query = """
             query ($search: String) {
-              Page (page: 1, perPage: 6) {
-                media (search: $search, type: ANIME) {
-                  title { romaji english }
+              Page (page: 1, perPage: 8) {
+                media (search: $search, type: ANIME, sort: [SEARCH_MATCH, POPULARITY_DESC]) {
+                  title { romaji english native }
+                  synonyms
                   coverImage { extraLarge large color }
                   status
                   averageScore
+                  seasonYear
                 }
               }
             }
             """
-            import re
 
             def _query_anilist(search_term):
                 if not search_term or len(search_term.strip()) < 2:
@@ -360,23 +384,17 @@ class AurionBridge:
                 except Exception:
                     return []
 
-            # 1. Intento primario con el término recibido exactamente como viene (ej: "Boku no Hero Academia Season 7")
             items = _query_anilist(query)
 
-            # 2. Si viene con "Season X", probar también con "X" directa (ej: "Boku no Hero Academia 7")
             if not items and "season" in query.lower():
-                import re
                 alt_season_query = re.sub(r'season\s*(\d+)', r'\1', query, flags=re.IGNORECASE).strip()
                 items = _query_anilist(alt_season_query)
 
-            # 3. Si no hay coincidencias y contiene múltiples nombres pegados (ej: "Ao no Hako Blue Box")
             if not items:
                 words = query.split()
                 if len(words) > 2:
-                    sub_term = " ".join(words[:3])
-                    items = _query_anilist(sub_term)
+                    items = _query_anilist(" ".join(words[:3]))
 
-            # 3. Si aún no hay, probar con las dos primeras palabras si es compuesto
             if not items and len(query.split()) >= 2:
                 items = _query_anilist(" ".join(query.split()[:2]))
 
@@ -386,13 +404,15 @@ class AurionBridge:
                 score = f"{a.get('averageScore', 0) / 10:.1f}" if a.get('averageScore') else 'N/A'
                 titles = a.get('title', {})
                 chosen_title = titles.get('romaji') or titles.get('english') or 'Desconocido'
-                
+
                 cover_data = a.get('coverImage', {})
                 high_res_img = cover_data.get('extraLarge') or cover_data.get('large') or ''
 
+                synonyms_list = a.get('synonyms') or []
                 results.append({
                     'title': chosen_title,
-                    'alt_title': titles.get('english', ''),
+                    'alt_title': titles.get('english') or '',
+                    'synonyms': synonyms_list[:5],
                     'image': high_res_img,
                     'color': cover_data.get('color'),
                     'meta': f"{status} • ★ {score}"
@@ -408,7 +428,6 @@ class AurionBridge:
                     data = json.loads(response.read().decode('utf-8'))
                     items = data.get('d', [])
                     results = []
-                    import re
                     for entry in items:
                         title = entry.get('l', '')
                         if not title:
@@ -423,7 +442,7 @@ class AurionBridge:
                         img_dict = entry.get('i') or {}
                         raw_img = img_dict.get('imageUrl', '')
                         if raw_img and 'media-amazon.com' in raw_img:
-                            high_res_img = re.sub(r'._V1_.*?.jpg$', '._V1_.jpg', raw_img)
+                            high_res_img = re.sub(r'\._V1_.*?\.jpg$', '._V1_.jpg', raw_img)
                         else:
                             high_res_img = raw_img
 
@@ -448,7 +467,6 @@ class AurionBridge:
         if not self._window:
             return False
 
-        import sys
         if getattr(self, '_is_maximized', False):
             self._window.restore()
             self._is_maximized = False
@@ -467,8 +485,7 @@ class AurionBridge:
         try:
             import ctypes
             user32 = ctypes.windll.user32
-            
-            # Buscar el HWND nativo de la ventana Aurion
+
             hwnd = None
             if hasattr(self._window, 'gui') and hasattr(self._window.gui, 'hwnd'):
                 hwnd = self._window.gui.hwnd
@@ -482,30 +499,16 @@ class AurionBridge:
                 MF_DISABLED = 0x00000002
                 MF_ENABLED = 0x00000000
 
-                # Deshabilitar SC_MOVE impide que Windows inicie cualquier bucle de arrastre
                 flags = MF_BYCOMMAND | (MF_ENABLED if movable else MF_DISABLED)
                 user32.EnableMenuItem(hmenu, SC_MOVE, flags)
         except Exception:
             pass
 
-    def close_window(self):  # O el nombre que tenga en tu bridge (close_app / exit / etc.)
-        try:
-            dl = getattr(self, 'downloader', None) or getattr(self, '_downloader', None)
-            if dl:
-                import threading
-                threading.Thread(target=dl.cleanup_all_temp, daemon=True).start()
-        except Exception:
-            pass
-
-        if self._window:
-            self._window.destroy()
-
     def close_app(self):
         """Cierra la aplicación y asegura el borrado de las carpetas temporales activas."""
         try:
-            dl = getattr(self, 'downloader', None) or getattr(self, '_downloader', None)
+            dl = getattr(self, 'downloader', None)
             if dl:
-                import threading
                 threading.Thread(target=dl.cleanup_all_temp, daemon=True).start()
         except Exception as e:
             print(f"[Bridge] Error durante el cierre: {e}")
@@ -526,21 +529,20 @@ class AurionBridge:
             print("[BRIDGE ERROR] Intento de descarga bloqueado: no se especificó ruta de destino.")
             return False
 
-        # Inyectar límite de velocidad si se configuró en Ajustes
+        # Inyectar todos los ajustes globales de Motor & Red desde self.config["settings"]
         user_settings = self.config.get("settings", {})
-        if "speed_limit" in user_settings and user_settings["speed_limit"] != "0":
-            config["speed_limit"] = user_settings["speed_limit"]
+        config["speed_limit"] = str(user_settings.get("speed_limit", "0"))
+        config["file_conflict"] = str(user_settings.get("file_conflict", "rename"))
+        config["aria_connections"] = str(user_settings.get("aria_connections", "16"))
+        config["finish_action"] = str(user_settings.get("finish_action", "open_folder"))
+        config["notify_sound"] = bool(user_settings.get("notify_sound", True))
 
-        print(f"\n[DEBUG BRIDGE] start_downloads recibido!")
         tasks = payload.get("tasks", [])
-        print(f"[DEBUG BRIDGE] Tareas a descargar: {len(tasks)}")
-        for t in tasks:
-            print(f"   -> Episodio: {t.get('title')} | URL: {t.get('url')}")
+        print(f"\n[BRIDGE] Iniciando lote de {len(tasks)} tarea(s) -> Destino: {dest_dir}")
         return self.downloader.start_engine(config, tasks)
 
     def probe_stream_metadata(self, task_id, stream_url, page_url):
         """Sonda asíncrona de metadatos exactos (tamaño en bytes y resolución)."""
-        import threading
         def worker():
             size_bytes, res_str = self.downloader.probe_media_info(stream_url, page_url)
             if self._window:
@@ -551,15 +553,14 @@ class AurionBridge:
         return True
 
     def search_youtube(self, query: str, search_type: str = "video", page: int = 1, page_size: int = 12):
-        print(f"\n[BRIDGE YT] >>> Query: '{query}' | Tipo: {search_type} | Página: {page}")
         if not query or not query.strip():
             return []
-        
+
         query = query.strip()
         is_direct_url = query.startswith("http://") or query.startswith("https://")
         start_idx = (page - 1) * page_size + 1
         end_idx = start_idx + page_size - 1
-        
+
         ydl_opts = {
             'quiet': True,
             'skip_download': True,
@@ -572,7 +573,7 @@ class AurionBridge:
                 }
             }
         }
-        
+
         results = []
         try:
             import yt_dlp
@@ -583,7 +584,6 @@ class AurionBridge:
                     is_pl = ('list=' in query) or (info.get('_type') == 'playlist')
                     targets = [('playlist' if is_pl else 'video', e) for e in raw_entries if e]
                 elif search_type == "playlist":
-                    # BÚSQUEDA DE LISTAS ULTRAVELOZ (< 0.8s) CON BYPASS DE COOKIES Y FALLBACK
                     raw_playlists = []
                     try:
                         clean_q = urllib.parse.quote(query)
@@ -603,7 +603,6 @@ class AurionBridge:
                         with urllib.request.urlopen(req, context=ctx_pl, timeout=4) as resp:
                             html_content = resp.read().decode('utf-8', errors='ignore')
 
-                        import re
                         match = re.search(r'ytInitialData\s*=\s*({.+?});(?:</script>|\n)', html_content)
                         if match:
                             yt_data = json.loads(match.group(1))
@@ -631,7 +630,6 @@ class AurionBridge:
 
                                     video_count = pl.get('videoCount', '0')
 
-                                    # Miniatura nítida oficial
                                     thumb_url = ''
                                     thumbs = pl.get('thumbnails', [{}])[0].get('thumbnails', [])
                                     if thumbs:
@@ -651,19 +649,16 @@ class AurionBridge:
                     except Exception as err_fast_pl:
                         print(f"[FAST PL ERROR]: {err_fast_pl}")
 
-                    # Si el scraper directo no obtuvo elementos (p. ej. cambio de layout de YouTube), usamos yt-dlp plano directo
                     if raw_playlists:
                         results.extend(raw_playlists[start_idx - 1:end_idx])
                         targets = []
                     else:
                         pl_url = f"https://www.youtube.com/results?search_query={urllib.parse.quote(query)}&sp=EgIQAw%253D%253D"
-                        # Limitar estrictamente los items para que yt-dlp solo procese el lote pedido
                         ydl.params['playlist_items'] = f"{start_idx}-{end_idx}"
                         info_pl = ydl.extract_info(pl_url, download=False) or {}
                         raw_entries = info_pl.get('entries', []) or []
                         targets = [('playlist', e) for e in raw_entries if e][:page_size]
                 else:
-                    # Búsqueda continua garantizada de vídeos
                     search_limit = max(25, page * page_size + 10)
                     search_term = f"ytsearch{search_limit}:{query}"
                     try:
@@ -682,7 +677,7 @@ class AurionBridge:
                 for item_type, entry in targets:
                     if not entry:
                         continue
-                    
+
                     vid_id = entry.get('id', '')
                     raw_title = (entry.get('title') or '').strip()
                     if not vid_id or not raw_title or raw_title.lower() in ['[private video]', '[deleted video]']:
@@ -693,7 +688,7 @@ class AurionBridge:
                     if item_type == 'playlist' or entry.get('_type') == 'playlist':
                         raw_url = entry.get('url') or ''
                         clean_pl_id = vid_id
-                        
+
                         if 'list=' in raw_url:
                             clean_pl_id = raw_url.split('list=')[-1].split('&')[0]
                         elif clean_pl_id.startswith('VL'):
@@ -701,7 +696,6 @@ class AurionBridge:
 
                         p_count = entry.get('playlist_count') or entry.get('item_count') or 0
 
-                        # Resolución de miniatura nítida sin desenfoque
                         thumb_url = ''
                         thumbs_list = entry.get('thumbnails') or []
                         for t in reversed(thumbs_list):
@@ -709,11 +703,10 @@ class AurionBridge:
                             if u and 'sqp=' not in u and not u.endswith('.webp'):
                                 thumb_url = u
                                 break
-                        
+
                         if not thumb_url and thumbs_list:
                             thumb_url = thumbs_list[-1].get('url', '')
 
-                        import re
                         vid_match = re.search(r'/(?:vi|vi_webp)/([a-zA-Z0-9_-]{11})/', thumb_url)
                         if vid_match:
                             thumb_url = f"https://i.ytimg.com/vi/{vid_match.group(1)}/hqdefault.jpg"
@@ -775,7 +768,7 @@ class AurionBridge:
         except Exception as e:
             print(f"[ERROR YT SEARCH] {e}")
             return []
-            
+
         return results
 
     def get_channel_details(self, channel_url_or_name: str, start_index: int = 1, count: int = 24, *args, **kwargs):
@@ -784,12 +777,9 @@ class AurionBridge:
             return None
 
         target = str(channel_url_or_name).strip()
-        
-        # Limpiar si viene con colaboraciones tipo "@Peereira7 and 2 more" o "Auron y otros"
-        import re
+
         if not target.startswith("http"):
             target = re.split(r'\s+(?:and|y|&)\s+', target, flags=re.IGNORECASE)[0].strip()
-            # Limpiar caracteres inválidos para un handle de YouTube
             clean_handle = re.sub(r'[^a-zA-Z0-9_\-\.]', '', target.lstrip('@'))
             target = f"https://www.youtube.com/@{clean_handle}"
 
@@ -799,7 +789,6 @@ class AurionBridge:
                 base_channel_url = base_channel_url[:-len(tab)]
                 break
 
-        # Consultar directamente /videos en modo plano
         videos_url = f"{base_channel_url}/videos"
         end_index = start_index + count - 1
 
@@ -838,17 +827,14 @@ class AurionBridge:
                 views = format_num(info.get('view_count'))
                 desc = (info.get('description') or '').strip()[:240]
 
-                # 1. Extracción robusta de Avatar
                 avatar_url = (
-                    info.get('uploader_avatar') or 
-                    info.get('channel_avatar') or 
+                    info.get('uploader_avatar') or
+                    info.get('channel_avatar') or
                     info.get('avatar') or ''
                 )
-                
-                # 2. Extracción robusta de Banner
                 banner_url = (
-                    info.get('banner') or 
-                    info.get('channel_banner') or 
+                    info.get('banner') or
+                    info.get('channel_banner') or
                     info.get('uploader_banner') or ''
                 )
 
@@ -857,15 +843,12 @@ class AurionBridge:
                     u = t.get('url', '')
                     if not u:
                         continue
-                    # Detección de banner panorámico oficial
                     if not banner_url and any(k in u for k in ['banner', 'w1060', 'w2120', 'w2560', 'fcrop64']):
                         banner_url = u
-                    # Detección de avatar oficial de Google/YouTube
                     elif not avatar_url and any(k in u for k in ['yt3.ggpht.com', 'avatar', '=s', 'photo.jpg']):
                         if 'banner' not in u:
                             avatar_url = u
 
-                # Fallback de avatar si aún no se detectó
                 if not avatar_url:
                     for t in thumbs:
                         u = t.get('url', '')
@@ -875,9 +858,7 @@ class AurionBridge:
                     if not avatar_url and thumbs:
                         avatar_url = thumbs[0].get('url', '')
 
-                # Limpieza de resolución para que el avatar se vea nítido
                 if avatar_url and '=s' in avatar_url:
-                    import re
                     avatar_url = re.sub(r'=s\d+.*?$', '=s240-c-k-c0x00ffffff-no-rj', avatar_url)
 
                 raw_entries = info.get('entries', []) or []
@@ -934,10 +915,9 @@ class AurionBridge:
         """Extrae la información completa de una lista de reproducción de YouTube con soporte resiliente."""
         if not playlist_url or not playlist_url.strip():
             return None
-            
+
         raw_url = playlist_url.strip()
-        
-        # Si la URL viene enlazada a un vídeo dentro de lista o canal, forzar URL canónica de playlist
+
         if 'list=' in raw_url:
             list_id = raw_url.split('list=')[-1].split('&')[0]
             if list_id.startswith('VL'):
@@ -967,21 +947,19 @@ class AurionBridge:
                 if not info:
                     return None
 
-                # Si es un elemento singular con lista asociada, o una lista directa
                 entries = info.get('entries') or []
                 if not entries and info.get('id'):
                     entries = [info]
-                    
+
                 title = info.get('title') or 'Lista de Reproducción'
                 uploader = info.get('uploader') or info.get('channel') or 'YouTube'
-                
+
                 video_list = []
                 for entry in entries:
                     if not entry:
                         continue
                     vid_id = entry.get('id', '')
                     raw_title = (entry.get('title') or '').strip()
-                    # Descartar elementos sin ID o títulos fantasma [Private video] / [Deleted video]
                     if not vid_id or not raw_title or raw_title.lower() in ['[private video]', '[deleted video]', 'sin título', '']:
                         continue
 
@@ -994,7 +972,7 @@ class AurionBridge:
                         dur_str = f"{h}:{m:02d}:{s:02d}" if h > 0 else f"{m}:{s:02d}"
                     else:
                         dur_str = "--:--"
-                    
+
                     v_thumb = entry.get('thumbnail') or f"https://i.ytimg.com/vi/{vid_id}/hqdefault.jpg"
                     video_list.append({
                         'id': vid_id,
@@ -1004,7 +982,7 @@ class AurionBridge:
                         'thumbnail': v_thumb,
                         'uploader': entry.get('uploader') or uploader
                     })
-                    
+
                 first_thumb = video_list[0]['thumbnail'] if video_list else ''
                 return {
                     'title': title,
@@ -1017,45 +995,6 @@ class AurionBridge:
             print(f"[BRIDGE PLAYLIST ERROR] {e}")
             return None
 
-    
-
-    def get_yt_download_options(self, output_path: str, is_audio_only: bool = False, quality: str = "1080"):
-        """Genera las opciones de yt-dlp optimizadas para YouTube con bypass de 403 y auto-retry."""
-        opts = {
-            'outtmpl': os.path.join(output_path, '%(title)s.%(ext)s'),
-            'quiet': True,
-            'no_warnings': True,
-            'retries': 10,
-            'fragment_retries': 15,
-            'skip_unavailable_fragments': False,
-            'keep_fragments': False,
-            'buffersize': 1024 * 64,
-            'http_chunk_size': 10485760,  # 10MB chunks para evitar throttling de Google Video
-            'extractor_args': {
-                'youtube': {
-                    'player_client': ['web', 'android']
-                }
-            }
-        }
-        
-        if is_audio_only:
-            opts.update({
-                'format': 'bestaudio/best',
-                'postprocessors': [{
-                    'key': 'FFmpegExtractAudio',
-                    'preferredcodec': 'mp3',
-                    'preferredquality': '192',
-                }]
-            })
-        else:
-            # Seleccionar resolución deseada combinada con el mejor audio
-            opts.update({
-                'format': f'bestvideo[height<={quality}]+bestaudio/best[height<={quality}]/best',
-                'merge_output_format': 'mp4'
-            })
-            
-        return opts
-
     def check_for_updates(self):
         """Comprueba en GitHub Releases si hay una versión superior a la instalada."""
         CURRENT_VERSION = APP_VERSION
@@ -1063,12 +1002,6 @@ class AurionBridge:
 
         def _worker():
             try:
-                import urllib.request
-                import json
-                import re
-                import time
-
-                # Pequeña pausa para asegurar que el DOM y app.js están 100% listos
                 time.sleep(1.5)
 
                 url = f"https://api.github.com/repos/{REPO_NAME}/releases/latest"
@@ -1096,12 +1029,10 @@ class AurionBridge:
                 def parse_version_numbers(v_str):
                     return [int(n) for n in re.findall(r"\d+", v_str)]
 
-                # Si la versión en GitHub es numéricamente superior a la que corre la app
                 if parse_version_numbers(tag_name) > parse_version_numbers(CURRENT_VERSION):
                     download_url = None
                     for asset in data.get("assets", []):
                         name = asset.get("name", "").lower()
-                        # Busca el zip distribuible
                         if name.endswith(".zip"):
                             download_url = asset.get("browser_download_url")
                             break
@@ -1125,54 +1056,93 @@ class AurionBridge:
         threading.Thread(target=_worker, daemon=True).start()
 
     def start_auto_update(self, download_url):
-        """Actualización limpia con robocopy, detección dinámica de ruta y sin UAC."""
+        """Actualización ultrarrápida acelerada por aria2c (16 hilos) con fallback nativo y robocopy."""
         def download_and_run():
             try:
-                import sys
-                import time
-                import shutil
                 temp_dir = tempfile.gettempdir()
                 bat_path = os.path.join(temp_dir, "aurion_restart.bat")
-                
-                # Detectar siempre la ruta real absoluta del ejecutable activo
-                app_exe_path = os.path.abspath(sys.executable if getattr(sys, 'frozen', False) else os.path.join(os.path.dirname(__file__), "..", "dist", "Aurion", "Aurion.exe"))
+
+                app_exe_path = os.path.abspath(
+                    sys.executable if getattr(sys, 'frozen', False)
+                    else os.path.join(os.path.dirname(__file__), "..", "dist", "Aurion", "Aurion.exe")
+                )
                 install_dir = os.path.dirname(app_exe_path)
 
                 staging_dir = os.path.join(temp_dir, "aurion_new_version")
+                if os.path.exists(staging_dir):
+                    shutil.rmtree(staging_dir, ignore_errors=True)
                 os.makedirs(staging_dir, exist_ok=True)
 
-                # Si es simulación local, avanzamos la barra sin hacer peticiones web
                 if not download_url or download_url == "local_mock_update" or not download_url.startswith("http"):
                     for pct in [20, 50, 75, 90, 100]:
                         time.sleep(0.2)
                         if self._window:
                             self._window.evaluate_js(f"window.onUpdateProgress && window.onUpdateProgress({pct});")
                 else:
-                    ctx = ssl.create_default_context()
-                    req = urllib.request.Request(download_url, headers={'User-Agent': 'AurionApp'})
                     zip_path = os.path.join(temp_dir, "aurion_update.zip")
-                    with urllib.request.urlopen(req, context=ctx, timeout=40) as resp, open(zip_path, 'wb') as f:
-                        total_length = resp.getheader('content-length')
-                        total_bytes = int(total_length) if total_length else 0
-                        downloaded = 0
-                        chunk_size = 64 * 1024
-                        while True:
-                            chunk = resp.read(chunk_size)
-                            if not chunk:
-                                break
-                            f.write(chunk)
-                            downloaded += len(chunk)
-                            if total_bytes and self._window:
-                                pct = round((downloaded / total_bytes) * 100, 1)
-                                self._window.evaluate_js(f"window.onUpdateProgress && window.onUpdateProgress({pct});")
+                    if os.path.exists(zip_path):
+                        os.remove(zip_path)
+
+                    downloaded_ok = False
+                    # 1. Intentar descarga Turbo con aria2c a 16 hilos si está disponible
+                    if self.downloader and self.downloader.has_aria2:
+                        try:
+                            if self._window:
+                                self._window.evaluate_js("window.onUpdateProgress && window.onUpdateProgress(15);")
+                            aria_cmd = [
+                                self.downloader.aria2_path,
+                                '-x16', '-s16', '-k1M',
+                                '--file-allocation=none',
+                                '--allow-overwrite=true',
+                                '--auto-file-renaming=false',
+                                '-d', temp_dir,
+                                '-o', 'aurion_update.zip',
+                                download_url
+                            ]
+                            flags = 0x08000000 if sys.platform == 'win32' else 0
+                            proc = subprocess.Popen(aria_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, creationflags=flags)
+                            pct_sim = 15
+                            while proc.poll() is None:
+                                pct_sim = min(92, pct_sim + 7)
+                                if self._window:
+                                    self._window.evaluate_js(f"window.onUpdateProgress && window.onUpdateProgress({pct_sim});")
+                                time.sleep(0.25)
+                            if proc.returncode == 0 and os.path.exists(zip_path) and os.path.getsize(zip_path) > 1024 * 100:
+                                downloaded_ok = True
+                                if self._window:
+                                    self._window.evaluate_js("window.onUpdateProgress && window.onUpdateProgress(100);")
+                        except Exception as aria_err:
+                            print(f"[AutoUpdate] Fallback a descarga estándar ({aria_err})")
+
+                    # 2. Fallback en streaming HTTP si aria2c no estaba disponible
+                    if not downloaded_ok:
+                        ctx = ssl.create_default_context()
+                        req = urllib.request.Request(download_url, headers={'User-Agent': 'AurionApp'})
+                        with urllib.request.urlopen(req, context=ctx, timeout=40) as resp, open(zip_path, 'wb') as f:
+                            total_length = resp.getheader('content-length')
+                            total_bytes = int(total_length) if total_length else 0
+                            downloaded = 0
+                            chunk_size = 128 * 1024
+                            while True:
+                                chunk = resp.read(chunk_size)
+                                if not chunk:
+                                    break
+                                f.write(chunk)
+                                downloaded += len(chunk)
+                                if total_bytes and self._window:
+                                    pct = round((downloaded / total_bytes) * 100, 1)
+                                    self._window.evaluate_js(f"window.onUpdateProgress && window.onUpdateProgress({pct});")
+
                     shutil.unpack_archive(zip_path, staging_dir)
 
-                    # Si el zip contenía una sola carpeta raíz contenedora, usarla como origen
-                    subdirs = [os.path.join(staging_dir, d) for d in os.listdir(staging_dir) if os.path.isdir(os.path.join(staging_dir, d))]
+                    subdirs = [
+                        os.path.join(staging_dir, d)
+                        for d in os.listdir(staging_dir)
+                        if os.path.isdir(os.path.join(staging_dir, d))
+                    ]
                     if len(subdirs) == 1 and not any(os.path.isfile(os.path.join(staging_dir, f)) for f in os.listdir(staging_dir)):
                         staging_dir = subdirs[0]
 
-                # Script que espera cierre de Aurion.exe, copia archivos y relanza
                 bat_content = f"""@echo off
 :WAIT_LOOP
 tasklist /fi "imagename eq Aurion.exe" 2>nul | find /i "Aurion.exe" >nul
@@ -1192,7 +1162,7 @@ start "" "{app_exe_path}"
                 with open(bat_path, "w", encoding="utf-8") as f:
                     f.write(bat_content)
 
-                creation_flags = 0x08000000  # CREATE_NO_WINDOW
+                creation_flags = 0x08000000
                 subprocess.Popen(["cmd.exe", "/c", bat_path], creationflags=creation_flags)
 
                 if self._window:
@@ -1203,7 +1173,6 @@ start "" "{app_exe_path}"
                 err_msg = str(e).replace('"', '\\"').replace("'", "\\'")
                 print(f"[AutoUpdate Error]: {e}")
                 if self._window:
-                    # Muestra una ventana de alerta con el error exacto
                     self._window.evaluate_js(f"alert('Error exacto de Python:\\n{err_msg}');")
                     self._window.evaluate_js("window.onUpdateError && window.onUpdateError();")
 
@@ -1212,62 +1181,10 @@ start "" "{app_exe_path}"
 
     def reset_factory_config(self):
         """Limpia la memoria RAM de Python y deja config.json como recién instalado."""
-        clean_config = {
-            "active_mode": "anime",
-            "anime": {
-                "dir": "",
-                "season": 1,
-                "start_ep": 1,
-                "save_cover": True,
-                "res": "max",
-                "fmt": "mkv",
-                "threads": "32",
-                "simul": "20",
-                "active_title": "",
-                "active_tags": "",
-                "active_bg": "",
-                "accent1": "#ffd60a",
-                "accent2": "#ffb703"
-            },
-            "movie": {
-                "dir": "",
-                "season": 1,
-                "start_ep": 1,
-                "save_cover": True,
-                "res": "max",
-                "fmt": "mkv",
-                "threads": "32",
-                "simul": "5",
-                "active_title": "",
-                "active_tags": "",
-                "active_bg": "",
-                "accent1": "#bf5af2",
-                "accent2": "#5e5ce6"
-            },
-            "youtube": {
-                "dir": "",
-                "format": "video",
-                "res": "1080",
-                "open_folder": True
-            },
-            "settings": {
-                "sound_effects": True,
-                "perf_mode": False,
-                "check_updates": True,
-                "notify_sound": True,
-                "accent_theme": "dynamic",
-                "glow_intensity": "normal",
-                "speed_limit": "0",
-                "file_conflict": "rename",
-                "aria_connections": "16",
-                "finish_action": "open_folder"
-            }
-        }
+        clean_config = self._get_default_config()
         try:
-            # 1. Sobrescribir el archivo en disco
             with open(CONFIG_FILE, "w", encoding="utf-8") as f:
                 json.dump(clean_config, f, indent=2)
-            # 2. Machacar la memoria RAM activa de Python
             self.config = clean_config
             print("[Core] ¡Reset de fábrica completado en disco y en memoria RAM!")
             return True
@@ -1278,7 +1195,6 @@ start "" "{app_exe_path}"
     def open_config_folder(self):
         """Abre la carpeta del sistema donde reside el archivo config.json."""
         try:
-            import subprocess
             folder_path = os.path.dirname(CONFIG_FILE)
             if os.path.exists(CONFIG_FILE):
                 subprocess.Popen(['explorer', f'/select,{os.path.normpath(CONFIG_FILE)}'])
@@ -1291,19 +1207,20 @@ start "" "{app_exe_path}"
 
     def open_extension_folder(self):
         try:
-            import os
-            import subprocess
-            import sys
-
             if getattr(sys, 'frozen', False):
-                base_dir = os.path.dirname(sys.executable)
+                exe_dir = os.path.dirname(sys.executable)
+                candidates = [
+                    os.path.join(exe_dir, 'extension'),
+                    os.path.join(exe_dir, '_internal', 'extension'),
+                    os.path.join(getattr(sys, '_MEIPASS', exe_dir), 'extension')
+                ]
+                ext_path = next((p for p in candidates if os.path.exists(p)), candidates[0])
+                base_dir = exe_dir
             else:
                 base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+                ext_path = os.path.join(base_dir, 'extension')
 
-            ext_path = os.path.join(base_dir, 'extension')
-            
             if os.path.exists(ext_path):
-                # /select, resalta la carpeta extension en el Explorador sin abrir una segunda ventana
                 subprocess.Popen(['explorer', f'/select,{os.path.normpath(ext_path)}'])
                 return True
             else:
@@ -1313,9 +1230,8 @@ start "" "{app_exe_path}"
             print(f"[open_extension_folder] Error: {e}")
             return False
 
-    def get_installed_browsers(self):
-        """Devuelve un diccionario indicando cuáles navegadores Chromium están instalados en el sistema."""
-        known_paths = {
+    def _get_known_browser_paths(self):
+        return {
             "brave": [
                 os.path.expandvars(r"%ProgramFiles%\BraveSoftware\Brave-Browser\Application\brave.exe"),
                 os.path.expandvars(r"%LocalAppData%\BraveSoftware\Brave-Browser\Application\brave.exe"),
@@ -1351,62 +1267,22 @@ start "" "{app_exe_path}"
                 os.path.expandvars(r"%ProgramFiles%\Chromium\Application\chrome.exe")
             ]
         }
-        installed = {}
-        for b_key, paths in known_paths.items():
-            installed[b_key] = any(os.path.isfile(p) for p in paths)
-        return installed
+
+    def get_installed_browsers(self):
+        """Devuelve un diccionario indicando cuáles navegadores Chromium están instalados en el sistema."""
+        known_paths = self._get_known_browser_paths()
+        return {b_key: any(os.path.isfile(p) for p in paths) for b_key, paths in known_paths.items()}
 
     def launch_browser_for_extension(self, target_url="chrome://extensions", browser_key="chrome"):
         """Copia la URL al portapapeles y abre una ventana nueva del navegador correspondiente."""
         def _worker():
             try:
-                import os, subprocess, winreg
-                known_paths = {
-                    "brave": [
-                        os.path.expandvars(r"%ProgramFiles%\BraveSoftware\Brave-Browser\Application\brave.exe"),
-                        os.path.expandvars(r"%LocalAppData%\BraveSoftware\Brave-Browser\Application\brave.exe"),
-                        os.path.expandvars(r"%ProgramFiles(x86)%\BraveSoftware\Brave-Browser\Application\brave.exe")
-                    ],
-                    "chrome": [
-                        os.path.expandvars(r"%ProgramFiles%\Google\Chrome\Application\chrome.exe"),
-                        os.path.expandvars(r"%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe"),
-                        os.path.expandvars(r"%LocalAppData%\Google\Chrome\Application\chrome.exe")
-                    ],
-                    "edge": [
-                        os.path.expandvars(r"%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe"),
-                        os.path.expandvars(r"%ProgramFiles%\Microsoft\Edge\Application\msedge.exe")
-                    ],
-                    "opera": [
-                        os.path.expandvars(r"%LocalAppData%\Programs\Opera\launcher.exe"),
-                        os.path.expandvars(r"%ProgramFiles%\Opera\launcher.exe")
-                    ],
-                    "operagx": [
-                        os.path.expandvars(r"%LocalAppData%\Programs\Opera GX\launcher.exe"),
-                        os.path.expandvars(r"%ProgramFiles%\Opera GX\launcher.exe")
-                    ],
-                    "vivaldi": [
-                        os.path.expandvars(r"%LocalAppData%\Vivaldi\Application\vivaldi.exe"),
-                        os.path.expandvars(r"%ProgramFiles%\Vivaldi\Application\vivaldi.exe")
-                    ],
-                    "arc": [
-                        os.path.expandvars(r"%LocalAppData%\Programs\Arc\Arc.exe"),
-                        os.path.expandvars(r"%ProgramFiles%\Arc\Arc.exe")
-                    ],
-                    "chromium": [
-                        os.path.expandvars(r"%LocalAppData%\Chromium\Application\chrome.exe"),
-                        os.path.expandvars(r"%ProgramFiles%\Chromium\Application\chrome.exe")
-                    ]
-                }
+                import winreg
+                known_paths = self._get_known_browser_paths()
 
-                chosen_exe = None
-                for path in known_paths.get(browser_key, []):
-                    if os.path.isfile(path):
-                        chosen_exe = path
-                        break
-
+                chosen_exe = next((p for p in known_paths.get(browser_key, []) if os.path.isfile(p)), None)
                 effective_url = target_url
 
-                # Si el navegador elegido no existe, buscar el predeterminado y adaptar la URL a ese
                 if not chosen_exe:
                     try:
                         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\Shell\Associations\UrlAssociations\http\UserChoice") as key:
@@ -1431,7 +1307,6 @@ start "" "{app_exe_path}"
                     except Exception:
                         pass
 
-                # Copiar al portapapeles la URL que de verdad coincida con el navegador abierto
                 subprocess.run(f'cmd /c <nul set /p="{effective_url}"| clip', shell=True, creationflags=0x08000000)
 
                 if chosen_exe and os.path.isfile(chosen_exe):
@@ -1441,5 +1316,31 @@ start "" "{app_exe_path}"
 
             except Exception as e:
                 print(f"[Core] Error abriendo navegador: {e}")
+
         threading.Thread(target=_worker, daemon=True).start()
         return True
+
+    def get_download_history(self, mode_filter="all", search_query=""):
+        """Devuelve el historial SQLite y las estadísticas globales."""
+        return self.db.get_history(mode_filter, search_query)
+
+    def delete_history_item(self, item_id):
+        return self.db.delete_entry(item_id)
+
+    def clear_download_history(self):
+        return self.db.clear_all()
+
+    def open_history_file(self, file_path, reveal_in_folder=False):
+        """Abre el vídeo en el reproductor predeterminado o lo resalta en su carpeta."""
+        if not file_path or not os.path.exists(file_path):
+            return False
+        try:
+            norm_p = os.path.normpath(file_path)
+            if reveal_in_folder:
+                subprocess.Popen(['explorer', f'/select,{norm_p}'])
+            else:
+                os.startfile(norm_p)
+            return True
+        except Exception as e:
+            print(f"[Bridge] Error abriendo archivo de historial: {e}")
+            return False
