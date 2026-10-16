@@ -3,19 +3,19 @@
   "active_mode": "anime",
   "anime": {
     "dir": "C:\\Users\\mdema\\Downloads\\animes",
-    "season": 1,
-    "start_ep": 4,
+    "season": 2,
+    "start_ep": 2,
     "save_cover": true,
     "open_folder": true,
     "res": "max",
     "fmt": "mkv",
     "threads": "32",
     "simul": "20",
-    "active_title": "Sekai Saikyou no Majo, Hajimemashita",
-    "active_tags": "EN EMISI\u00d3N \u2022 \u2605 6.8",
-    "active_bg": "url('https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx211778-0MXK5HqVFBYH.jpg')",
-    "accent1": "rgb(157, 228, 254)",
-    "accent2": "rgb(99, 191, 253)"
+    "active_title": "Tantei wa mou, Shindeiru. Season 2",
+    "active_tags": "EN EMISI\u00d3N \u2022 \u2605 7.1",
+    "active_bg": "url('https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx152677-gtJbgjE94lCN.png')",
+    "accent1": "rgb(168, 21, 0)",
+    "accent2": "rgb(180, 70, 42)"
   },
   "movie": {
     "dir": "",
@@ -35,8 +35,8 @@
   },
   "youtube": {
     "dir": "C:\\Users\\mdema\\Downloads\\yt-videos-prueba",
-    "format": "video",
-    "res": "min",
+    "format": "audio",
+    "res": "720",
     "open_folder": true
   },
   "settings": {

@@ -161,6 +161,22 @@ window.AnimeModule = (function () {
                 suggestionsBox.classList.remove('active');
                 suggestionsBox.innerHTML = '';
                 activeSuggIndex = -1;
+
+                // COMPROBACIÓN INTELIGENTE DE PIPELINE (TÍTULO NUEVO VS MANUAL)
+                const state = window.modeStates ? window.modeStates[window.currentMode] : null;
+                if (state && state.title && state.title !== 'Esperando consulta...' && state.title !== item.title) {
+                  // Limpiar tareas previas de la cola si el anime seleccionado es diferente
+                  state.queue.forEach(t => {
+                    if (t.status !== 'Completado') {
+                      window.pyCall?.('cancel_download_task', t.id);
+                    }
+                  });
+                  state.queue = [];
+                  if (typeof window.renderFullQueue === 'function') {
+                    window.renderFullQueue(window.currentMode);
+                  }
+                }
+
                 if (typeof window.expandCenterWorkspace === 'function') window.expandCenterWorkspace();
                 if (typeof window.updatePoster === 'function') window.updatePoster(item.image, item.title, item.meta);
                 if (typeof window.setUnifiedTitle === 'function') window.setUnifiedTitle(item.title);
