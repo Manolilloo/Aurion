@@ -8770,3 +8770,34 @@ body.downloads-locked .pipeline-card-btn-del {
   opacity: 1 !important;
   filter: none !important;
 }
+
+/* =========================================================================
+   DESOPACADO E ILUMINACIÓN DE BOTONES DE DESCARGA EN YOUTUBE
+   ========================================================================= */
+
+body.downloads-locked #yt-split-cluster,
+body.downloads-locked #yt-btn-download,
+body.downloads-locked #yt-btn-cancel,
+body.downloads-locked #split-cluster-master,
+body.downloads-locked #btn-master {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  cursor: pointer !important;
+  filter: none !important;
+}
+
+/* Efecto de pulso luminoso en el botón de YouTube mientras descarga */
+body.downloads-locked #yt-split-cluster {
+  box-shadow: 0 0 24px rgba(255, 0, 85, 0.55), 0 0 45px rgba(255, 0, 85, 0.25) !important;
+  border-color: rgba(255, 0, 85, 0.8) !important;
+  animation: aurionPulseYtGlow 1.8s infinite ease-in-out !important;
+}
+
+@keyframes aurionPulseYtGlow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(255, 0, 85, 0.45);
+  }
+  50% {
+    box-shadow: 0 0 35px rgba(255, 0, 85, 0.75), 0 0 60px rgba(255, 85, 0, 0.35);
+  }
+}

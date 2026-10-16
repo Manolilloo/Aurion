@@ -183,6 +183,32 @@ window.ExtensionBridgeModule = (function () {
       if (typeof window.updatePoster === 'function') window.updatePoster(chosenItem.image, chosenItem.title, chosenItem.meta);
 
       const state = window.modeStates[targetMode];
+
+      // NORMALIZADOR CANÓNICO PARA COMPARAR NOMBRES DE SERIE
+      const cleanNorm = (str) => (str || '')
+        .toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[\(\[\{].*?[\)\]\}]/g, '')
+        .replace(/[-_:]+(?:season|temporada|part|parte|cour|\d+).*$/i, '')
+        .replace(/[^a-z0-9]/g, '')
+        .trim();
+
+      const prevActiveNorm = cleanNorm(state.title);
+      const incomingNorm = cleanNorm(chosenItem.title);
+
+      // Si es una serie o película DIFERENTE, limpiar la cola anterior de la pipeline
+      if (prevActiveNorm && incomingNorm && prevActiveNorm !== incomingNorm && state.title !== 'Esperando consulta...') {
+        state.queue.forEach(t => {
+          if (t.status !== 'Completado') {
+            window.pyCall?.('cancel_download_task', t.id);
+          }
+        });
+        state.queue = [];
+        if (typeof window.renderFullQueue === 'function') {
+          window.renderFullQueue(targetMode);
+        }
+      }
+
       state.title = chosenItem.title;
       state.altTitle = chosenItem.alt_title || '';
       state.tags = chosenItem.meta || 'SISTEMA LISTO';

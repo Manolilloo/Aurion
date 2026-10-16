@@ -866,17 +866,20 @@ class AurionDownloader:
                 raw_percent = (downloaded / total * 100) if total > 0 else 0
 
                 if is_yt and not is_audio:
+                    # Progreso lineal continuo: 0% a 85% vídeo, 85% a 97% audio
                     if current_stream_type["val"] == "video":
-                        percent = round((raw_percent * 0.85), 1)
+                        percent = round(min(85.0, raw_percent * 0.85), 1)
                     else:
-                        percent = round(85.0 + (raw_percent * 0.14), 1)
+                        percent = round(min(97.0, 85.0 + (raw_percent * 0.12)), 1)
+                elif is_yt and is_audio:
+                    percent = round(min(96.0, raw_percent * 0.96), 1)
                 else:
                     frag_index = d.get("fragment_index")
                     frag_count = d.get("fragment_count")
                     if frag_index and frag_count and frag_count > 0:
-                        percent = round((frag_index / frag_count) * 100, 1)
+                        percent = round(min(98.0, (frag_index / frag_count) * 98.0), 1)
                     else:
-                        percent = round(raw_percent, 1)
+                        percent = round(min(98.0, raw_percent * 0.98), 1)
 
                 last_p = getattr(self, f"_p_{task_id}", 0)
                 if percent >= last_p:
@@ -902,12 +905,12 @@ class AurionDownloader:
                     current_stream_type["val"] = "audio"
                     if self.bridge and self.bridge._window:
                         self.bridge._window.evaluate_js(
-                            f"window.updateDownloadProgress && window.updateDownloadProgress('{task_id}', 85, 'Procesando', 'Descargando pista de audio...');"
+                            f"window.updateDownloadProgress && window.updateDownloadProgress('{task_id}', 85, 'Pista de audio', 'Descargando audio...');"
                         )
                 else:
                     if self.bridge and self.bridge._window:
                         self.bridge._window.evaluate_js(
-                            f"window.updateDownloadProgress && window.updateDownloadProgress('{task_id}', 99, 'Procesando', 'Ensamblando archivo final...');"
+                            f"window.updateDownloadProgress && window.updateDownloadProgress('{task_id}', 98, 'Ensamblando', 'Procesando archivo final...');"
                         )
 
         postprocessors_list = []
