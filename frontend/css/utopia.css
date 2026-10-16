@@ -8726,3 +8726,47 @@ body {
   justify-content: center;
   font-size: 13px !important;
 }
+
+/* Impedir desbordamiento de la píldora en el conmutador superior */
+#mode-switch {
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+#mode-switch .matrix-thumb {
+  max-width: 50% !important;
+}
+
+/* =========================================================================
+   BLOQUEO AUTOMÁTICO DE OPCIONES DURANTE DESCARGAS ACTIVAS
+   ========================================================================= */
+
+/* Estado bloqueado: atenuación suave y bloqueo de interacción */
+body.downloads-locked .settings-area,
+body.downloads-locked .chip-group,
+body.downloads-locked .stepper-box,
+body.downloads-locked .toggle-card,
+body.downloads-locked .folder-picker-box,
+body.downloads-locked #btn-browse-dir,
+body.downloads-locked #cfg-dir,
+body.downloads-locked #yt-sidebar-box .settings-area,
+body.downloads-locked #yt-format-chips,
+body.downloads-locked #yt-res-chips,
+body.downloads-locked #yt-clip-trimmer-box,
+body.downloads-locked #yt-cfg-dir,
+body.downloads-locked #yt-btn-browse-dir {
+  opacity: 0.42 !important;
+  pointer-events: none !important;
+  cursor: not-allowed !important;
+  filter: grayscale(30%) !important;
+  transition: opacity 0.25s ease, filter 0.25s ease !important;
+}
+
+/* El botón de cancelar SIEMPRE debe ser interactivo para abortar la tarea */
+body.downloads-locked #btn-cancel-master,
+body.downloads-locked #yt-btn-cancel,
+body.downloads-locked .pipeline-card-btn-del {
+  pointer-events: auto !important;
+  opacity: 1 !important;
+  filter: none !important;
+}

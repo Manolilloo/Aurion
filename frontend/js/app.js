@@ -1073,10 +1073,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const mTxt = document.getElementById('mag-txt');
 
     if (isDownloading) {
+      document.body.classList.add('downloads-locked');
       sMaster?.classList.add('is-split');
       if (mTxt) mTxt.innerText = 'DESCARGANDO...';
       if (bMaster) bMaster.style.pointerEvents = 'none';
     } else {
+      document.body.classList.remove('downloads-locked');
       sMaster?.classList.remove('is-split');
       if (mTxt) mTxt.innerText = 'INICIAR EXTRACCIÓN';
       if (bMaster) {
@@ -1092,10 +1094,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const ytTxt = document.getElementById('yt-btn-txt');
 
     if (isDownloading) {
+      document.body.classList.add('downloads-locked');
       ytCluster?.classList.add('is-split');
       if (ytTxt) ytTxt.innerText = 'DESCARGANDO...';
       if (ytBtn) ytBtn.style.pointerEvents = 'none';
     } else {
+      document.body.classList.remove('downloads-locked');
       ytCluster?.classList.remove('is-split');
       if (ytTxt) ytTxt.innerText = 'DESCARGAR VÍDEO';
       if (ytBtn) ytBtn.style.pointerEvents = 'auto';
@@ -2303,10 +2307,13 @@ document.addEventListener('DOMContentLoaded', () => {
   btnHelp?.addEventListener('click', () => {
     if (typeof playSynth === 'function') playSynth('click');
     btnHelp.classList.remove('pulse-attention');
-    clearTourHighlights(); // Limpia cualquier residuo previo antes de empezar
     if (currentMode === 'youtube') {
-      openYtTourModal();
+      // En YouTube no llamamos a clearTourHighlights() porque resetea variables de Anime
+      if (typeof openYtTourModal === 'function') {
+        openYtTourModal();
+      }
     } else {
+      clearTourHighlights();
       startTour(false);
     }
   });
@@ -3064,4 +3071,53 @@ window.onUpdateError = function() {
       5500
     );
   };
+})();
+
+// ========================================================
+// FIX DEFINITIVO: SINCRONIZACIÓN REAL DEL BOTÓN AL CAMBIAR DE SECCIÓN
+// ========================================================
+(function fixDownloadButtonStateOnModeSwitch() {
+  async function syncRealDownloadButtonState() {
+    const isEngineBusy = await window.pyCall('get_engine_running_state');
+    const mode = window.currentMode || 'anime';
+
+    if (mode === 'anime' || mode === 'movie') {
+      const state = window.modeStates?.[mode];
+      const hasActiveTask = isEngineBusy && state?.queue?.some(t =>
+        t.status && (t.status.includes('Descargando') || t.status.includes('Iniciando') || t.status.includes('Procesando'))
+      );
+
+      if (!hasActiveTask) {
+        if (typeof window.setDownloadState === 'function') {
+          window.setDownloadState(false);
+        }
+        const splitCluster = document.getElementById('split-cluster');
+        const btnDownload = document.getElementById('btn-download');
+        const btnTxt = document.getElementById('btn-txt');
+        splitCluster?.classList.remove('is-downloading', 'active');
+        btnDownload?.classList.remove('loading');
+        if (btnTxt) btnTxt.textContent = 'INICIAR EXTRACCIÓN';
+      }
+    } else if (mode === 'youtube') {
+      if (!isEngineBusy && typeof window.setYtDownloadState === 'function') {
+        window.setYtDownloadState(false);
+      }
+    }
+  }
+
+  document.querySelectorAll('#mode-switch .matrix-opt').forEach(btn => {
+    btn.addEventListener('click', () => {
+      setTimeout(syncRealDownloadButtonState, 60);
+      setTimeout(syncRealDownloadButtonState, 220);
+    });
+  });
+
+  const origSetAppMode = window.setAppMode;
+  if (typeof origSetAppMode === 'function') {
+    window.setAppMode = function (...args) {
+      const res = origSetAppMode.apply(this, args);
+      setTimeout(syncRealDownloadButtonState, 50);
+      return res;
+    };
+  }
 })();

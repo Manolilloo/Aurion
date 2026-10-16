@@ -167,12 +167,42 @@ function renderYtModalStep(stepIdx) {
   }
 }
 
+function snapMatrixSwitchToYoutube() {
+  const btnSwitch = document.getElementById('btn-switch-mode');
+  if (!btnSwitch) return;
+
+  const ytBtn = btnSwitch.querySelector('[data-mode="youtube"]') || document.getElementById('mode-youtube');
+  const thumb = btnSwitch.querySelector('.matrix-thumb');
+  if (!ytBtn || !thumb) return;
+
+  btnSwitch.querySelectorAll('.matrix-opt').forEach(b => b.classList.toggle('active', b === ytBtn));
+
+  // Obtener solo las secciones activas reales en Settings (ej. Anime y YouTube si Cine está oculto)
+  const settings = window.SettingsModule?.getSettings();
+  const visibleSections = (settings?.sectionsOrder || ['anime', 'movie', 'youtube'])
+    .filter(k => settings?.sectionsVisibility?.[k] !== false);
+
+  const count = visibleSections.length || 1;
+  const ytIdx = visibleSections.indexOf('youtube');
+  const safeIdx = ytIdx > -1 ? ytIdx : (count - 1);
+
+  // Limpiar estilos residuales y forzar la posición exacta relativa al número de pestañas visibles
+  thumb.style.removeProperty('left');
+  thumb.style.width = `calc((100% - 6px) / ${count})`;
+  thumb.style.setProperty('transform', `translateX(${safeIdx * 100}%)`, 'important');
+}
+
 window.openYtTourModal = function () {
   const backdrop = document.getElementById('yt-tour-modal-backdrop');
   if (!backdrop) return;
   document.body.classList.add('tour-running-active');
   backdrop.classList.add('active');
   renderYtModalStep(0);
+
+  snapMatrixSwitchToYoutube();
+  requestAnimationFrame(snapMatrixSwitchToYoutube);
+  setTimeout(snapMatrixSwitchToYoutube, 50);
+  setTimeout(snapMatrixSwitchToYoutube, 180);
 };
 
 window.closeYtTourModal = function () {
@@ -180,6 +210,29 @@ window.closeYtTourModal = function () {
   document.body.classList.remove('tour-running-active');
   const backdrop = document.getElementById('yt-tour-modal-backdrop');
   if (backdrop) backdrop.classList.remove('active');
+
+  snapMatrixSwitchToYoutube();
+};
+
+window.openYtTourModal = function () {
+  const backdrop = document.getElementById('yt-tour-modal-backdrop');
+  if (!backdrop) return;
+  document.body.classList.add('tour-running-active');
+  backdrop.classList.add('active');
+  renderYtModalStep(0);
+  
+  // Bloquear la píldora en su sitio exacto
+  snapMatrixSwitchToYoutube();
+  requestAnimationFrame(snapMatrixSwitchToYoutube);
+};
+
+window.closeYtTourModal = function () {
+  stopYtTourDemo();
+  document.body.classList.remove('tour-running-active');
+  const backdrop = document.getElementById('yt-tour-modal-backdrop');
+  if (backdrop) backdrop.classList.remove('active');
+  
+  snapMatrixSwitchToYoutube();
 };
 
 window.initYtTourEvents = function () {

@@ -17,7 +17,7 @@ import webview
 from .downloader import AurionDownloader
 from .database import AurionDatabase
 
-APP_VERSION = "1.1.9"
+APP_VERSION = "1.2.0"
 GITHUB_REPO = "Manolilloo/Aurion"
 CONFIG_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config.json")
 
@@ -1086,11 +1086,17 @@ class AurionBridge:
 
                 if parse_version_numbers(tag_name) > parse_version_numbers(CURRENT_VERSION):
                     download_url = None
+                    # Priorizar estrictamente el asset .zip para el auto-actualizador
                     for asset in data.get("assets", []):
                         name = asset.get("name", "").lower()
                         if name.endswith(".zip"):
                             download_url = asset.get("browser_download_url")
                             break
+                    if not download_url:
+                        for asset in data.get("assets", []):
+                            if asset.get("name", "").lower().endswith(".exe"):
+                                download_url = asset.get("browser_download_url")
+                                break
 
                     if not download_url:
                         download_url = data.get("zipball_url")
@@ -1164,8 +1170,6 @@ class AurionBridge:
                                 time.sleep(0.25)
                             if proc.returncode == 0 and os.path.exists(zip_path) and os.path.getsize(zip_path) > 1024 * 100:
                                 downloaded_ok = True
-                                if self._window:
-                                    self._window.evaluate_js("window.onUpdateProgress && window.onUpdateProgress(100);")
                         except Exception as aria_err:
                             print(f"[AutoUpdate] Fallback a descarga estándar ({aria_err})")
 
@@ -1185,10 +1189,17 @@ class AurionBridge:
                                 f.write(chunk)
                                 downloaded += len(chunk)
                                 if total_bytes and self._window:
-                                    pct = round((downloaded / total_bytes) * 100, 1)
+                                    pct = min(92, round((downloaded / total_bytes) * 92, 1))
                                     self._window.evaluate_js(f"window.onUpdateProgress && window.onUpdateProgress({pct});")
 
+                    if self._window:
+                        self._window.evaluate_js("window.onUpdateProgress && window.onUpdateProgress(96);")
+
                     shutil.unpack_archive(zip_path, staging_dir)
+
+                    if self._window:
+                        self._window.evaluate_js("window.onUpdateProgress && window.onUpdateProgress(100);")
+                    time.sleep(0.4)
 
                     subdirs = [
                         os.path.join(staging_dir, d)
@@ -1233,6 +1244,10 @@ start "" "{app_exe_path}"
 
         threading.Thread(target=download_and_run, daemon=True).start()
         return True
+
+    def get_engine_running_state(self):
+        """Devuelve True solo si el motor de descargas está ejecutando tareas activamente."""
+        return bool(self.downloader and self.downloader.is_downloading)
 
     def reset_factory_config(self):
         """Limpia la memoria RAM de Python y deja config.json como recién instalado."""

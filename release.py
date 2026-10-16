@@ -43,7 +43,7 @@ def build_pyinstaller_and_zip(version):
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Uso: python release.py <nueva_version> [--build]")
-        print("Ejemplo solo cambiar versión: python release.py 1.1.8")
+        print("Ejemplo solo cambiar versión: python release.py 1.2.0")
         print("Ejemplo cambiar versión + compilar .exe y .zip: python release.py 1.1.8 --build")
         sys.exit(1)
 

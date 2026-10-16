@@ -1,21 +1,21 @@
 {
-  "app_version": "1.1.8",
+  "app_version": "1.2.0",
   "active_mode": "youtube",
   "anime": {
-    "dir": "J:\\ANIME\\animes",
-    "season": 1,
-    "start_ep": 1,
+    "dir": "C:\\Users\\mdema\\Downloads\\animes",
+    "season": 2,
+    "start_ep": 2,
     "save_cover": true,
     "open_folder": true,
     "res": "max",
     "fmt": "mkv",
     "threads": "32",
     "simul": "20",
-    "active_title": "Dark Summoner to Dekiteiru",
-    "active_tags": "EN EMISI\u00d3N \u2022 \u2605 6.7",
-    "active_bg": "url('https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx208025-JKvqWNr8rz8l.jpg')",
-    "accent1": "rgb(246, 206, 232)",
-    "accent2": "rgb(43, 52, 122)"
+    "active_title": "Yasei no Last Boss ga Arawareta! 2nd Season",
+    "active_tags": "EN EMISI\u00d3N \u2022 \u2605 7.3",
+    "active_bg": "url('https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx204389-jCoFCeTthDMy.jpg')",
+    "accent1": "rgb(216, 26, 58)",
+    "accent2": "rgb(252, 0, 209)"
   },
   "movie": {
     "dir": "",
@@ -36,7 +36,7 @@
   "youtube": {
     "dir": "C:\\Users\\mdema\\Downloads\\yt-videos-prueba",
     "format": "video",
-    "res": "min",
+    "res": "max",
     "open_folder": true
   },
   "settings": {
