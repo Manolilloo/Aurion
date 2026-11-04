@@ -120,7 +120,7 @@ def is_trusted_youtube_url(value: str) -> bool:
 
 
 def is_trusted_update_url(value: str) -> bool:
-    """Accept only Aurion release assets or the repository's GitHub source archive."""
+    """Accept only downloadable ZIP assets attached to official Aurion releases."""
     if not isinstance(value, str) or len(value) > 4096:
         return False
     try:
@@ -134,11 +134,7 @@ def is_trusted_update_url(value: str) -> bool:
             return False
         if parsed.hostname == "github.com":
             return parsed.path.startswith("/Manolilloo/Aurion/releases/download/")
-        if parsed.hostname == "api.github.com":
-            return parsed.path.startswith((
-                "/repos/Manolilloo/Aurion/zipball/",
-                "/repos/Manolilloo/Aurion/legacy.zipball/",
-            ))
+        # Los ZIP de código fuente no contienen Aurion.exe y no son instalables.
         return False
     except ValueError:
         return False

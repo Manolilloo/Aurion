@@ -3,7 +3,7 @@ import tempfile
 import unittest
 import zipfile
 
-from core.updates import UnsafeUpdateArchive, safe_extract_zip
+from core.updates import UnsafeUpdateArchive, release_zip_asset_url, safe_extract_zip
 from core.validation import is_trusted_update_url
 
 
@@ -21,12 +21,33 @@ class UpdateSafetyTests(unittest.TestCase):
         self.assertTrue(is_trusted_update_url(
             "https://github.com/Manolilloo/Aurion/releases/download/v1.2.0/Aurion-v1.2.0.zip"
         ))
-        self.assertTrue(is_trusted_update_url(
+        self.assertFalse(is_trusted_update_url(
             "https://api.github.com/repos/Manolilloo/Aurion/zipball/v1.2.0"
         ))
         self.assertFalse(is_trusted_update_url("http://github.com/Manolilloo/Aurion/releases/download/v1.2.0/a.zip"))
         self.assertFalse(is_trusted_update_url("https://evil.example/Aurion.zip"))
         self.assertFalse(is_trusted_update_url("https://github.com/other/repo/releases/download/v1/a.zip"))
+
+    def test_release_uses_only_uploaded_installable_zip_assets(self):
+        release = {
+            "zipball_url": "https://api.github.com/repos/Manolilloo/Aurion/zipball/v1.2.0",
+            "assets": [
+                {"name": "checksums.txt", "browser_download_url": "https://github.com/Manolilloo/Aurion/releases/download/v1/checksums.txt"},
+                {"name": "Aurion-v1.2.0.zip", "browser_download_url": "https://github.com/Manolilloo/Aurion/releases/download/v1.2.0/Aurion-v1.2.0.zip"},
+            ],
+        }
+        self.assertEqual(
+            release_zip_asset_url(release),
+            "https://github.com/Manolilloo/Aurion/releases/download/v1.2.0/Aurion-v1.2.0.zip",
+        )
+
+    def test_release_without_uploaded_zip_has_no_installer_url(self):
+        release = {
+            "zipball_url": "https://api.github.com/repos/Manolilloo/Aurion/zipball/v1.2.0",
+            "assets": [{"name": "checksums.txt", "browser_download_url": "https://github.com/Manolilloo/Aurion/releases/download/v1/checksums.txt"}],
+        }
+        self.assertIsNone(release_zip_asset_url(release))
+        self.assertIsNone(release_zip_asset_url(None))
 
     def test_extracts_a_normal_archive(self):
         with zipfile.ZipFile(self.archive, "w", zipfile.ZIP_DEFLATED) as archive:

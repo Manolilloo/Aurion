@@ -26,7 +26,7 @@ from .validation import (
     is_trusted_update_redirect_url,
     is_trusted_update_url,
 )
-from .updates import safe_extract_zip
+from .updates import release_zip_asset_url, safe_extract_zip
 from .secure_storage import write_protected_file
 
 APP_VERSION = "1.2.0"
@@ -1323,7 +1323,11 @@ class AurionBridge:
                 with urllib.request.urlopen(req, context=ctx, timeout=10) as response:
                     if response.status != 200:
                         return
-                    data = json.loads(response.read().decode("utf-8"))
+                    response_data = self._read_limited_response(response, max_bytes=2 * 1024 * 1024)
+
+                data = json.loads(response_data.decode("utf-8"))
+                if not isinstance(data, dict):
+                    return
 
                 tag_name = data.get("tag_name", "").strip().lstrip("v")
                 if not tag_name:
@@ -1333,23 +1337,21 @@ class AurionBridge:
                     return [int(n) for n in re.findall(r"\d+", v_str)]
 
                 if parse_version_numbers(tag_name) > parse_version_numbers(CURRENT_VERSION):
-                    download_url = None
-                    # Priorizar estrictamente el asset .zip para el auto-actualizador
-                    for asset in data.get("assets", []):
-                        name = asset.get("name", "").lower()
-                        if name.endswith(".zip"):
-                            download_url = asset.get("browser_download_url")
-                            break
-                    if not download_url:
-                        download_url = data.get("zipball_url")
+                    download_url = release_zip_asset_url(data)
+                    if not download_url or not is_trusted_update_url(download_url):
+                        print("[check_for_updates] La release no incluye un ZIP instalable de Aurion.")
+                        return
 
-                    if download_url and is_trusted_update_url(download_url) and self._window:
+                    if self._window:
+                        release_body = data.get("body")
+                        if not isinstance(release_body, str):
+                            release_body = "Nueva versión disponible."
                         payload = {
                             "latest": tag_name,
                             "version": tag_name,
                             "url": download_url,
                             "download_url": download_url,
-                            "body": data.get("body", "Nueva versión disponible.")
+                            "body": release_body[:20000]
                         }
                         self._window.evaluate_js(f"window.onUpdateAvailable && window.onUpdateAvailable({json.dumps(payload)})")
 

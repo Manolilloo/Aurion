@@ -5,6 +5,30 @@ import stat
 import zipfile
 
 
+def release_zip_asset_url(release_data: dict) -> str | None:
+    """Return the first uploaded ZIP asset, never GitHub's source-code archive."""
+    if not isinstance(release_data, dict):
+        return None
+
+    assets = release_data.get("assets")
+    if not isinstance(assets, list):
+        return None
+
+    for asset in assets:
+        if not isinstance(asset, dict):
+            continue
+        name = asset.get("name")
+        url = asset.get("browser_download_url")
+        if (
+            isinstance(name, str)
+            and name.lower().endswith(".zip")
+            and isinstance(url, str)
+            and url.startswith("https://")
+        ):
+            return url
+    return None
+
+
 class UnsafeUpdateArchive(ValueError):
     """Raised when an update archive contains unsafe or excessive entries."""
 
