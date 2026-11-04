@@ -14,7 +14,8 @@
     "webRequest",
     "scripting",
     "storage",
-    "cookies"
+    "cookies",
+    "alarms"
   ],
   "host_permissions": [
     "<all_urls>",

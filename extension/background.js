@@ -301,68 +301,128 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 // ========================================================
 // SINCRONIZACIÓN OPCIONAL DE SESIÓN DE YOUTUBE
 // ========================================================
+const COOKIE_SYNC_ALARM = "aurion-youtube-cookie-sync";
+const COOKIE_SYNC_PERIOD_MINUTES = 3;
+let cookieSyncInProgress = false;
+
+async function postToAurion(path, payload) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
+  try {
+    const response = await fetch(`http://127.0.0.1:6800${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      cache: 'no-store',
+      signal: controller.signal
+    });
+    if (!response.ok) throw new Error(`Aurion respondió con HTTP ${response.status}`);
+    return response;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function syncYoutubeCookiesToAurion() {
+  if (cookieSyncInProgress) return;
+  cookieSyncInProgress = true;
+
   try {
     const prefs = await chrome.storage.local.get(["youtubeCookieSyncEnabled"]);
     if (prefs.youtubeCookieSyncEnabled !== true || !chrome.cookies) return;
+
     const ytCookies = await chrome.cookies.getAll({ domain: 'youtube.com' });
     const googleCookies = await chrome.cookies.getAll({ domain: 'google.com' });
     const allCookies = [...ytCookies, ...googleCookies];
 
-    if (!allCookies || allCookies.length === 0) return;
-
-    let netscapeLines = ['# Netscape HTTP Cookie File', '# Auto-synced by Aurion Extension', ''];
-    for (const c of allCookies) {
-      const domain = c.domain.startsWith('.') ? c.domain : `.${c.domain}`;
-      const flag = 'TRUE';
-      const path = c.path || '/';
-      const secure = c.secure ? 'TRUE' : 'FALSE';
-      const expiry = c.expirationDate ? Math.floor(c.expirationDate) : (Math.floor(Date.now() / 1000) + 86400 * 30);
-      netscapeLines.push(`${domain}\t${flag}\t${path}\t${secure}\t${expiry}\t${c.name}\t${c.value}`);
+    if (allCookies.length === 0) {
+      await clearYoutubeCookiesFromAurion();
+      return;
     }
 
-    const response = await fetch('http://127.0.0.1:6800/api/sync_cookies', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ cookies_netscape: netscapeLines.join('\n') })
+    const netscapeLines = [
+      '# Netscape HTTP Cookie File',
+      '# Auto-synced by Aurion Extension',
+      ''
+    ];
+    for (const cookie of allCookies) {
+      const domain = cookie.domain.startsWith('.') ? cookie.domain : `.${cookie.domain}`;
+      const path = cookie.path || '/';
+      const secure = cookie.secure ? 'TRUE' : 'FALSE';
+      const expiry = cookie.expirationDate
+        ? Math.floor(cookie.expirationDate)
+        : Math.floor(Date.now() / 1000) + 86400 * 30;
+      netscapeLines.push(
+        `${domain}\\tTRUE\\t${path}\\t${secure}\\t${expiry}\\t${cookie.name}\\t${cookie.value}`
+      );
+    }
+
+    await postToAurion('/api/sync_cookies', {
+      cookies_netscape: netscapeLines.join('\\n')
     });
-    if (!response.ok) throw new Error('Aurion rechazó la sincronización de sesión');
   } catch (_) {
-    // Aurion puede estar cerrado; no registrar ni mostrar valores de cookies.
+    // Aurion puede estar cerrado; nunca registrar valores de cookies.
+  } finally {
+    cookieSyncInProgress = false;
   }
 }
 
 async function clearYoutubeCookiesFromAurion() {
   try {
-    await fetch('http://127.0.0.1:6800/api/clear_cookies', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ clear: true })
-    });
+    await postToAurion('/api/clear_cookies', { clear: true });
   } catch (_) {
     // Si Aurion está cerrado, el archivo local no se puede borrar en este momento.
   }
 }
 
+function configureCookieSyncAlarm(enabled) {
+  if (enabled) {
+    chrome.alarms.create(COOKIE_SYNC_ALARM, {
+      periodInMinutes: COOKIE_SYNC_PERIOD_MINUTES
+    });
+  } else {
+    chrome.alarms.clear(COOKIE_SYNC_ALARM);
+  }
+}
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === COOKIE_SYNC_ALARM) {
+    syncYoutubeCookiesToAurion();
+  }
+});
+
+chrome.runtime.onStartup.addListener(async () => {
+  const prefs = await chrome.storage.local.get(["youtubeCookieSyncEnabled"]);
+  configureCookieSyncAlarm(prefs.youtubeCookieSyncEnabled === true);
+});
+
+chrome.runtime.onInstalled.addListener(async () => {
+  const prefs = await chrome.storage.local.get(["youtubeCookieSyncEnabled"]);
+  configureCookieSyncAlarm(prefs.youtubeCookieSyncEnabled === true);
+});
+
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName !== 'local' || !changes.youtubeCookieSyncEnabled) return;
-  if (changes.youtubeCookieSyncEnabled.newValue === true) {
+  const enabled = changes.youtubeCookieSyncEnabled.newValue === true;
+  configureCookieSyncAlarm(enabled);
+  if (enabled) {
     syncYoutubeCookiesToAurion();
   } else {
     clearYoutubeCookiesFromAurion();
   }
 });
 
-// La transferencia de cookies queda desactivada por defecto.
-// Si una versión anterior dejó una cookie local, se elimina mientras la opción siga apagada.
+// Al cargar el service worker, recuperar la preferencia y restaurar la alarma.
 chrome.storage.local.get(["youtubeCookieSyncEnabled"], (prefs) => {
   if (prefs.youtubeCookieSyncEnabled === true) {
+    configureCookieSyncAlarm(true);
     syncYoutubeCookiesToAurion();
   } else {
+    configureCookieSyncAlarm(false);
     clearYoutubeCookiesFromAurion();
   }
 });
-setInterval(syncYoutubeCookiesToAurion, 180000);
+
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (changeInfo.status === 'complete' && tab?.url) {
     syncYoutubeCookiesToAurion();
