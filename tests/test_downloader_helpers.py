@@ -1,6 +1,6 @@
 import unittest
 
-from core.downloader import parse_speed_limit_bytes, parse_time_to_seconds
+from core.downloader import AurionDownloader, parse_speed_limit_bytes, parse_time_to_seconds
 
 
 class DownloaderHelperTests(unittest.TestCase):
@@ -18,6 +18,38 @@ class DownloaderHelperTests(unittest.TestCase):
         self.assertEqual(parse_time_to_seconds("42"), 42)
         self.assertIsNone(parse_time_to_seconds(""))
         self.assertIsNone(parse_time_to_seconds("n/a"))
+
+    def test_limited_response_rejects_private_redirects_and_large_bodies(self):
+        downloader = object.__new__(AurionDownloader)
+
+        class FakeResponse:
+            def __init__(self, url, body):
+                self.url = url
+                self.body = body
+
+            def geturl(self):
+                return self.url
+
+            def read(self, size=-1):
+                return self.body[:size]
+
+        self.assertEqual(
+            downloader._read_limited_response(
+                FakeResponse("https://media.example/video", b"small"),
+                max_bytes=10,
+            ),
+            b"small",
+        )
+        with self.assertRaises(ValueError):
+            downloader._read_limited_response(
+                FakeResponse("http://127.0.0.1/admin", b"bad"),
+                max_bytes=10,
+            )
+        with self.assertRaises(ValueError):
+            downloader._read_limited_response(
+                FakeResponse("https://media.example/large", b"x" * 11),
+                max_bytes=10,
+            )
 
 
 if __name__ == "__main__":
