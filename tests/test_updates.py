@@ -56,6 +56,33 @@ class UpdateSafetyTests(unittest.TestCase):
         with self.assertRaises(UnsafeUpdateArchive):
             safe_extract_zip(self.archive, self.destination, max_uncompressed_bytes=1024)
 
+    def test_rejects_windows_alternate_data_streams(self):
+        with zipfile.ZipFile(self.archive, "w") as archive:
+            archive.writestr("Aurion.exe:payload", b"bad")
+        with self.assertRaises(UnsafeUpdateArchive):
+            safe_extract_zip(self.archive, self.destination)
+
+    def test_rejects_reserved_windows_device_names(self):
+        with zipfile.ZipFile(self.archive, "w") as archive:
+            archive.writestr("_internal/CON.txt", b"bad")
+        with self.assertRaises(UnsafeUpdateArchive):
+            safe_extract_zip(self.archive, self.destination)
+
+    def test_rejects_windows_trailing_dot_or_space(self):
+        with zipfile.ZipFile(self.archive, "w") as archive:
+            archive.writestr("folder./file.txt", b"bad")
+        with self.assertRaises(UnsafeUpdateArchive):
+            safe_extract_zip(self.archive, self.destination)
+
+    def test_rejects_symbolic_link_entries(self):
+        link = zipfile.ZipInfo("link")
+        link.create_system = 3
+        link.external_attr = (0o120777 << 16)
+        with zipfile.ZipFile(self.archive, "w") as archive:
+            archive.writestr(link, "target")
+        with self.assertRaises(UnsafeUpdateArchive):
+            safe_extract_zip(self.archive, self.destination)
+
 
 if __name__ == "__main__":
     unittest.main()
