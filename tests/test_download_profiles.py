@@ -22,6 +22,25 @@ class DownloadProfileTests(unittest.TestCase):
         self.assertFalse(profile.use_aria2)
         self.assertEqual(profile.aria_connections, 0)
 
+    def test_extension_protocol_hint_identifies_extensionless_dash_url(self):
+        profile = build_download_profile(
+            "https://cdn.example/manifest?id=opaque",
+            has_aria2=True,
+            protocol_hint="dash",
+        )
+
+        self.assertEqual(profile.protocol, "dash")
+        self.assertFalse(profile.use_aria2)
+
+    def test_invalid_protocol_hint_falls_back_to_url_detection(self):
+        profile = build_download_profile(
+            "https://cdn.example/video.m3u8?token=abc",
+            has_aria2=True,
+            protocol_hint="unknown",
+        )
+
+        self.assertEqual(profile.protocol, "hls")
+
     def test_dash_is_not_sent_to_aria2(self):
         profile = build_download_profile(
             "https://cdn.example/manifest.mpd?session=abc",
