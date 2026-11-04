@@ -54,6 +54,8 @@ def _detect_protocol(url, is_youtube=False, protocol_hint=None):
         return "hls"
     if re.search(r"\.mpd(?:[?#]|$)", value):
         return "dash"
+    if re.search(r"\.(?:mp4|webm|mkv)(?:[?#]|$)", value):
+        return "http"
     if protocol_hint in {"http", "hls", "dash"}:
         return protocol_hint
     return "http"
