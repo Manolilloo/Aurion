@@ -112,7 +112,7 @@ class AurionHTTPHandler(BaseHTTPRequestHandler):
         origin = self._trusted_request_origin()
         if not origin:
             return
-        if self.path not in {"/api/enqueue", "/api/sync_cookies"}:
+        if self.path not in {"/api/enqueue", "/api/sync_cookies", "/api/clear_cookies"}:
             self._send_json(404, {"status": "error"}, origin)
             return
 
@@ -129,6 +129,21 @@ class AurionHTTPHandler(BaseHTTPRequestHandler):
                 self._send_json(400, {"status": "error", "message": "Transmisión inválida o aplicación no preparada"}, origin)
                 return
             self._send_json(200, {"status": "ok"}, origin)
+            return
+
+        if self.path == "/api/clear_cookies":
+            try:
+                appdata_dir = os.path.join(
+                    os.environ.get("LOCALAPPDATA", os.path.expanduser("~")), "Aurion"
+                )
+                for filename in (".yt_session.dat", ".yt_session.dat.tmp"):
+                    try:
+                        os.remove(os.path.join(appdata_dir, filename))
+                    except FileNotFoundError:
+                        pass
+                self._send_json(200, {"status": "cleared"}, origin)
+            except OSError:
+                self._send_json(500, {"status": "error", "message": "No se pudo borrar la sesión local"}, origin)
             return
 
         raw_cookies = data.get("cookies_netscape", "")
