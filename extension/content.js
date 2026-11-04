@@ -419,6 +419,7 @@ if (window.top !== window) {
             page_title: getCleanMediaTitle(),
             page_url: activeMedia?.pageUrl || window.location.href,
             stream_url: activeMedia?.url || window.location.href,
+            protocol: activeMedia?.protocol || 'http',
             resolution: activeMedia?.resolution || '1080p',
             bytes: activeMedia?.bytes || 0
           };
