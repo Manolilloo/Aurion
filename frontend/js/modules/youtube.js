@@ -924,6 +924,13 @@ window.initYoutubeModule = function () {
           speed: '0 KB/s'
         }));
 
+      if (selectedTasks.length > 500) {
+        if (pStatus) pStatus.innerText = 'Máximo 500 vídeos por lote';
+        if (pSpeed) pSpeed.innerText = `Seleccionados: ${selectedTasks.length}`;
+        if (pBar) pBar.style.width = '0%';
+        return;
+      }
+
       if (typeof window.setYtDownloadState === 'function') window.setYtDownloadState(true);
 
       window.pyCall('start_downloads', {
