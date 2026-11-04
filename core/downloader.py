@@ -213,15 +213,21 @@ class AurionDownloader:
         req = urllib.request.Request(api_url, data=payload, headers={'Content-Type': 'application/json', 'User-Agent': 'Mozilla/5.0'})
 
         with urllib.request.urlopen(req, context=ctx, timeout=10) as resp:
-            res_data = json.loads(resp.read().decode('utf-8'))
+            api_response_url = resp.geturl()
+            if not api_response_url.startswith("https://g.api.mega.co.nz/"):
+                raise ValueError("La API de MEGA redirigió a un host inesperado.")
+            api_response = self._read_limited_response(resp, max_bytes=4 * 1024 * 1024)
+            res_data = json.loads(api_response.decode("utf-8"))
 
         if not isinstance(res_data, list) or not res_data or isinstance(res_data[0], int):
             return False
 
         dl_url = res_data[0].get('g')
         total_bytes = int(res_data[0].get('s', 0))
-        if not dl_url or total_bytes <= 0:
+        if not is_http_url(dl_url) or total_bytes <= 0:
             return False
+        if total_bytes > 100 * 1024 * 1024 * 1024:
+            raise ValueError("El archivo de MEGA supera el límite de 100 GB.")
 
         if self.bridge and self.bridge._window:
             self.bridge._window.evaluate_js(f"window.updateRealSizeOnly && window.updateRealSizeOnly('{task_id}', {total_bytes});")
@@ -264,13 +270,23 @@ class AurionDownloader:
                 downloaded += len(chunk)
                 elapsed = max(0.05, time.time() - start_t)
                 speed_mb = round((downloaded / (1024 * 1024)) / elapsed, 2)
-                pct = round((downloaded / total_bytes) * 100, 1)
+                pct = round(min(100.0, (downloaded / total_bytes) * 100), 1)
                 if self.bridge and self.bridge._window:
                     self.bridge._window.evaluate_js(
                         f"window.updateDownloadProgress && window.updateDownloadProgress('{task_id}', {pct}, '{speed_mb} MB/s', 'Descargando MEGA ({pct}%)');"
                     )
 
         return os.path.exists(output_file) and os.path.getsize(output_file) > 1024 * 1024
+
+    def _read_limited_response(self, response, max_bytes=5 * 1024 * 1024):
+        """Read a bounded HTTP response and reject redirects to non-public URL schemes/hosts."""
+        final_url = response.geturl() if hasattr(response, "geturl") else ""
+        if final_url and not is_http_url(final_url):
+            raise ValueError("El servidor redirigió a una URL no permitida.")
+        data = response.read(max_bytes + 1)
+        if len(data) > max_bytes:
+            raise ValueError("La respuesta del servidor supera el tamaño máximo permitido.")
+        return data
 
     # =========================================================================
     # DESEMPAQUETADOR RÁPIDO PARA EMBEDS DE STREAMTAPE, MIXDROP, VOE Y WISH
@@ -289,7 +305,7 @@ class AurionDownloader:
             if "streamtape" in u_low and ("/e/" in u_low or "/v/" in u_low):
                 req = urllib.request.Request(url, headers=headers)
                 with urllib.request.urlopen(req, context=ctx, timeout=6) as resp:
-                    html = resp.read().decode('utf-8', errors='ignore')
+                    html = self._read_limited_response(resp).decode("utf-8", errors="ignore")
                 # Buscar construcción de robotlink en JS de Streamtape
                 m_bot = re.search(r"document\.getElementById\(['\"]robotlink['\"]\)\.innerHTML\s*=\s*['\"]([^'\"]+)['\"]\s*\+\s*\(['\"]([^'\"]+)['\"]\)\.substring\((\d+)\)", html)
                 if m_bot:
@@ -304,14 +320,14 @@ class AurionDownloader:
                 if not any(u_low.split('?')[0].endswith(ext) for ext in ['.mp4', '.m3u8', '.mkv']):
                     req = urllib.request.Request(url, headers=headers)
                     with urllib.request.urlopen(req, context=ctx, timeout=6) as resp:
-                        html = resp.read().decode('utf-8', errors='ignore')
+                        html = self._read_limited_response(resp).decode("utf-8", errors="ignore")
 
                     # Seguir redirección JS típica de VOE (window.location.href = 'https://...')
                     js_redir = re.search(r"window\.location\.href\s*=\s*['\"](https?://[^'\"]+)['\"]", html)
-                    if js_redir:
+                    if js_redir and is_http_url(js_redir.group(1)):
                         redir_req = urllib.request.Request(js_redir.group(1), headers=headers)
                         with urllib.request.urlopen(redir_req, context=ctx, timeout=6) as resp2:
-                            html = resp2.read().decode('utf-8', errors='ignore')
+                            html = self._read_limited_response(resp2).decode("utf-8", errors="ignore")
 
                     # Desempaquetar eval(function(p,a,c,k,e,d)) típico de MixDrop y Streamwish
                     packed = re.search(r"eval\(function\(p,a,c,k,e,[dr]\)\{.*?\}\('(.*?)',(\d+),(\d+),'(.*?)'\.split\('\|'\)", html, re.DOTALL)
