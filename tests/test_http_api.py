@@ -121,6 +121,40 @@ class HttpApiTests(unittest.TestCase):
             self.assertFalse(os.path.exists(cookie_file))
             self.assertFalse(os.path.exists(os.path.join(local_app_data, "Aurion", ".yt_session.dat")))
 
+    def test_cookie_endpoints_reject_webpage_origins(self):
+        page_origin = "https://www3.animeflv.net"
+        with tempfile.TemporaryDirectory() as local_app_data, patch.dict(
+            os.environ, {"LOCALAPPDATA": local_app_data}
+        ):
+            app_dir = os.path.join(local_app_data, "Aurion")
+            os.makedirs(app_dir, exist_ok=True)
+            cookie_file = os.path.join(app_dir, ".yt_session.dpapi")
+            with open(cookie_file, "wb") as stream:
+                stream.write(b"existing protected session")
+
+            cookie_text = (
+                "# Netscape HTTP Cookie File\\n"
+                ".youtube.com\\tTRUE\\t/\\tTRUE\\t2000000000\\tPREF\\tattacker\\n"
+            )
+            status, _ = self.request(
+                "POST",
+                "/api/sync_cookies",
+                {"cookies_netscape": cookie_text},
+                origin=page_origin,
+            )
+            self.assertEqual(status, 403)
+            with open(cookie_file, "rb") as stream:
+                self.assertEqual(stream.read(), b"existing protected session")
+
+            status, _ = self.request(
+                "POST",
+                "/api/clear_cookies",
+                {"clear": True},
+                origin=page_origin,
+            )
+            self.assertEqual(status, 403)
+            self.assertTrue(os.path.isfile(cookie_file))
+
     def test_invalid_cookie_export_is_rejected(self):
         status, _ = self.request(
             "POST",

@@ -57,10 +57,17 @@ function resolveServerName(url) {
   return 'DIRECT MP4';
 }
 
+importScripts("response_limits.js");
+
 async function inspectManifest(url, refererUrl = '') {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 3000);
+
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 3000);
+    const parsedUrl = new URL(url);
+    if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+      return { res: 'Auto', bytes: 0 };
+    }
 
     const headers = { 'Accept': '*/*' };
     if (refererUrl) {
@@ -73,30 +80,41 @@ async function inspectManifest(url, refererUrl = '') {
 
     const resp = await fetch(url, {
       method: 'GET',
-      headers: headers,
-      signal: controller.signal
+      headers,
+      signal: controller.signal,
+      redirect: 'follow'
     });
-    clearTimeout(timeout);
 
-    if (!resp.ok) return { res: 'Auto', bytes: 0 };
-    const text = await resp.text();
+    if (!resp.ok) {
+      try { await resp.body?.cancel(); } catch (_) {}
+      return { res: 'Auto', bytes: 0 };
+    }
+
+    const finalUrl = new URL(resp.url || url);
+    if (!['http:', 'https:'].includes(finalUrl.protocol)) {
+      try { await resp.body?.cancel(); } catch (_) {}
+      return { res: 'Auto', bytes: 0 };
+    }
+
+    // El timeout permanece activo durante toda la lectura y el cuerpo tiene un límite estricto.
+    const text = await readBoundedResponseText(resp, 2 * 1024 * 1024);
 
     let bestHeight = 0;
-    const resMatches = [...text.matchAll(/RESOLUTION=\d+x(\d+)/gi)];
+    const resMatches = [...text.matchAll(/RESOLUTION=\\d+x(\\d+)/gi)];
     for (const m of resMatches) {
       const h = parseInt(m[1], 10);
       if (h > bestHeight) bestHeight = h;
     }
 
     let bestBw = 0;
-    const bwMatches = [...text.matchAll(/BANDWIDTH=(\d+)/gi)];
+    const bwMatches = [...text.matchAll(/BANDWIDTH=(\\d+)/gi)];
     for (const b of bwMatches) {
       const val = parseInt(b[1], 10);
       if (val > bestBw) bestBw = val;
     }
 
     let totalSec = 0;
-    const durMatches = [...text.matchAll(/#EXTINF:([\d\.]+)/gi)];
+    const durMatches = [...text.matchAll(/#EXTINF:([\\d\\.]+)/gi)];
     durMatches.forEach(d => { totalSec += parseFloat(d[1]); });
 
     let bytes = 0;
@@ -111,10 +129,12 @@ async function inspectManifest(url, refererUrl = '') {
 
     return {
       res: bestHeight > 0 ? `${bestHeight}p` : 'Auto',
-      bytes: bytes
+      bytes
     };
   } catch (_) {
     return { res: 'Auto', bytes: 0 };
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
@@ -145,11 +165,20 @@ async function registerDetectedStream(tabId, frameId, rawUrl, initiator = '', kn
     if (mProbe.res !== 'Auto') probe.res = mProbe.res;
     if (mProbe.bytes > 0) probe.bytes = mProbe.bytes;
   } else if (probe.bytes === 0) {
-    try {
-      const headResp = await fetch(effectiveUrl, { method: 'HEAD' });
-      const cl = headResp.headers.get('content-length');
-      if (cl && parseInt(cl, 10) > 0) probe.bytes = parseInt(cl, 10);
-    } catch (_) {}
+      const headController = new AbortController();
+      const headTimeout = setTimeout(() => headController.abort(), 3000);
+      try {
+        const headResp = await fetch(effectiveUrl, {
+          method: 'HEAD',
+          signal: headController.signal,
+          redirect: 'follow'
+        });
+        const cl = headResp.headers.get('content-length');
+        if (cl && parseInt(cl, 10) > 0) probe.bytes = parseInt(cl, 10);
+      } catch (_) {
+      } finally {
+        clearTimeout(headTimeout);
+      }
   }
 
   if (probe.res === 'Auto') {

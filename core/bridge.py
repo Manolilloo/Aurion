@@ -20,6 +20,7 @@ from .validation import (
     is_allowed_local_api_origin,
     is_http_url,
     is_safe_task_id,
+    is_trusted_extension_origin,
     sanitize_path_component,
     is_trusted_youtube_url,
     is_trusted_update_redirect_url,
@@ -117,6 +118,12 @@ class AurionHTTPHandler(BaseHTTPRequestHandler):
             return
         if self.path not in {"/api/enqueue", "/api/sync_cookies", "/api/clear_cookies"}:
             self._send_json(404, {"status": "error"}, origin)
+            return
+
+        # La sincronización de cookies solo debe proceder de la extensión.
+        # Las páginas de los portales multimedia únicamente necesitan /api/enqueue.
+        if self.path in {"/api/sync_cookies", "/api/clear_cookies"} and not is_trusted_extension_origin(origin):
+            self._send_json(403, {"status": "error", "message": "Operación reservada a la extensión"}, origin)
             return
 
         data = self._read_json_body(origin)

@@ -188,6 +188,34 @@ class AurionDownloader:
             self.cancelled_tasks.add(task_id)
         print(f"[Core] Cancelando tarea: {task_id}")
 
+    def _skip_existing_output(self, task_id, file_path, conflict_policy):
+        """Preserva cualquier archivo existente cuando la política es omitir."""
+        if conflict_policy != "skip" or not os.path.isfile(file_path):
+            return False
+
+        try:
+            existing_size = os.path.getsize(file_path)
+        except OSError:
+            return False
+
+        bridge = getattr(self, "bridge", None)
+        window = getattr(bridge, "_window", None)
+        if window:
+            task_literal = json.dumps(task_id)
+            try:
+                window.evaluate_js(
+                    "window.updateRealSizeOnly && window.updateRealSizeOnly("
+                    f"{task_literal}, {existing_size});"
+                )
+                window.evaluate_js(
+                    "window.updateDownloadProgress && window.updateDownloadProgress("
+                    f"{task_literal}, 100, 'Omitido', 'Completado');"
+                )
+            except Exception as exc:
+                print(f"[Core] No se pudo actualizar la interfaz para la tarea omitida: {exc}")
+
+        return True
+
     # =========================================================================
     # MOTOR NATIVO DE DESENCRIPTACIÓN Y DESCARGA PARA MEGA.NZ (AES-128-CTR)
     # =========================================================================
@@ -840,6 +868,8 @@ class AurionDownloader:
         speed_limit_str = str(config.get("speed_limit", "0")).strip()
         rate_limit_bytes = parse_speed_limit_bytes(speed_limit_str)
         file_conflict_policy = str(config.get("file_conflict", "rename")).strip().lower()
+        if file_conflict_policy not in {"rename", "skip", "overwrite"}:
+            file_conflict_policy = "rename"
         try:
             configured_aria_conns = int(config.get("aria_connections", 16))
         except (TypeError, ValueError):
@@ -917,15 +947,7 @@ class AurionDownloader:
                 clean_file_title = f"{clean_anime_base} - S{final_s:02d}E{ep_num:02d}"
 
         expected_final_path = os.path.join(dest_folder, f"{clean_file_title}.{fmt_choice}")
-        if file_conflict_policy == "skip" and os.path.exists(expected_final_path) and os.path.getsize(expected_final_path) > 100 * 1024:
-            existing_size = os.path.getsize(expected_final_path)
-            if self.bridge and self.bridge._window:
-                self.bridge._window.evaluate_js(
-                    f"window.updateRealSizeOnly && window.updateRealSizeOnly('{task_id}', {existing_size});"
-                )
-                self.bridge._window.evaluate_js(
-                    f"window.updateDownloadProgress && window.updateDownloadProgress('{task_id}', 100, 'Omitido', 'Completado');"
-                )
+        if self._skip_existing_output(task_id, expected_final_path, file_conflict_policy):
             return True
 
         task_temp_dir = os.path.join(dest_folder, f".tmp_{task_id}")
@@ -1304,7 +1326,15 @@ class AurionDownloader:
 
                 if os.path.exists(final_file_path):
                     if file_conflict_policy == "skip":
-                        os.remove(source_temp)
+                        if self._skip_existing_output(task_id, final_file_path, file_conflict_policy):
+                            try:
+                                os.remove(source_temp)
+                            except OSError:
+                                pass
+                            return True
+                        raise FileExistsError(
+                            f"Ya existe una ruta de destino que no es un archivo: {final_file_path}"
+                        )
                     elif file_conflict_policy == "rename":
                         base_root, ext_part = os.path.splitext(final_file_path)
                         counter = 1
