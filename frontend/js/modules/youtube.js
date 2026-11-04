@@ -1162,6 +1162,7 @@ window.initYoutubeModule = function () {
   const playlistFilterInput = document.getElementById('yt-playlist-filter-input');
 
   let currentPlaylistData = null;
+  let playlistRequestId = 0;
   let selectedPlaylistVideos = new Set();
 
   function parseDurationToSeconds(durStr) {
@@ -1195,10 +1196,20 @@ window.initYoutubeModule = function () {
     if (ytPlaylistLoading) ytPlaylistLoading.style.display = 'flex';
     if (ytPlaylistContent) ytPlaylistContent.style.display = 'none';
 
-    const data = await window.pyCall('get_playlist_details', playlistUrl);
+    const requestId = ++playlistRequestId;
+    let data = null;
+    try {
+      data = await window.pyCall('get_playlist_details', playlistUrl);
+    } catch (error) {
+      if (requestId === playlistRequestId) {
+        console.warn('[YouTube Playlist] No se pudo cargar la colección:', error);
+      }
+    }
+
+    if (requestId !== playlistRequestId) return;
     if (ytPlaylistLoading) ytPlaylistLoading.style.display = 'none';
 
-    if (!data || !data.videos || data.videos.length === 0) {
+    if (!data || !Array.isArray(data.videos) || data.videos.length === 0) {
       btnPlaylistBack?.click();
       return;
     }
@@ -1355,6 +1366,8 @@ window.initYoutubeModule = function () {
   });
 
   btnPlaylistBack?.addEventListener('click', () => {
+    playlistRequestId += 1;
+    if (ytPlaylistLoading) ytPlaylistLoading.style.display = 'none';
     if (typeof window.playSynth === 'function') window.playSynth('click');
     if (ytPlaylistView) ytPlaylistView.style.display = 'none';
     if (ytHeroWrapper) {
