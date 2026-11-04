@@ -504,6 +504,26 @@ window.SettingsModule = (function() {
       }
     });
 
+    // Abrir el registro técnico de descargas
+    const btnOpenDiagnostics = document.getElementById('btn-open-download-diagnostics');
+    const txtOpenDiagnostics = document.getElementById('txt-open-download-diagnostics');
+    btnOpenDiagnostics?.addEventListener('click', async () => {
+      if (typeof window.playSynth === 'function') window.playSynth('click');
+      if (txtOpenDiagnostics) txtOpenDiagnostics.textContent = 'Abriendo registro...';
+
+      let opened = false;
+      if (window.pyCall) {
+        opened = await window.pyCall('open_download_diagnostics');
+      }
+
+      if (txtOpenDiagnostics) {
+        txtOpenDiagnostics.textContent = opened ? 'Registro abierto' : 'No se pudo abrir';
+        setTimeout(() => {
+          txtOpenDiagnostics.textContent = '📊 Abrir registro';
+        }, 2200);
+      }
+    });
+
     // Diálogo propio de reseteo de fábrica
     const confirmOverlay = document.getElementById('settings-confirm-dialog');
     const btnOpenReset = document.getElementById('btn-reset-factory');
