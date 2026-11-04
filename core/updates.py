@@ -62,9 +62,10 @@ def safe_extract_zip(
             seen_paths.add(normalized_key)
 
             unix_mode = (info.external_attr >> 16) & 0xFFFF
-            if stat.S_ISLNK(unix_mode):
+            file_type = stat.S_IFMT(unix_mode)
+            if file_type == stat.S_IFLNK:
                 raise UnsafeUpdateArchive("No se permiten enlaces simbólicos en actualizaciones")
-            if unix_mode and not (stat.S_ISREG(unix_mode) or stat.S_ISDIR(unix_mode)):
+            if file_type not in {0, stat.S_IFREG, stat.S_IFDIR}:
                 raise UnsafeUpdateArchive("El archivo contiene un tipo de elemento no permitido")
 
             checked.append((info, target_path))
