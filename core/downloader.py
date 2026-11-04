@@ -104,6 +104,7 @@ class AurionDownloader:
         self.queue = []
         self.is_downloading = False
         self.cancelled_tasks = set()
+        self.active_task_ids = set()
         self.active_temp_dirs = set()
         self.lock = threading.Lock()
 
@@ -124,17 +125,20 @@ class AurionDownloader:
         return os.path.join(os.path.expanduser("~"), "Videos", "Aurion")
 
     def _cleanup_on_exit(self):
-        with self.lock:
-            dirs_to_clean = list(self.active_temp_dirs)
-        for d in dirs_to_clean:
-            self._force_remove_temp_dir(d)
+        self.cleanup_all_temp()
 
     def cleanup_all_temp(self):
+        """Cancela el lote activo y evita borrar temporales que aún estén en uso."""
         with self.lock:
+            if self.is_downloading:
+                self.cancelled_tasks.update(getattr(self, "active_task_ids", set()))
+                return False
             dirs = list(self.active_temp_dirs)
             self.active_temp_dirs.clear()
-        for d in dirs:
-            self._force_remove_temp_dir(d)
+
+        for directory in dirs:
+            self._force_remove_temp_dir(directory)
+        return True
 
     def _force_remove_temp_dir(self, target_path):
         if not target_path or not os.path.exists(target_path):
@@ -720,6 +724,7 @@ class AurionDownloader:
                 return False
             self.is_downloading = True
             self.cancelled_tasks.clear()
+            self.active_task_ids = set(seen_ids)
 
         worker = threading.Thread(
             target=self._orchestrate_downloads,
@@ -733,6 +738,7 @@ class AurionDownloader:
         except RuntimeError as exc:
             with self.lock:
                 self.is_downloading = False
+                self.active_task_ids.clear()
                 self.cancelled_tasks.clear()
             print(f"[Core] No se pudo iniciar el motor de descargas: {exc}")
             return False
@@ -794,6 +800,7 @@ class AurionDownloader:
         finally:
             with self.lock:
                 self.is_downloading = False
+                self.active_task_ids.clear()
                 self.cancelled_tasks.clear()
 
 
@@ -1465,6 +1472,7 @@ class AurionDownloader:
             self._force_remove_temp_dir(task_temp_dir)
             with self.lock:
                 self.cancelled_tasks.discard(task_id)
+                getattr(self, "active_task_ids", set()).discard(task_id)
             progress_attr = f"_p_{task_id}"
             if hasattr(self, progress_attr):
                 try:

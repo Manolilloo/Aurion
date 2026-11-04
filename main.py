@@ -96,7 +96,7 @@ def main():
     try:
         dl = getattr(bridge, 'downloader', None) or getattr(bridge, '_downloader', None)
         if dl:
-            dl.cleanup_all_temp()
+            dl.cleanup_all_temp()  # Cancela el lote activo y difiere la limpieza de sus temporales
     except Exception:
         pass
 
