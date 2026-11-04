@@ -48,7 +48,7 @@ const modeStates = window.modeStates = {
     openFolder: true,
     fmt: 'mkv',
     threads: '16',
-    simul: '8'
+    simul: '8',
     bg: '',
     title: 'Esperando consulta...',
     tags: 'SISTEMA LISTO',
@@ -67,7 +67,7 @@ const modeStates = window.modeStates = {
     openFolder: true,
     fmt: 'mkv',
     threads: '16',
-    simul: '4'
+    simul: '4',
     bg: '',
     title: 'Esperando consulta...',
     tags: 'SISTEMA LISTO',
