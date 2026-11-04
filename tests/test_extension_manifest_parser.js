@@ -17,6 +17,7 @@ test("HLS parser extracts resolution and estimates media size", () => {
   ].join("\n");
 
   const result = parseHlsManifest(manifest);
+  assert.equal(result.protocol, "hls");
   assert.equal(result.res, "1080p");
   assert.equal(result.bytes, 6250000);
 });
@@ -32,6 +33,7 @@ test("DASH parser extracts the highest representation and duration", () => {
   </MPD>`;
 
   const result = parseDashManifest(manifest);
+  assert.equal(result.protocol, "dash");
   assert.equal(result.res, "1080p");
   assert.equal(result.bytes, 75000000);
 });
@@ -48,6 +50,7 @@ test("manifest parser selects DASH from its URL even with a query string", () =>
     '<MPD mediaPresentationDuration="PT10S"><Representation bandwidth="800000" height="480" /></MPD>'
   );
 
+  assert.equal(result.protocol, "dash");
   assert.equal(result.res, "480p");
   assert.equal(result.bytes, 1000000);
 });
