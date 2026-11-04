@@ -10,12 +10,13 @@ import urllib.request
 import urllib.parse
 import tempfile
 import subprocess
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from PIL import Image
 import io
 import webview
 from .downloader import AurionDownloader
 from .database import AurionDatabase
+from .validation import is_http_url, is_trusted_extension_origin
 
 APP_VERSION = "1.2.0"
 GITHUB_REPO = "Manolilloo/Aurion"
@@ -23,67 +24,138 @@ CONFIG_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__fil
 
 
 class AurionHTTPHandler(BaseHTTPRequestHandler):
-    """Receptor HTTP para capturas de la extensión del navegador"""
+    """API local para la extensión Chromium, limitada a peticiones de la extensión."""
+
+    MAX_BODY_BYTES = 512 * 1024
+    ALLOWED_HOSTS = {"127.0.0.1:6800", "localhost:6800"}
+
     def log_message(self, format, *args):
-        pass  # Silenciar logs ruidosos en consola
+        pass
+
+    def _send_json(self, status, payload, allow_origin=None):
+        body = json.dumps(payload).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        if allow_origin:
+            self.send_header("Access-Control-Allow-Origin", allow_origin)
+            self.send_header("Vary", "Origin")
+        self.end_headers()
+        try:
+            self.wfile.write(body)
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+
+    def _trusted_request_origin(self):
+        origin = self.headers.get("Origin", "")
+        host = self.headers.get("Host", "").lower()
+        if not is_trusted_extension_origin(origin):
+            self._send_json(403, {"status": "error", "message": "Origen no autorizado"})
+            return None
+        if host not in self.ALLOWED_HOSTS:
+            self._send_json(403, {"status": "error", "message": "Host no autorizado"}, origin)
+            return None
+        return origin
 
     def do_OPTIONS(self):
-        self.send_response(200)
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'POST, GET, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        origin = self._trusted_request_origin()
+        if not origin:
+            return
+        self.send_response(204)
+        self.send_header("Access-Control-Allow-Origin", origin)
+        self.send_header("Access-Control-Allow-Methods", "POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Access-Control-Max-Age", "600")
+        self.send_header("Vary", "Origin")
+        self.send_header("Content-Length", "0")
         self.end_headers()
 
-    def do_POST(self):
-        content_length = int(self.headers.get('Content-Length', 0))
+    def _read_json_body(self, origin):
+        if self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower() != "application/json":
+            self._send_json(415, {"status": "error", "message": "Se requiere application/json"}, origin)
+            return None
+        try:
+            content_length = int(self.headers.get("Content-Length", "0"))
+        except (TypeError, ValueError):
+            self._send_json(400, {"status": "error", "message": "Content-Length inválido"}, origin)
+            return None
+        if content_length <= 0:
+            self._send_json(400, {"status": "error", "message": "Cuerpo vacío"}, origin)
+            return None
+        if content_length > self.MAX_BODY_BYTES:
+            self._send_json(413, {"status": "error", "message": "Solicitud demasiado grande"}, origin)
+            return None
         body = self.rfile.read(content_length)
-        if self.path == '/api/enqueue':
-            try:
-                data = json.loads(body.decode('utf-8'))
-                if hasattr(self.server, 'bridge_instance'):
-                    self.server.bridge_instance.on_extension_link(data)
+        if len(body) != content_length:
+            self._send_json(400, {"status": "error", "message": "Cuerpo incompleto"}, origin)
+            return None
+        try:
+            payload = json.loads(body.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            self._send_json(400, {"status": "error", "message": "JSON inválido"}, origin)
+            return None
+        return payload
 
-                self.send_response(200)
-                self.send_header('Content-Type', 'application/json')
-                self.send_header('Access-Control-Allow-Origin', '*')
-                self.end_headers()
-                self.wfile.write(json.dumps({"status": "ok"}).encode('utf-8'))
-            except Exception:
-                self.send_response(400)
-                self.end_headers()
-        elif self.path == '/api/sync_cookies':
-            try:
-                data = json.loads(body.decode('utf-8'))
-                raw_cookies = data.get("cookies_netscape", "")
-                if raw_cookies and "# Netscape HTTP Cookie File" in raw_cookies:
-                    appdata_dir = os.path.join(os.environ.get('LOCALAPPDATA', os.path.expanduser('~')), 'Aurion')
-                    os.makedirs(appdata_dir, exist_ok=True)
-                    cookie_file = os.path.join(appdata_dir, '.yt_session.dat')
-                    with open(cookie_file, 'w', encoding='utf-8') as f:
-                        f.write(raw_cookies)
-                    if sys.platform == 'win32':
-                        try:
-                            import ctypes
-                            ctypes.windll.kernel32.SetFileAttributesW(str(cookie_file), 2)  # Atributo oculto en Windows
-                        except Exception:
-                            pass
-                self.send_response(200)
-                self.send_header('Content-Type', 'application/json')
-                self.send_header('Access-Control-Allow-Origin', '*')
-                self.end_headers()
-                self.wfile.write(json.dumps({"status": "synced"}).encode('utf-8'))
-            except Exception:
-                self.send_response(400)
-                self.end_headers()
-        else:
-            self.send_response(404)
-            self.end_headers()
+    def do_POST(self):
+        origin = self._trusted_request_origin()
+        if not origin:
+            return
+        if self.path not in {"/api/enqueue", "/api/sync_cookies"}:
+            self._send_json(404, {"status": "error"}, origin)
+            return
+
+        data = self._read_json_body(origin)
+        if data is None:
+            return
+        if not isinstance(data, dict):
+            self._send_json(400, {"status": "error", "message": "Se esperaba un objeto JSON"}, origin)
+            return
+
+        if self.path == "/api/enqueue":
+            bridge = getattr(self.server, "bridge_instance", None)
+            if not bridge or not bridge.on_extension_link(data):
+                self._send_json(400, {"status": "error", "message": "Transmisión inválida o aplicación no preparada"}, origin)
+                return
+            self._send_json(200, {"status": "ok"}, origin)
+            return
+
+        raw_cookies = data.get("cookies_netscape", "")
+        if (
+            not isinstance(raw_cookies, str)
+            or len(raw_cookies.encode("utf-8")) > self.MAX_BODY_BYTES - 1024
+            or not raw_cookies.startswith("# Netscape HTTP Cookie File")
+        ):
+            self._send_json(400, {"status": "error", "message": "Archivo de cookies inválido"}, origin)
+            return
+
+        try:
+            appdata_dir = os.path.join(
+                os.environ.get("LOCALAPPDATA", os.path.expanduser("~")), "Aurion"
+            )
+            os.makedirs(appdata_dir, exist_ok=True)
+            cookie_file = os.path.join(appdata_dir, ".yt_session.dat")
+            temp_cookie_file = cookie_file + ".tmp"
+            with open(temp_cookie_file, "w", encoding="utf-8", newline="\n") as cookie_stream:
+                cookie_stream.write(raw_cookies)
+            os.replace(temp_cookie_file, cookie_file)
+            if sys.platform == "win32":
+                try:
+                    import ctypes
+                    ctypes.windll.kernel32.SetFileAttributesW(str(cookie_file), 2)
+                except OSError:
+                    pass
+            self._send_json(200, {"status": "synced"}, origin)
+        except OSError:
+            self._send_json(500, {"status": "error", "message": "No se pudieron guardar las cookies"}, origin)
 
 
 class AurionBridge:
     def __init__(self):
+        self._config_lock = threading.RLock()
         self.config = self.load_config()
         self._window = None
+        self._httpd = None
         self._is_maximized = False
         self.db = AurionDatabase()
         self.downloader = AurionDownloader(self)
@@ -93,37 +165,79 @@ class AurionBridge:
         self._window = window
 
     def start_internal_server(self):
-        """Inicia un servidor local en el puerto 6800 para recibir enlaces"""
+        """Inicia la API local, enlazada exclusivamente a loopback."""
         def run_server():
-            server_address = ('127.0.0.1', 6800)
+            httpd = None
             try:
-                httpd = HTTPServer(server_address, AurionHTTPHandler)
+                httpd = ThreadingHTTPServer(("127.0.0.1", 6800), AurionHTTPHandler)
+                httpd.daemon_threads = True
                 httpd.bridge_instance = self
+                self._httpd = httpd
                 print("[Core] Servidor receptor Aurion escuchando en http://127.0.0.1:6800")
-                httpd.serve_forever()
-            except Exception as e:
-                print(f"[Core] Error al iniciar servidor local en 6800: {e}")
+                httpd.serve_forever(poll_interval=0.5)
+            except OSError as exc:
+                print(f"[Core] No se pudo iniciar el servidor local en 6800: {exc}")
+            finally:
+                if httpd:
+                    httpd.server_close()
+                self._httpd = None
 
-        t = threading.Thread(target=run_server, daemon=True)
-        t.start()
+        threading.Thread(target=run_server, name="Aurion-HTTP", daemon=True).start()
+
 
     def on_extension_link(self, data):
-        """Envía el enlace capturado desde la extensión al frontend de la app"""
+        """Valida y envía una transmisión de la extensión al frontend."""
         if not isinstance(data, dict):
-            return
+            return False
 
-        page_title = str(data.get("page_title") or "").strip()
-        active_anime = self.config.get("anime", {}).get("active_title", "").strip()
+        stream_url = data.get("stream_url") or data.get("page_url")
+        page_url = data.get("page_url") or stream_url
+        if not is_http_url(stream_url) or not is_http_url(page_url):
+            return False
 
-        # Si el título recibido es un hash alfanumérico sin sentido (ej. 'wl2bdbhqi7s')
-        # y ya tenemos un anime fijado en Aurion, usamos el título del anime activo
-        is_suspicious_hash = bool(re.match(r'^[a-zA-Z0-9_\-]{6,25}$', page_title))
+        page_title = data.get("page_title")
+        if not isinstance(page_title, str):
+            page_title = ""
+        page_title = page_title.strip()[:500]
+
+        try:
+            active_anime = self.config.get("anime", {}).get("active_title", "")
+        except (AttributeError, TypeError):
+            active_anime = ""
+        if not isinstance(active_anime, str):
+            active_anime = ""
+        is_suspicious_hash = bool(re.fullmatch(r"[a-zA-Z0-9_-]{6,25}", page_title))
         if (not page_title or is_suspicious_hash) and active_anime:
-            data["page_title"] = active_anime
+            page_title = active_anime[:500]
 
-        if self._window:
-            safe_data = json.dumps(data)
-            self._window.evaluate_js(f"window.onLinkReceived && window.onLinkReceived({safe_data});")
+        resolution = data.get("resolution", "Auto")
+        if not isinstance(resolution, str):
+            resolution = "Auto"
+        resolution = resolution[:30]
+
+        try:
+            size_bytes = max(0, min(int(data.get("bytes") or 0), 2**63 - 1))
+        except (TypeError, ValueError, OverflowError):
+            size_bytes = 0
+
+        safe_data = {
+            "page_title": page_title,
+            "page_url": page_url,
+            "stream_url": stream_url,
+            "resolution": resolution,
+            "bytes": size_bytes,
+        }
+        if not self._window:
+            return False
+        try:
+            self._window.evaluate_js(
+                f"window.onLinkReceived && window.onLinkReceived({json.dumps(safe_data)});"
+            )
+            return True
+        except Exception as exc:
+            print(f"[Core] No se pudo entregar el enlace al frontend: {exc}")
+            return False
+
 
     def _get_default_config(self):
         return {
