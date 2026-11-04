@@ -16,7 +16,14 @@ import io
 import webview
 from .downloader import AurionDownloader
 from .database import AurionDatabase
-from .validation import is_allowed_local_api_origin, is_http_url, is_safe_task_id
+from .validation import (
+    is_allowed_local_api_origin,
+    is_http_url,
+    is_safe_task_id,
+    is_trusted_update_redirect_url,
+    is_trusted_update_url,
+)
+from .updates import safe_extract_zip
 
 APP_VERSION = "1.2.0"
 GITHUB_REPO = "Manolilloo/Aurion"
@@ -1238,15 +1245,9 @@ class AurionBridge:
                             download_url = asset.get("browser_download_url")
                             break
                     if not download_url:
-                        for asset in data.get("assets", []):
-                            if asset.get("name", "").lower().endswith(".exe"):
-                                download_url = asset.get("browser_download_url")
-                                break
-
-                    if not download_url:
                         download_url = data.get("zipball_url")
 
-                    if download_url and self._window:
+                    if download_url and is_trusted_update_url(download_url) and self._window:
                         payload = {
                             "latest": tag_name,
                             "version": tag_name,
@@ -1279,11 +1280,13 @@ class AurionBridge:
                     shutil.rmtree(staging_dir, ignore_errors=True)
                 os.makedirs(staging_dir, exist_ok=True)
 
-                if not download_url or download_url == "local_mock_update" or not download_url.startswith("http"):
+                if download_url == "local_mock_update":
                     for pct in [20, 50, 75, 90, 100]:
                         time.sleep(0.2)
                         if self._window:
                             self._window.evaluate_js(f"window.onUpdateProgress && window.onUpdateProgress({pct});")
+                elif not is_trusted_update_url(download_url):
+                    raise ValueError("La URL de actualización no pertenece a una release oficial de Aurion en GitHub.")
                 else:
                     zip_path = os.path.join(temp_dir, "aurion_update.zip")
                     if os.path.exists(zip_path):
@@ -1306,14 +1309,23 @@ class AurionBridge:
                                 download_url
                             ]
                             flags = 0x08000000 if sys.platform == 'win32' else 0
-                            proc = subprocess.Popen(aria_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, creationflags=flags)
+                            proc = subprocess.Popen(
+                                aria_cmd,
+                                stdout=subprocess.DEVNULL,
+                                stderr=subprocess.DEVNULL,
+                                creationflags=flags
+                            )
                             pct_sim = 15
                             while proc.poll() is None:
                                 pct_sim = min(92, pct_sim + 7)
                                 if self._window:
                                     self._window.evaluate_js(f"window.onUpdateProgress && window.onUpdateProgress({pct_sim});")
                                 time.sleep(0.25)
-                            if proc.returncode == 0 and os.path.exists(zip_path) and os.path.getsize(zip_path) > 1024 * 100:
+                            if (
+                                proc.returncode == 0
+                                and os.path.exists(zip_path)
+                                and 1024 * 100 < os.path.getsize(zip_path) <= 512 * 1024 * 1024
+                            ):
                                 downloaded_ok = True
                         except Exception as aria_err:
                             print(f"[AutoUpdate] Fallback a descarga estándar ({aria_err})")
@@ -1322,25 +1334,35 @@ class AurionBridge:
                     if not downloaded_ok:
                         ctx = ssl.create_default_context()
                         req = urllib.request.Request(download_url, headers={'User-Agent': 'AurionApp'})
-                        with urllib.request.urlopen(req, context=ctx, timeout=40) as resp, open(zip_path, 'wb') as f:
+                        with urllib.request.urlopen(req, context=ctx, timeout=40) as resp:
+                            if not is_trusted_update_redirect_url(resp.geturl()):
+                                raise ValueError("GitHub redirigió la actualización a un host no permitido.")
                             total_length = resp.getheader('content-length')
                             total_bytes = int(total_length) if total_length else 0
+                            max_update_bytes = 512 * 1024 * 1024
+                            if total_bytes > max_update_bytes:
+                                raise ValueError("La actualización supera el tamaño máximo permitido.")
                             downloaded = 0
                             chunk_size = 128 * 1024
-                            while True:
-                                chunk = resp.read(chunk_size)
-                                if not chunk:
-                                    break
-                                f.write(chunk)
-                                downloaded += len(chunk)
-                                if total_bytes and self._window:
-                                    pct = min(92, round((downloaded / total_bytes) * 92, 1))
-                                    self._window.evaluate_js(f"window.onUpdateProgress && window.onUpdateProgress({pct});")
+                            with open(zip_path, 'wb') as f:
+                                while True:
+                                    chunk = resp.read(chunk_size)
+                                    if not chunk:
+                                        break
+                                    downloaded += len(chunk)
+                                    if downloaded > max_update_bytes:
+                                        raise ValueError("La actualización supera el tamaño máximo permitido.")
+                                    f.write(chunk)
+                                    if total_bytes and self._window:
+                                        pct = min(92, round((downloaded / total_bytes) * 92, 1))
+                                        self._window.evaluate_js(f"window.onUpdateProgress && window.onUpdateProgress({pct});")
 
                     if self._window:
                         self._window.evaluate_js("window.onUpdateProgress && window.onUpdateProgress(96);")
 
-                    shutil.unpack_archive(zip_path, staging_dir)
+                    if not os.path.isfile(zip_path) or os.path.getsize(zip_path) < 1024 * 100:
+                        raise ValueError("El archivo de actualización está vacío o incompleto.")
+                    safe_extract_zip(zip_path, staging_dir)
 
                     if self._window:
                         self._window.evaluate_js("window.onUpdateProgress && window.onUpdateProgress(100);")
