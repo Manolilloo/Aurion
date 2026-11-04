@@ -725,42 +725,55 @@ class AurionDownloader:
 
 
     def _save_cover_image(self, config):
-        if not config.get("save_cover", True):
+        """Guarda una portada remota con ruta contenida y tamaño de respuesta limitado."""
+        if not isinstance(config, dict) or not config.get("save_cover", True):
             return
 
-        cover_url = config.get("cover_url", "").strip()
+        cover_url = config.get("cover_url", "")
         if not is_http_url(cover_url):
             return
 
         base_dir = (config.get("dir") or "").strip() or self._get_fallback_default_dir()
-        anime_title = config.get("title", "").strip()
-        clean_title = "".join(c for c in anime_title if c not in r'\/:*?"<>|').strip()
+        base_dir = os.path.abspath(os.path.expanduser(base_dir))
+        raw_title = config.get("title") or ""
+        clean_title = sanitize_path_component(str(raw_title), "Anime", 80)
 
-        root_anime_folder = clean_title
-        if clean_title and clean_title != "Esperando consulta...":
-            root_anime_folder = re.sub(
-                r'[\s\-_]*(?:(?:\d+(?:st|nd|rd|th|da|ra)?\s*(?:season|temporada))|(?:(?:season|temporada)\s*\d+)|(?:\bS\d+\b)).*$',
-                '',
-                clean_title,
-                flags=re.IGNORECASE
-            ).strip() or clean_title
-            root_anime_dir = os.path.join(base_dir, root_anime_folder)
-        else:
-            root_anime_dir = base_dir
+        root_title = re.sub(
+            r'[\s\-_]*(?:(?:\d+(?:st|nd|rd|th|da|ra)?\s*(?:season|temporada))|'
+            r'(?:(?:season|temporada)\s*\d+)|(?:\bS\d+\b)).*$',
+            '',
+            clean_title,
+            flags=re.IGNORECASE
+        ).strip() or clean_title
+        root_title = sanitize_path_component(root_title, "Anime", 80)
+        root_anime_dir = os.path.join(base_dir, root_title)
 
         try:
-            os.makedirs(root_anime_dir, exist_ok=True)
-            cover_path = os.path.join(root_anime_dir, "cover.jpg")
+            base_abs = os.path.abspath(base_dir)
+            root_abs = os.path.abspath(root_anime_dir)
+            if os.path.commonpath([base_abs, root_abs]).lower() != base_abs.lower():
+                return
+            os.makedirs(root_abs, exist_ok=True)
+            cover_path = os.path.join(root_abs, "cover.jpg")
+            if os.path.exists(cover_path):
+                return
 
-            if not os.path.exists(cover_path):
-                req = urllib.request.Request(cover_url, headers={
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
-                })
-                with urllib.request.urlopen(req, timeout=10) as resp, open(cover_path, 'wb') as out_f:
-                    out_f.write(resp.read())
-                print(f"[Core] Portada guardada en raíz: {cover_path}")
-        except Exception as e:
-            print(f"[Core] Error descargando portada: {e}")
+            request = urllib.request.Request(
+                cover_url,
+                headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+            )
+            with urllib.request.urlopen(request, timeout=10) as response:
+                data = response.read(8 * 1024 * 1024 + 1)
+            if not data or len(data) > 8 * 1024 * 1024:
+                return
+
+            temp_cover = cover_path + ".tmp"
+            with open(temp_cover, "wb") as cover_file:
+                cover_file.write(data)
+            os.replace(temp_cover, cover_path)
+            print(f"[Core] Portada guardada en raíz: {cover_path}")
+        except (OSError, ValueError, urllib.error.URLError) as exc:
+            print(f"[Core] Error descargando portada: {exc}")
 
     def _download_single_task(self, task, dest_folder, config):
         if not isinstance(task, dict) or not isinstance(config, dict):
