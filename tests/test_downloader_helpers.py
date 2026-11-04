@@ -16,8 +16,15 @@ class DownloaderHelperTests(unittest.TestCase):
         self.assertEqual(parse_time_to_seconds("01:30"), 90)
         self.assertEqual(parse_time_to_seconds("01:02:03"), 3723)
         self.assertEqual(parse_time_to_seconds("42"), 42)
+        self.assertEqual(parse_time_to_seconds("00:10.5"), 10)
+        self.assertEqual(parse_time_to_seconds("00:00:10.5"), 10)
+        self.assertEqual(parse_time_to_seconds("01:02:03.75"), 3723)
         self.assertIsNone(parse_time_to_seconds(""))
         self.assertIsNone(parse_time_to_seconds("n/a"))
+        self.assertIsNone(parse_time_to_seconds("01:60"))
+        self.assertIsNone(parse_time_to_seconds("1:60:00"))
+        self.assertIsNone(parse_time_to_seconds("1::2"))
+        self.assertIsNone(parse_time_to_seconds("-1:30"))
 
     def test_limited_response_rejects_private_redirects_and_large_bodies(self):
         downloader = object.__new__(AurionDownloader)

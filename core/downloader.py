@@ -58,19 +58,43 @@ def parse_speed_limit_bytes(speed_str):
 
 
 def parse_time_to_seconds(t_str):
-    """Convierte 'MM:SS' o 'HH:MM:SS' a segundos enteros."""
-    if not t_str:
+    """Convierte SS, MM:SS o HH:MM:SS (con fracciones opcionales) a segundos."""
+    if t_str is None:
         return None
-    cleaned = re.sub(r'[^0-9:]', '', str(t_str).strip())
-    if not cleaned:
+
+    value = str(t_str).strip()
+    if not value:
         return None
-    parts = [int(p) for p in cleaned.split(':') if p.isdigit()]
-    if len(parts) == 3:
-        return parts[0] * 3600 + parts[1] * 60 + parts[2]
+
+    if re.fullmatch(r"\d+(?:\.\d+)?", value):
+        return int(float(value))
+
+    parts = value.split(":")
     if len(parts) == 2:
-        return parts[0] * 60 + parts[1]
-    if len(parts) == 1:
-        return parts[0]
+        minutes_text, seconds_text = parts
+        if not minutes_text.isdigit() or not re.fullmatch(r"\d{1,2}(?:\.\d+)?", seconds_text):
+            return None
+        minutes = int(minutes_text)
+        seconds = float(seconds_text)
+        if seconds >= 60:
+            return None
+        return int(minutes * 60 + seconds)
+
+    if len(parts) == 3:
+        hours_text, minutes_text, seconds_text = parts
+        if (
+            not hours_text.isdigit()
+            or not minutes_text.isdigit()
+            or not re.fullmatch(r"\d{1,2}(?:\.\d+)?", seconds_text)
+        ):
+            return None
+        hours = int(hours_text)
+        minutes = int(minutes_text)
+        seconds = float(seconds_text)
+        if minutes >= 60 or seconds >= 60:
+            return None
+        return int(hours * 3600 + minutes * 60 + seconds)
+
     return None
 
 
