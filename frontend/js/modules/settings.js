@@ -198,9 +198,16 @@ window.SettingsModule = (function() {
       youtube: { title: 'YouTube', emoji: '🔴', color: '#ff0055', glow: 'rgba(255, 0, 85, 0.45)' }
     };
 
-    cfg.sectionsOrder.forEach((key) => {
-      const isVisible = cfg.sectionsVisibility[key] !== false;
-      const meta = metadata[key] || { title: key, emoji: '⚡', color: '#ffd60a', glow: 'rgba(255, 214, 10, 0.3)' };
+    const safeOrder = Array.isArray(cfg.sectionsOrder)
+      ? [...new Set(cfg.sectionsOrder.filter(key => Object.prototype.hasOwnProperty.call(metadata, key)))]
+      : Object.keys(metadata);
+    const safeVisibility = cfg.sectionsVisibility && typeof cfg.sectionsVisibility === 'object'
+      ? cfg.sectionsVisibility
+      : {};
+
+    safeOrder.forEach((key) => {
+      const isVisible = safeVisibility[key] !== false;
+      const meta = metadata[key];
 
       const pill = document.createElement('div');
       pill.className = `magnetic-pill ${isVisible ? '' : 'is-off'}`;
@@ -209,14 +216,22 @@ window.SettingsModule = (function() {
       pill.style.setProperty('--pill-color', meta.color);
       pill.style.setProperty('--pill-glow', meta.glow);
 
-      pill.innerHTML = `
-        <div class="magnetic-pill-left">
-          <span class="magnetic-pill-grip">⠿</span>
-          <span class="magnetic-pill-emoji">${meta.emoji}</span>
-          <span class="magnetic-pill-name">${meta.title}</span>
-        </div>
-        <div class="magnetic-pill-led" title="${isVisible ? 'Apagar sección' : 'Activar sección'}"></div>
-      `;
+      const left = document.createElement('div');
+      left.className = 'magnetic-pill-left';
+      const grip = document.createElement('span');
+      grip.className = 'magnetic-pill-grip';
+      grip.textContent = '⠿';
+      const emoji = document.createElement('span');
+      emoji.className = 'magnetic-pill-emoji';
+      emoji.textContent = meta.emoji;
+      const name = document.createElement('span');
+      name.className = 'magnetic-pill-name';
+      name.textContent = meta.title;
+      const led = document.createElement('div');
+      led.className = 'magnetic-pill-led';
+      led.title = isVisible ? 'Apagar sección' : 'Activar sección';
+      left.append(grip, emoji, name);
+      pill.append(left, led);
 
       // Drag & Drop con físicas elásticas
       pill.addEventListener('dragstart', (e) => {
