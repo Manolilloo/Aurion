@@ -47,8 +47,8 @@ const modeStates = window.modeStates = {
     saveCover: true,
     openFolder: true,
     fmt: 'mkv',
-    threads: '32',
-    simul: '20',
+    threads: '16',
+    simul: '8'
     bg: '',
     title: 'Esperando consulta...',
     tags: 'SISTEMA LISTO',
@@ -66,8 +66,8 @@ const modeStates = window.modeStates = {
     saveCover: true,
     openFolder: true,
     fmt: 'mkv',
-    threads: '32',
-    simul: '5',
+    threads: '16',
+    simul: '4'
     bg: '',
     title: 'Esperando consulta...',
     tags: 'SISTEMA LISTO',
@@ -530,7 +530,7 @@ function renderQueueCard(task) {
           season_num: activeSeasonNum,
           open_folder: false,
           fmt: String(rawFmt).replace('.', '').toLowerCase().trim(),
-          threads: parseInt(rawThreads, 10) || 32,
+          threads: parseInt(rawThreads, 10) || 16,
           simul: 1
         }
       });
@@ -1229,13 +1229,23 @@ document.addEventListener('DOMContentLoaded', () => {
           season_num: activeSeasonNum,
           open_folder: !!modeStates[currentMode].openFolder,
           fmt: cleanFmt,
-          threads: parseInt(rawThreads, 10) || 32,
-          simul: parseInt(rawSimul, 10) || 5
+          threads: parseInt(rawThreads, 10) || 16,
+          simul: parseInt(rawSimul, 10) || 4
         }
       });
 
       isMasterRunning = false;
     });
+  }
+
+  function normalizeNumericChoice(value, allowedValues, fallback) {
+    const parsed = Number.parseInt(value, 10);
+    if (!Number.isFinite(parsed)) return String(fallback);
+
+    const closest = allowedValues.reduce((best, current) =>
+      Math.abs(current - parsed) < Math.abs(best - parsed) ? current : best
+    , allowedValues[0]);
+    return String(closest);
   }
 
   function applyLoadedConfig(config) {
@@ -1252,6 +1262,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (config.anime) {
       Object.assign(modeStates.anime, config.anime);
+      modeStates.anime.threads = normalizeNumericChoice(config.anime.threads, [16, 8, 4], 16);
+      modeStates.anime.simul = normalizeNumericChoice(config.anime.simul, [8, 4, 1], 8);
       if (config.anime.active_title) modeStates.anime.title = config.anime.active_title;
       if (config.anime.active_tags) modeStates.anime.tags = config.anime.active_tags;
       if (config.anime.active_bg) modeStates.anime.bg = config.anime.active_bg;
@@ -1263,6 +1275,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (config.movie) {
       Object.assign(modeStates.movie, config.movie);
+      modeStates.movie.threads = normalizeNumericChoice(config.movie.threads, [16, 8, 4], 16);
+      modeStates.movie.simul = normalizeNumericChoice(config.movie.simul, [8, 4, 1], 4);
       if (config.movie.active_title) modeStates.movie.title = config.movie.active_title;
       if (config.movie.active_tags) modeStates.movie.tags = config.movie.active_tags;
       if (config.movie.active_bg) modeStates.movie.bg = config.movie.active_bg;
@@ -2141,8 +2155,8 @@ document.addEventListener('DOMContentLoaded', () => {
       saveCover: curState.saveCover !== false,
       openFolder: curState.openFolder !== false,
       fmt: curState.fmt || 'mkv',
-      threads: curState.threads || '32',
-      simul: curState.simul || '20'
+      threads: curState.threads || '16',
+      simul: curState.simul || '8'
     };
 
     expandCenterWorkspace();
