@@ -1244,6 +1244,7 @@ class AurionDownloader:
                 ydl_opts['external_downloader_args'] = {'aria2c': aria_args}
 
         transfer_started_at = time.monotonic()
+        recovered_transfer = False
         record_download_event("started", {
             "protocol": profile.protocol,
             "host": diagnostic_host,
@@ -1350,6 +1351,7 @@ class AurionDownloader:
                                 with yt_dlp.YoutubeDL(recovery_opts) as ydl_recovery:
                                     info = ydl_recovery.extract_info(url, download=True)
                                 recovery_error = None
+                                recovered_transfer = True
                                 print(
                                     f"[Core Rescate {profile.protocol.upper()}] Recuperada "
                                     f"con {fallback_workers} fragmentos simultáneos."
@@ -1379,6 +1381,7 @@ class AurionDownloader:
                                 with yt_dlp.YoutubeDL(original_opts) as ydl_original:
                                     info = ydl_original.extract_info(raw_url, download=True)
                                 recovery_error = None
+                                recovered_transfer = True
                             except Exception as original_exc:
                                 if "TASK_CANCELLED_BY_USER" in str(original_exc):
                                     raise original_exc
@@ -1537,6 +1540,7 @@ class AurionDownloader:
                 "duration_seconds": round(elapsed_seconds, 2),
                 "average_speed_mib_s": round(average_speed_mb, 2),
                 "resolution": final_res_label,
+                "recovered": recovered_transfer,
             })
 
             if self.bridge and hasattr(self.bridge, 'db') and self.bridge.db:
