@@ -29,6 +29,11 @@ jobs:
       - name: Install application dependencies
         run: python -m pip install --upgrade pip && python -m pip install -r requirements.txt
 
+      - name: Run static Python checks
+        run: |
+          python -m pip install ruff
+          ruff check --select F --output-format concise core main.py release.py tests
+
       - name: Compile Python sources
         run: python -m compileall -q core main.py
 
