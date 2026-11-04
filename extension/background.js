@@ -132,11 +132,18 @@ async function registerDetectedStream(tabId, frameId, rawUrl, initiator = '', kn
     if (!pageUrl && currentTab && currentTab.url) pageUrl = currentTab.url;
   } catch (_) {}
 
-  const isHls = isHlsHint || VIDEO_STREAM_REGEX.test(effectiveUrl) || effectiveUrl.toLowerCase().includes('.m3u8');
+  const isManifest = isHlsHint || VIDEO_STREAM_REGEX.test(effectiveUrl) ||
+    effectiveUrl.toLowerCase().includes('.m3u8') || effectiveUrl.toLowerCase().includes('.mpd');
+  let streamProtocol = /\.mpd(?:[?#]|$)/i.test(effectiveUrl)
+    ? 'dash'
+    : (/\.m3u8(?:[?#]|$)/i.test(effectiveUrl) ? 'hls' : 'http');
   let probe = { res: 'Auto', bytes: knownBytes || 0 };
 
-  if (isHls) {
+  if (isManifest) {
     const mProbe = await inspectManifest(effectiveUrl, initiator || pageUrl);
+    if (mProbe.protocol === 'hls' || mProbe.protocol === 'dash') {
+      streamProtocol = mProbe.protocol;
+    }
     if (mProbe.res !== 'Auto') probe.res = mProbe.res;
     if (mProbe.bytes > 0) probe.bytes = mProbe.bytes;
   } else if (probe.bytes === 0) {
@@ -166,6 +173,7 @@ async function registerDetectedStream(tabId, frameId, rawUrl, initiator = '', kn
   const mediaEntry = {
     url: effectiveUrl,
     source: resolveServerName(effectiveUrl),
+    protocol: streamProtocol,
     resolution: probe.res,
     bytes: probe.bytes,
     pageUrl: initiator || pageUrl,
