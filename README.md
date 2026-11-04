@@ -104,7 +104,7 @@ Si quieres clonar el proyecto, trastear con él o ejecutarlo en local:
 
 ```bash
 # 1. Clona el repo
-git clone [https://github.com/Manolilloo/Aurion.git](https://github.com/Manolilloo/Aurion.git)
+git clone https://github.com/Manolilloo/Aurion.git
 cd Aurion
 
 # 2. Instala las librerías necesarias
@@ -116,7 +116,7 @@ pip install -r requirements.txt
 
 # 4. Lanza la app
 python main.py
-
+```
 
 ## Motor de descargas adaptativo
 
