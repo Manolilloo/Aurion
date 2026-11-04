@@ -1024,9 +1024,10 @@ class AurionDownloader:
             referer = origin_domain + "/"
 
         print(f"\n[Core -> Tarea Iniciada] {title}")
+        worker_label = str(threads_count) if profile.protocol in {"hls", "dash", "youtube"} else "no aplica"
         print(
             f"      Perfil: {profile.protocol.upper()} | Host: {profile.host_class} | "
-            f"Fragmentos: {threads_count} | aria2: "
+            f"Fragmentos simultáneos: {worker_label} | aria2: "
             f"{'sí (' + str(configured_aria_conns) + ' conexiones)' if profile.use_aria2 else 'no'}"
         )
         print(f"      Motivo: {profile.reason} | Formato: .{fmt_choice} | Servidor: {netloc}")
@@ -1225,6 +1226,7 @@ class AurionDownloader:
                 ydl_opts['external_downloader'] = self.aria2_path
                 ydl_opts['external_downloader_args'] = {'aria2c': aria_args}
 
+        transfer_started_at = time.monotonic()
         try:
             if self.bridge and self.bridge._window:
                 self.bridge._window.evaluate_js(
@@ -1414,7 +1416,11 @@ class AurionDownloader:
             print(f"[Core Telemetría] {title}")
             print(f"   -> Archivo generado: {os.path.basename(final_file_path)}")
             print(f"   -> Resolución Real: {final_res_label or '1080p'}")
+            elapsed_seconds = max(time.monotonic() - transfer_started_at, 0.001)
+            average_speed_mb = (real_file_bytes / (1024 * 1024)) / elapsed_seconds
+            elapsed_label = f"{int(elapsed_seconds // 60):02d}:{elapsed_seconds % 60:05.2f}"
             print(f"   -> Tamaño final: {round(real_file_bytes / 1024 / 1024, 2)} MB")
+            print(f"   -> Tiempo total: {elapsed_label} | Media efectiva: {average_speed_mb:.2f} MB/s")
             print("=======================================================\n")
 
             if final_res_label and self.bridge and self.bridge._window:
