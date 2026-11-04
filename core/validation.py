@@ -89,6 +89,26 @@ def is_http_url(value: str, max_length: int = 8192) -> bool:
         return False
 
 
+def is_trusted_update_url(value: str) -> bool:
+    """Accept only Aurion release assets or the repository's GitHub source archive."""
+    if not isinstance(value, str) or len(value) > 4096:
+        return False
+    try:
+        parsed = urlsplit(value.strip())
+        if parsed.scheme.lower() != "https" or parsed.username is not None or parsed.password is not None:
+            return False
+        if parsed.hostname == "github.com":
+            return parsed.path.startswith("/Manolilloo/Aurion/releases/download/")
+        if parsed.hostname == "api.github.com":
+            return parsed.path.startswith((
+                "/repos/Manolilloo/Aurion/zipball/",
+                "/repos/Manolilloo/Aurion/legacy.zipball/",
+            ))
+        return False
+    except ValueError:
+        return False
+
+
 def is_safe_task_id(value: str) -> bool:
     """Task IDs are used in temp paths and DOM/JavaScript identifiers."""
     return isinstance(value, str) and bool(_TASK_ID_RE.fullmatch(value))
