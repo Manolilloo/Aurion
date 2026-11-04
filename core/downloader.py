@@ -207,8 +207,6 @@ class AurionDownloader:
         iv_prefix = struct.pack('>2I', k[4], k[5])
 
         ctx = ssl.create_default_context()
-        ctx.check_hostname = False
-        ctx.verify_mode = ssl.CERT_NONE
 
         api_url = f"https://g.api.mega.co.nz/cs?id={int(time.time() * 1000)}"
         payload = json.dumps([{"a": "g", "g": 1, "p": file_id}]).encode('utf-8')
@@ -281,8 +279,6 @@ class AurionDownloader:
         """Si la URL es un embed (/e/ o /v/) o un token caducado de Streamtape/MixDrop, extrae el enlace fresco."""
         u_low = url.lower()
         ctx = ssl.create_default_context()
-        ctx.check_hostname = False
-        ctx.verify_mode = ssl.CERT_NONE
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
             'Referer': referer or url
@@ -1075,7 +1071,6 @@ class AurionDownloader:
             'format': format_selector,
             'merge_output_format': 'mp4' if (is_yt and not is_audio) else (fmt_choice if (not is_yt and is_m3u8) else None),
             'progress_hooks': [progress_hook],
-            'nocheckcertificate': True,
             'quiet': True,
             'no_warnings': True,
             'retries': 30,
