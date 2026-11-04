@@ -495,13 +495,24 @@ window.ExtensionBridgeModule = (function () {
             list.forEach(item => {
               const div = document.createElement('div');
               div.className = 'sugg-item';
-              div.innerHTML = `
-                <div class="sugg-thumb" style="background-image: url('${item.image}');"></div>
-                <div class="sugg-info">
-                  <div class="sugg-title">${item.title}</div>
-                  <div class="sugg-meta">${item.meta}</div>
-                </div>
-              `;
+              const thumb = document.createElement('div');
+              thumb.className = 'sugg-thumb';
+              try {
+                const imageUrl = new URL(item.image);
+                if (imageUrl.protocol === 'https:') {
+                  thumb.style.backgroundImage = `url("${imageUrl.href}")`;
+                }
+              } catch (_) {}
+              const info = document.createElement('div');
+              info.className = 'sugg-info';
+              const title = document.createElement('div');
+              title.className = 'sugg-title';
+              title.textContent = String(item.title || '');
+              const meta = document.createElement('div');
+              meta.className = 'sugg-meta';
+              meta.textContent = String(item.meta || '');
+              info.append(title, meta);
+              div.append(thumb, info);
               div.addEventListener('click', () => {
                 commitTransmission(item, modalTargetMode, pendingTransmission?.ep || 1);
               });
