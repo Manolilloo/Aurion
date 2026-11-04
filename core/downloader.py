@@ -903,7 +903,6 @@ class AurionDownloader:
             has_aria2=self.has_aria2,
             is_youtube=is_yt,
         )
-        is_m3u8 = profile.protocol == "hls"
         is_segmented_stream = profile.protocol in {"hls", "dash"}
         threads_count = profile.fragment_workers
 
