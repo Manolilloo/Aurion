@@ -16,6 +16,7 @@ import urllib.request
 from urllib.parse import urlparse
 from concurrent.futures import ThreadPoolExecutor
 import yt_dlp
+from .validation import is_http_url, is_safe_task_id, sanitize_path_component
 
 
 def get_binary_path(binary_name):
@@ -134,41 +135,52 @@ class AurionDownloader:
             except Exception:
                 time.sleep(0.12)
 
-        try:
-            cmd = f'rmdir /s /q "{os.path.abspath(target_path)}"'
-            subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=2)
-        except Exception:
-            pass
+        # No recurrir a shell=True: el borrado recursivo con un comando construido
+        # a partir de una ruta no aporta nada que shutil.rmtree no cubra.
+        print(f"[Core] No se pudo eliminar la carpeta temporal tras varios intentos: {target_path}")
 
     def _cleanup_orphaned_temp_dirs(self):
+        """Elimina temporales huérfanos de más de 24 h, nunca temporales activos."""
         def run_cleanup():
             check_dirs = set()
             try:
-                cfg = getattr(self.bridge, 'config', {}) or {}
-                for m in ['anime', 'movie', 'youtube']:
-                    d = cfg.get(m, {}).get('dir')
-                    if d and os.path.exists(d):
-                        check_dirs.add(os.path.abspath(d))
-            except Exception:
-                pass
+                cfg = getattr(self.bridge, "config", {}) or {}
+                for mode in ("anime", "movie", "youtube"):
+                    mode_cfg = cfg.get(mode, {})
+                    directory = mode_cfg.get("dir") if isinstance(mode_cfg, dict) else None
+                    if directory and os.path.isdir(directory):
+                        check_dirs.add(os.path.abspath(directory))
+            except Exception as exc:
+                print(f"[Core] No se pudieron leer rutas para limpiar temporales: {exc}")
 
-            default_vids = self._get_fallback_default_dir()
-            if os.path.exists(default_vids):
-                check_dirs.add(default_vids)
+            fallback_dir = self._get_fallback_default_dir()
+            if os.path.isdir(fallback_dir):
+                check_dirs.add(os.path.abspath(fallback_dir))
+
+            older_than = time.time() - (24 * 60 * 60)
+            with self.lock:
+                active_dirs = set(self.active_temp_dirs)
 
             for base in check_dirs:
-                if not os.path.exists(base):
+                if not os.path.isdir(base):
                     continue
                 try:
                     for root, dirs, _ in os.walk(base, topdown=False):
-                        for d in list(dirs):
-                            if d.startswith(".tmp_"):
-                                target_path = os.path.join(root, d)
-                                self._force_remove_temp_dir(target_path)
-                except Exception:
-                    pass
+                        for directory in dirs:
+                            if not directory.startswith(".tmp_"):
+                                continue
+                            target_path = os.path.abspath(os.path.join(root, directory))
+                            if target_path in active_dirs:
+                                continue
+                            try:
+                                if os.path.getmtime(target_path) < older_than:
+                                    self._force_remove_temp_dir(target_path)
+                            except OSError:
+                                continue
+                except OSError as exc:
+                    print(f"[Core] Error recorriendo temporales en {base}: {exc}")
 
-        threading.Thread(target=run_cleanup, daemon=True).start()
+        threading.Thread(target=run_cleanup, name="Aurion-Temp-Cleanup", daemon=True).start()
 
     def cancel_task(self, task_id):
         with self.lock:
@@ -401,72 +413,91 @@ class AurionDownloader:
         return file_path
 
     def resolve_destination_folder(self, config):
+        """Resuelve carpetas de salida sin permitir que títulos salgan de la ruta elegida."""
+        config = config if isinstance(config, dict) else {}
         base_dir = (config.get("dir") or "").strip() or self._get_fallback_default_dir()
+        base_dir = os.path.abspath(os.path.expanduser(base_dir))
         mode = config.get("active_mode", "anime")
-        anime_title = config.get("title", "").strip()
-        clean_title = "".join(c for c in anime_title if c not in r'\/:*?"<>|').strip()
+        if mode not in {"anime", "movie", "youtube"}:
+            mode = "anime"
+
+        raw_title = config.get("title") or ""
+        clean_title = sanitize_path_component(str(raw_title), default="", max_length=80)
+        if clean_title == "Esperando consulta...":
+            clean_title = ""
 
         if config.get("is_youtube") or mode == "youtube":
             if config.get("is_playlist") and config.get("create_playlist_subfolder", True):
-                pl_title = config.get("playlist_title") or clean_title or "Playlist_YouTube"
-                clean_pl = "".join(c for c in pl_title if c not in r'\/:*?"<>|').strip() or "Playlist_YouTube"
-                safe_pl = clean_pl[:45].rstrip(". ")
-                final_dir = os.path.abspath(os.path.join(base_dir, safe_pl))
+                raw_folder = config.get("playlist_title") or clean_title or "Playlist_YouTube"
             else:
                 raw_folder = clean_title or "Video_YouTube"
-                safe_folder = raw_folder[:45].rstrip(". ")
-                final_dir = os.path.abspath(os.path.join(base_dir, safe_folder))
+            folder = sanitize_path_component(str(raw_folder), "Video_YouTube", 60)
+            final_dir = os.path.join(base_dir, folder)
+
         elif mode == "movie":
-            if clean_title and clean_title != "Esperando consulta...":
-                final_dir = os.path.join(base_dir, clean_title)
-            else:
-                final_dir = base_dir
+            final_dir = os.path.join(
+                base_dir,
+                sanitize_path_component(clean_title, "Peliculas", 80)
+            ) if clean_title else base_dir
+
         else:
-            is_single = config.get("is_single_season", False)
-            season_num = config.get("season_num", 1)
+            try:
+                requested_season = int(config.get("season_num", 1))
+            except (TypeError, ValueError):
+                requested_season = 1
+            requested_season = max(1, min(requested_season, 999))
 
             detected_season = None
             if clean_title:
-                m = re.search(
-                    r'(?:(\d+)(?:st|nd|rd|th|da|ra)?\s*(?:season|temporada))|(?:(?:season|temporada)\s*(\d+))|(?:\bS(\d+)\b)',
+                match = re.search(
+                    r'(?:(\d+)(?:st|nd|rd|th|da|ra)?\s*(?:season|temporada))|'
+                    r'(?:(?:season|temporada)\s*(\d+))|(?:\bS(\d+)\b)',
                     clean_title,
                     re.IGNORECASE
                 )
-                if m:
-                    num_str = m.group(1) or m.group(2) or m.group(3)
-                    if num_str and num_str.isdigit():
-                        detected_season = int(num_str)
+                if match:
+                    season_text = match.group(1) or match.group(2) or match.group(3)
+                    if season_text and season_text.isdigit():
+                        detected_season = max(1, min(int(season_text), 999))
 
-            effective_season = detected_season if detected_season is not None else season_num
-
-            root_anime_folder = clean_title
+            season = detected_season if detected_season is not None else requested_season
+            root_title = clean_title
             if detected_season is not None:
-                root_anime_folder = re.sub(
-                    r'[\s\-_]*(?:(?:\d+(?:st|nd|rd|th|da|ra)?\s*(?:season|temporada))|(?:(?:season|temporada)\s*\d+)|(?:\bS\d+\b)).*$',
+                root_title = re.sub(
+                    r'[\s\-_]*(?:(?:\d+(?:st|nd|rd|th|da|ra)?\s*(?:season|temporada))|'
+                    r'(?:(?:season|temporada)\s*\d+)|(?:\bS\d+\b)).*$',
                     '',
                     clean_title,
                     flags=re.IGNORECASE
-                ).strip()
-                if not root_anime_folder:
-                    root_anime_folder = clean_title
+                ).strip() or clean_title
 
-            if is_single:
-                if root_anime_folder and root_anime_folder != "Esperando consulta...":
-                    final_dir = os.path.join(base_dir, root_anime_folder)
-                else:
-                    final_dir = base_dir
+            if root_title:
+                root_folder = sanitize_path_component(root_title, "Anime", 80)
+                root_dir = os.path.join(base_dir, root_folder)
             else:
-                if root_anime_folder and root_anime_folder != "Esperando consulta...":
-                    final_dir = os.path.join(base_dir, root_anime_folder, f"Temporada {effective_season}")
-                else:
-                    final_dir = os.path.join(base_dir, f"Temporada {effective_season}")
+                root_dir = base_dir
+
+            if config.get("is_single_season", False):
+                final_dir = root_dir
+            else:
+                final_dir = os.path.join(root_dir, f"Temporada {season}")
+
+        base_abs = os.path.abspath(base_dir)
+        final_abs = os.path.abspath(final_dir)
+        try:
+            if os.path.commonpath([base_abs, final_abs]).lower() != base_abs.lower():
+                print("[Core] Ruta de salida fuera del directorio elegido; se usará el directorio base.")
+                final_abs = base_abs
+        except ValueError:
+            final_abs = base_abs
 
         try:
-            os.makedirs(final_dir, exist_ok=True)
-        except Exception as e:
-            print(f"[Core] Error al crear ruta: {e}")
+            os.makedirs(final_abs, exist_ok=True)
+        except OSError as exc:
+            print(f"[Core] Error al crear ruta de salida: {exc}")
+            return base_abs
 
-        return final_dir
+        return final_abs
 
     def _probe_resolution_ffprobe(self, media_url, headers):
         if not self.has_ffmpeg:
@@ -596,23 +627,113 @@ class AurionDownloader:
         return 0, "1080p"
 
     def start_engine(self, config, tasks=None):
-        if self.is_downloading:
+        """Inicia un lote validado; el estado se protege frente a dobles clics."""
+        if not isinstance(config, dict):
+            return False
+        target_tasks = list(tasks) if tasks is not None else list(self.queue)
+        if not target_tasks or len(target_tasks) > 500:
             return False
 
-        self.is_downloading = True
+        seen_ids = set()
+        for task in target_tasks:
+            if not isinstance(task, dict):
+                return False
+            task_id = task.get("id")
+            task_url = task.get("url")
+            if not is_safe_task_id(task_id) or not is_http_url(task_url):
+                return False
+            if task_id in seen_ids:
+                return False
+            seen_ids.add(task_id)
+
         with self.lock:
+            if self.is_downloading:
+                return False
+            self.is_downloading = True
             self.cancelled_tasks.clear()
 
-        target_tasks = tasks or self.queue
-        threading.Thread(target=self._orchestrate_downloads, args=(config, target_tasks), daemon=True).start()
-        return True
+        worker = threading.Thread(
+            target=self._orchestrate_downloads,
+            args=(dict(config), target_tasks),
+            name="Aurion-Download-Batch",
+            daemon=True
+        )
+        try:
+            worker.start()
+            return True
+        except RuntimeError as exc:
+            with self.lock:
+                self.is_downloading = False
+                self.cancelled_tasks.clear()
+            print(f"[Core] No se pudo iniciar el motor de descargas: {exc}")
+            return False
+
+    def _orchestrate_downloads(self, config, tasks):
+        """Coordina el lote y garantiza que el motor siempre vuelve a estado libre."""
+        try:
+            try:
+                configured_workers = int(config.get("simul", 5))
+            except (TypeError, ValueError):
+                configured_workers = 5
+            simul_workers = max(1, min(configured_workers, 8))
+            config["simul"] = simul_workers
+
+            dest_folder = self.resolve_destination_folder(config)
+            self._save_cover_image(config)
+            print(f"\n[Core] Iniciando pool de descargas: {simul_workers} simultáneas en '{dest_folder}'")
+
+            any_success = False
+            with ThreadPoolExecutor(max_workers=simul_workers, thread_name_prefix="Aurion-Download") as executor:
+                futures = [
+                    executor.submit(self._download_single_task, task, dest_folder, config)
+                    for task in tasks
+                ]
+                for future in futures:
+                    try:
+                        if future.result() is True:
+                            any_success = True
+                    except Exception as exc:
+                        print(f"[Core] Error no capturado en worker: {exc}")
+
+            print("\n[Core] Todas las tareas del lote han concluido.")
+
+            if any_success and self.bridge and self.bridge._window:
+                try:
+                    self.bridge._window.evaluate_js("window.onBatchFinished && window.onBatchFinished();")
+                except Exception:
+                    pass
+
+            finish_action = str(config.get("finish_action", "open_folder"))
+            should_open = bool(config.get("open_folder", True)) and finish_action != "none"
+            if should_open:
+                def _delayed_open(target_dest):
+                    try:
+                        time.sleep(0.8)
+                        parent_folder = os.path.dirname(target_dest)
+                        target_open = parent_folder if os.path.basename(target_dest).lower().startswith("temporada") else target_dest
+                        abs_dest = os.path.abspath(target_open if os.path.exists(target_open) else target_dest)
+                        if os.path.exists(abs_dest):
+                            print(f"[Core] Abriendo carpeta en explorador: {abs_dest}")
+                            os.startfile(abs_dest)
+                    except Exception as exc:
+                        print(f"[Core] Error abriendo carpeta: {exc}")
+
+                threading.Thread(target=_delayed_open, args=(dest_folder,), daemon=True).start()
+
+        except Exception as exc:
+            print(f"[Core] Error coordinando el lote de descargas: {exc}")
+        finally:
+            with self.lock:
+                self.is_downloading = False
+                self.cancelled_tasks.clear()
+
 
     def _save_cover_image(self, config):
         if not config.get("save_cover", True):
             return
 
         cover_url = config.get("cover_url", "").strip()
-        if not cover_url or cover_url.startswith("data:"):
+        if not is_http_url(cover_url):
             return
 
         base_dir = (config.get("dir") or "").strip() or self._get_fallback_default_dir()
@@ -696,17 +817,27 @@ class AurionDownloader:
                 threading.Thread(target=_delayed_open, args=(dest_folder,), daemon=True).start()
 
     def _download_single_task(self, task, dest_folder, config):
+        if not isinstance(task, dict) or not isinstance(config, dict):
+            return False
         task_id = task.get("id")
-        title = task.get("title", "Episodio")
+        if not is_safe_task_id(task_id):
+            print("[Core] Tarea rechazada: ID inválido.")
+            return False
+
+        title = sanitize_path_component(str(task.get("title") or "Episodio"), "video", 70)
         raw_url = task.get("url")
         page_ref = task.get("pageUrl") or ""
-
-        if not raw_url:
+        if not is_http_url(raw_url):
+            print(f"[Core] Tarea {task_id} rechazada: URL inválida.")
             return False
+        if not is_http_url(page_ref):
+            page_ref = ""
 
         with self.lock:
             if task_id in self.cancelled_tasks:
+                self.cancelled_tasks.discard(task_id)
                 return False
+
 
         is_yt = config.get("is_youtube", False)
         is_audio = config.get("is_audio_only", False)
@@ -714,20 +845,26 @@ class AurionDownloader:
 
         # Si es un enlace de embed (Streamtape, MixDrop, Voe, etc.), extraer su stream directo antes de empezar
         url = raw_url if is_yt else self._resolve_embed_to_direct_stream(raw_url, page_ref)
+        if not is_http_url(url):
+            url = raw_url
         if not is_yt and "index-f" in url.lower():
             url = re.sub(r'index-f\d+-[^\.]+\.m3u8', 'master.m3u8', url)
 
-        raw_threads = int(config.get("threads", 32))
+        try:
+            raw_threads = int(config.get("threads", 32))
+        except (TypeError, ValueError):
+            raw_threads = 32
         is_m3u8 = '.m3u8' in url.lower()
-        threads_count = max(8, raw_threads)
+        threads_count = max(8, min(raw_threads, 64))
 
         speed_limit_str = str(config.get("speed_limit", "0")).strip()
         rate_limit_bytes = parse_speed_limit_bytes(speed_limit_str)
         file_conflict_policy = str(config.get("file_conflict", "rename")).strip().lower()
         try:
             configured_aria_conns = int(config.get("aria_connections", 16))
-        except ValueError:
+        except (TypeError, ValueError):
             configured_aria_conns = 16
+        configured_aria_conns = max(1, min(configured_aria_conns, 16))
 
         yt_target_height = None
         if is_yt and is_audio:
@@ -766,8 +903,7 @@ class AurionDownloader:
             format_selector = "bestvideo[height<=1080]+bestaudio/best[height<=1080]/bestvideo+bestaudio/best"
 
         # Limpiar caracteres prohibidos y limitar a 70 caracteres para evitar el tope MAX_PATH de 260 caracteres en Windows
-        raw_clean_title = "".join(c for c in title if c not in r'\/:*?"<>|').strip() or "video"
-        clean_file_title = raw_clean_title[:70].rstrip(". ")
+        clean_file_title = sanitize_path_component(str(title), "video", 70)
 
         mode = config.get("active_mode", "anime")
         if mode == "anime" and not is_yt:
@@ -1283,3 +1419,11 @@ class AurionDownloader:
             return False
         finally:
             self._force_remove_temp_dir(task_temp_dir)
+            with self.lock:
+                self.cancelled_tasks.discard(task_id)
+            progress_attr = f"_p_{task_id}"
+            if hasattr(self, progress_attr):
+                try:
+                    delattr(self, progress_attr)
+                except AttributeError:
+                    pass
