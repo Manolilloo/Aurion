@@ -10,6 +10,7 @@ class DownloaderLifecycleTests(unittest.TestCase):
         downloader.lock = threading.Lock()
         downloader.is_downloading = True
         downloader.cancelled_tasks = {"task_1"}
+        downloader.active_task_ids = set()
         downloader.bridge = None
 
         def raise_setup_error(_config):
