@@ -230,10 +230,25 @@ chrome.webRequest.onHeadersReceived.addListener(
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === 'GET_MEDIA_INFO') {
     sendResponse({ mediaList: tabMediaData[msg.tabId] || [] });
-  } else if (msg.type === 'DOM_VIDEO_SRC_FOUND' && sender.tab) {
-    registerDetectedStream(sender.tab.id, sender.frameId || 0, msg.url, msg.frameUrl, 0, msg.url.includes('.m3u8'));
+    return false;
   }
-  return true;
+
+  if (msg.type === 'DOM_VIDEO_SRC_FOUND' && sender.tab) {
+    if (typeof msg.url === 'string' && /^https?:\/\//i.test(msg.url) && msg.url.length <= 8192) {
+      registerDetectedStream(sender.tab.id, sender.frameId || 0, msg.url, msg.frameUrl, 0, msg.url.includes('.m3u8'));
+    }
+    return false;
+  }
+
+  if (msg.type === 'AURION_SYNC_YOUTUBE_COOKIES') {
+    syncYoutubeCookiesToAurion().then(
+      () => sendResponse({ ok: true }),
+      () => sendResponse({ ok: false })
+    );
+    return true;
+  }
+
+  return false;
 });
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
@@ -249,11 +264,12 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 });
 
 // ========================================================
-// SINCRONIZADOR AUTOMÁTICO DE SESIÓN YOUTUBE (BYPASS DPAPI)
+// SINCRONIZACIÓN OPCIONAL DE SESIÓN DE YOUTUBE
 // ========================================================
 async function syncYoutubeCookiesToAurion() {
   try {
-    if (!chrome.cookies) return;
+    const prefs = await chrome.storage.local.get(["youtubeCookieSyncEnabled"]);
+    if (prefs.youtubeCookieSyncEnabled !== true || !chrome.cookies) return;
     const ytCookies = await chrome.cookies.getAll({ domain: 'youtube.com' });
     const googleCookies = await chrome.cookies.getAll({ domain: 'google.com' });
     const allCookies = [...ytCookies, ...googleCookies];
@@ -270,17 +286,40 @@ async function syncYoutubeCookiesToAurion() {
       netscapeLines.push(`${domain}\t${flag}\t${path}\t${secure}\t${expiry}\t${c.name}\t${c.value}`);
     }
 
-    await fetch('http://127.0.0.1:6800/api/sync_cookies', {
+    const response = await fetch('http://127.0.0.1:6800/api/sync_cookies', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ cookies_netscape: netscapeLines.join('\n') })
     });
+    if (!response.ok) throw new Error('Aurion rechazó la sincronización de sesión');
   } catch (_) {
-    // Silencioso si Aurion Desktop está cerrado en ese momento
+    // Aurion puede estar cerrado; no registrar ni mostrar valores de cookies.
   }
 }
 
-// Sincronizar al arrancar la extensión y cada vez que cambie una pestaña o cada 3 minutos
+async function clearYoutubeCookiesFromAurion() {
+  try {
+    await fetch('http://127.0.0.1:6800/api/clear_cookies', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clear: true })
+    });
+  } catch (_) {
+    // Si Aurion está cerrado, el archivo local no se puede borrar en este momento.
+  }
+}
+
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName !== 'local' || !changes.youtubeCookieSyncEnabled) return;
+  if (changes.youtubeCookieSyncEnabled.newValue === true) {
+    syncYoutubeCookiesToAurion();
+  } else {
+    clearYoutubeCookiesFromAurion();
+  }
+});
+
+// La transferencia de cookies queda desactivada por defecto.
+// Solo se ejecuta después de que el usuario la active en el popup.
 syncYoutubeCookiesToAurion();
 setInterval(syncYoutubeCookiesToAurion, 180000);
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
