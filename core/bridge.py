@@ -20,6 +20,7 @@ from .validation import (
     is_allowed_local_api_origin,
     is_http_url,
     is_safe_task_id,
+    sanitize_path_component,
     is_trusted_youtube_url,
     is_trusted_update_redirect_url,
     is_trusted_update_url,
@@ -493,6 +494,24 @@ class AurionBridge:
             "ffmpeg": bool(self.downloader and self.downloader.has_ffmpeg)
         }
 
+    def _read_limited_response(self, response, max_bytes=4 * 1024 * 1024):
+        """Read a bounded response and reject redirects to non-public URL targets."""
+        final_url = response.geturl() if hasattr(response, "geturl") else ""
+        if final_url and not is_http_url(final_url):
+            raise ValueError("El servidor redirigió a una URL no permitida.")
+        content_length = response.headers.get("Content-Length") if getattr(response, "headers", None) else None
+        if content_length:
+            try:
+                if int(content_length) > max_bytes:
+                    raise ValueError("La respuesta supera el tamaño máximo permitido.")
+            except ValueError as exc:
+                if "supera" in str(exc):
+                    raise
+        data = response.read(max_bytes + 1)
+        if len(data) > max_bytes:
+            raise ValueError("La respuesta supera el tamaño máximo permitido.")
+        return data
+
     def get_dominant_colors(self, image_url):
         if not is_http_url(image_url):
             return None
@@ -501,9 +520,7 @@ class AurionBridge:
             headers = {'User-Agent': 'Mozilla/5.0'}
             req = urllib.request.Request(image_url, headers=headers)
             with urllib.request.urlopen(req, context=ctx, timeout=5) as resp:
-                data = resp.read(8 * 1024 * 1024 + 1)
-                if len(data) > 8 * 1024 * 1024:
-                    return None
+                data = self._read_limited_response(resp, max_bytes=8 * 1024 * 1024)
                 img = Image.open(io.BytesIO(data)).convert('RGB')
                 img = img.resize((60, 60))
                 colors = img.getcolors(maxcolors=3600)
@@ -548,10 +565,13 @@ class AurionBridge:
         return None
 
     def search_media(self, mode, query):
-        if not query or len(query.strip()) < 2:
+        if mode not in {"anime", "movie"} or not isinstance(query, str):
+            return []
+        query = query.strip()
+        if len(query) < 2 or len(query) > 200:
             return []
 
-        clean_q = query.strip().lower()
+        clean_q = query.lower()
         if clean_q in ["episodio", "episode", "capitulo", "cap", "video", "anime"]:
             return []
 
@@ -586,7 +606,7 @@ class AurionBridge:
                 )
                 try:
                     with urllib.request.urlopen(req_obj, context=ctx, timeout=5) as resp:
-                        res = json.loads(resp.read().decode('utf-8'))
+                        res = json.loads(self._read_limited_response(resp, max_bytes=2 * 1024 * 1024).decode("utf-8"))
                         return res.get('data', {}).get('Page', {}).get('media', [])
                 except Exception:
                     return []
@@ -632,7 +652,7 @@ class AurionBridge:
             req = urllib.request.Request(url, headers=headers)
             try:
                 with urllib.request.urlopen(req, context=ctx, timeout=6) as response:
-                    data = json.loads(response.read().decode('utf-8'))
+                    data = json.loads(self._read_limited_response(response, max_bytes=2 * 1024 * 1024).decode("utf-8"))
                     items = data.get('d', [])
                     results = []
                     for entry in items:
@@ -823,7 +843,7 @@ class AurionBridge:
                                 oembed_url = f"https://www.youtube.com/oembed?url={ urllib.parse.quote(clean_watch_url) }&format=json"
                                 req = urllib.request.Request(oembed_url, headers={'User-Agent': 'Mozilla/5.0'})
                                 with urllib.request.urlopen(req, timeout=4) as resp:
-                                    oe = json.loads(resp.read().decode('utf-8'))
+                                    oe = json.loads(self._read_limited_response(resp, max_bytes=256 * 1024).decode("utf-8"))
                                     info = {
                                         'id': vid_id,
                                         'title': oe.get('title', 'Vídeo de YouTube'),
@@ -857,7 +877,7 @@ class AurionBridge:
                         ctx_pl = ssl.create_default_context()
 
                         with urllib.request.urlopen(req, context=ctx_pl, timeout=4) as resp:
-                            html_content = resp.read().decode('utf-8', errors='ignore')
+                            html_content = self._read_limited_response(resp, max_bytes=10 * 1024 * 1024).decode("utf-8", errors="ignore")
 
                         match = re.search(r'ytInitialData\s*=\s*({.+?});(?:</script>|\n)', html_content)
                         if match:
