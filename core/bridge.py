@@ -20,6 +20,7 @@ from .validation import (
     is_allowed_local_api_origin,
     is_http_url,
     is_safe_task_id,
+    is_trusted_youtube_url,
     is_trusted_update_redirect_url,
     is_trusted_update_url,
 )
@@ -774,11 +775,19 @@ class AurionBridge:
         return True
 
     def search_youtube(self, query: str, search_type: str = "video", page: int = 1, page_size: int = 12):
-        if not query or not query.strip():
+        if not isinstance(query, str) or not query.strip() or len(query) > 2048:
             return []
 
         query = query.strip()
-        is_direct_url = query.startswith("http://") or query.startswith("https://")
+        is_direct_url = query.startswith(("http://", "https://"))
+        if is_direct_url and not is_trusted_youtube_url(query):
+            return []
+        try:
+            page = max(1, min(int(page), 1000))
+            page_size = max(1, min(int(page_size), 50))
+        except (TypeError, ValueError):
+            page, page_size = 1, 12
+        search_type = search_type if search_type in {"video", "playlist"} else "video"
         start_idx = (page - 1) * page_size + 1
         end_idx = start_idx + page_size - 1
 
@@ -1026,11 +1035,24 @@ class AurionBridge:
             return None
 
         target = str(channel_url_or_name).strip()
+        if len(target) > 2048:
+            return None
 
-        if not target.startswith("http"):
+        if target.startswith(("http://", "https://")):
+            if not is_trusted_youtube_url(target):
+                return None
+        else:
             target = re.split(r'\s+(?:and|y|&)\s+', target, flags=re.IGNORECASE)[0].strip()
-            clean_handle = re.sub(r'[^a-zA-Z0-9_\-\.]', '', target.lstrip('@'))
+            clean_handle = re.sub(r'[^a-zA-Z0-9_\-\.]', '', target.lstrip('@'))[:100]
+            if not clean_handle:
+                return None
             target = f"https://www.youtube.com/@{clean_handle}"
+
+        try:
+            start_index = max(1, min(int(start_index), 10000))
+            count = max(1, min(int(count), 50))
+        except (TypeError, ValueError):
+            start_index, count = 1, 24
 
         base_channel_url = target.split('?')[0].rstrip('/')
         for tab in ['/featured', '/shorts', '/streams', '/live', '/playlists', '/community', '/videos']:
@@ -1166,14 +1188,23 @@ class AurionBridge:
             return None
 
         raw_url = playlist_url.strip()
+        if len(raw_url) > 2048:
+            return None
 
         if 'list=' in raw_url:
-            list_id = raw_url.split('list=')[-1].split('&')[0]
-            if list_id.startswith('VL'):
-                list_id = list_id[2:]
-            raw_url = f"https://www.youtube.com/playlist?list={list_id}"
-        elif '/playlist?list=' not in raw_url and not raw_url.startswith('http'):
-            raw_url = f"https://www.youtube.com/playlist?list={raw_url}"
+            list_id = raw_url.split('list=', 1)[1].split('&')[0]
+        elif raw_url.startswith(("http://", "https://")):
+            if not is_trusted_youtube_url(raw_url):
+                return None
+            return None
+        else:
+            list_id = raw_url
+
+        if list_id.startswith('VL'):
+            list_id = list_id[2:]
+        if not re.fullmatch(r'[A-Za-z0-9_-]{10,60}', list_id):
+            return None
+        raw_url = f"https://www.youtube.com/playlist?list={list_id}"
 
         opts = {
             'quiet': True,
