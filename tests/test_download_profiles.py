@@ -153,6 +153,8 @@ class DownloadProfileTests(unittest.TestCase):
         self.assertTrue(is_retryable_segment_error("HTTP Error 503: Service Unavailable"))
         self.assertTrue(is_retryable_segment_error("Unable to download a fragment"))
         self.assertFalse(is_retryable_segment_error("HTTP Error 403: Forbidden"))
+        self.assertFalse(is_retryable_segment_error("Unable to download a fragment (HTTP Error 403: Forbidden)"))
+        self.assertFalse(is_retryable_segment_error("HTTP Error 404: Not Found"))
         self.assertFalse(is_retryable_segment_error("Unsupported URL"))
 
     def test_invalid_settings_use_safe_defaults(self):
