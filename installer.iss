@@ -56,7 +56,12 @@ Name: "{userdesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: de
 Name: "{userdesktop}\Carpeta Extensión Aurion"; Filename: "{app}\extension"; Tasks: extdesktopicon
 
 [UninstallDelete]
-; Borra recursivamente la carpeta _internal completa con todo lo que haya dentro
+; Las cookies cifradas son secretas y se eliminan al desinstalar.
+Type: files; Name: "{localappdata}\Aurion\.yt_session.dpapi"
+Type: files; Name: "{localappdata}\Aurion\.yt_session.dpapi.tmp"
+; Los datos de usuario (configuración e historial) se conservan en AppData.
+; Borra recursivamente la carpeta de la aplicación.
+;
 Type: filesandordirs; Name: "{app}\_internal"
 ; Borra cualquier archivo residual generado tras la instalación (logs, configs, temp)
 Type: files; Name: "{app}\*.json"

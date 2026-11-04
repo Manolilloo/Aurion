@@ -18,6 +18,7 @@ from concurrent.futures import ThreadPoolExecutor
 import yt_dlp
 from .validation import is_http_url, is_safe_task_id, sanitize_path_component
 from .secure_storage import read_protected_file
+from .paths import get_app_data_dir
 
 
 def get_binary_path(binary_name):
@@ -1231,8 +1232,7 @@ class AurionDownloader:
             elif is_yt:
                 root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
                 appdata_cookie = os.path.join(
-                    os.environ.get('LOCALAPPDATA', os.path.expanduser('~')),
-                    'Aurion',
+                    get_app_data_dir(),
                     '.yt_session.dpapi'
                 )
                 local_cookie = os.path.join(root_dir, 'cookies.txt')

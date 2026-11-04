@@ -16,6 +16,7 @@ import io
 import webview
 from .downloader import AurionDownloader
 from .database import AurionDatabase
+from .paths import get_app_data_dir, get_app_data_file
 from .validation import (
     is_allowed_local_api_origin,
     is_http_url,
@@ -31,7 +32,9 @@ from .secure_storage import write_protected_file
 
 APP_VERSION = "1.2.0"
 GITHUB_REPO = "Manolilloo/Aurion"
-CONFIG_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config.json")
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_LEGACY_CONFIG_FILE = os.path.join(_PROJECT_ROOT, "config.json")
+CONFIG_FILE = get_app_data_file("config.json", legacy_path=_LEGACY_CONFIG_FILE)
 
 
 class AurionHTTPHandler(BaseHTTPRequestHandler):
@@ -143,9 +146,7 @@ class AurionHTTPHandler(BaseHTTPRequestHandler):
 
         if self.path == "/api/clear_cookies":
             try:
-                appdata_dir = os.path.join(
-                    os.environ.get("LOCALAPPDATA", os.path.expanduser("~")), "Aurion"
-                )
+                appdata_dir = get_app_data_dir()
                 for filename in (".yt_session.dpapi", ".yt_session.dpapi.tmp", ".yt_session.dat", ".yt_session.dat.tmp"):
                     try:
                         os.remove(os.path.join(appdata_dir, filename))
@@ -166,9 +167,7 @@ class AurionHTTPHandler(BaseHTTPRequestHandler):
             return
 
         try:
-            appdata_dir = os.path.join(
-                os.environ.get("LOCALAPPDATA", os.path.expanduser("~")), "Aurion"
-            )
+            appdata_dir = get_app_data_dir()
             os.makedirs(appdata_dir, exist_ok=True)
             cookie_file = os.path.join(appdata_dir, ".yt_session.dpapi")
             write_protected_file(cookie_file, raw_cookies.encode("utf-8"))

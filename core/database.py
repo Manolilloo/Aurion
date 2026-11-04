@@ -1,10 +1,14 @@
 import os
 import sqlite3
+
+from .paths import get_app_data_file
 import threading
 from contextlib import closing
 from datetime import datetime
 
-DB_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "aurion_history.db")
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_LEGACY_DB_FILE = os.path.join(_PROJECT_ROOT, "aurion_history.db")
+DB_FILE = get_app_data_file("aurion_history.db", legacy_path=_LEGACY_DB_FILE)
 
 
 class AurionDatabase:
