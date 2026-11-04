@@ -5,6 +5,13 @@
 window.HistoryModule = (function () {
   let currentFilter = 'all';
   let searchDebounce = null;
+  let refreshSequence = 0;
+
+  function escapeHistoryText(value) {
+    return String(value ?? '').replace(/[&<>"']/g, char => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[char]));
+  }
 
   function formatBytes(bytes) {
     if (!bytes || bytes <= 0) return '0 MB';
@@ -22,12 +29,21 @@ window.HistoryModule = (function () {
   }
 
   async function refreshHistory() {
+    const requestId = ++refreshSequence;
     const searchVal = document.getElementById('history-search-input')?.value || '';
     const container = document.getElementById('history-list-container');
     if (!container) return;
 
-    const data = await window.pyCall('get_download_history', currentFilter, searchVal);
-    if (!data) return;
+    let data;
+    try {
+      data = await window.pyCall('get_download_history', currentFilter, searchVal);
+    } catch (error) {
+      if (requestId === refreshSequence) {
+        container.textContent = 'No se pudo cargar el historial. Inténtalo de nuevo.';
+      }
+      return;
+    }
+    if (requestId !== refreshSequence || !data) return;
 
     const stats = data.stats || {};
     const countEl = document.getElementById('hist-stat-count');
@@ -38,7 +54,7 @@ window.HistoryModule = (function () {
     if (sizeEl) sizeEl.textContent = formatBytes(stats.total_bytes || 0);
     if (breakEl) breakEl.textContent = `🍙 ${stats.anime_count || 0}  •  🎬 ${stats.movie_count || 0}  •  🔴 ${stats.yt_count || 0}`;
 
-    const items = data.items || [];
+    const items = Array.isArray(data.items) ? data.items : [];
     container.innerHTML = '';
 
     if (items.length === 0) {
@@ -60,19 +76,16 @@ window.HistoryModule = (function () {
            <button class="hist-action-btn hist-btn-folder" title="Mostrar en carpeta">📂</button>`
         : `<span style="font-size: 10px; color: #64748b; font-weight: 800; padding: 4px 8px;">Movido / Eliminado</span>`;
 
-      const safeText = (value) => String(value ?? '').replace(/[&<>"']/g, char => ({
-        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-      }[char]));
       row.innerHTML = `
         <div class="history-item-info">
           <div style="display: flex; align-items: center; gap: 8px;">
             <span class="history-mode-tag" style="color: ${badge.color}; background: ${badge.bg}; border: 1px solid ${badge.color}44;">${badge.label}</span>
-            <span class="history-item-title" title="${safeText(item.title)}">${safeText(item.title)}</span>
+            <span class="history-item-title" title="${escapeHistoryText(item.title)}">${escapeHistoryText(item.title)}</span>
           </div>
           <div class="history-item-meta">
-            <span>📅 ${safeText(item.created_at)}</span>
+            <span>📅 ${escapeHistoryText(item.created_at)}</span>
             <span>•</span>
-            <span style="color: #f8fafc; font-weight: 800;">${safeText(item.resolution)}</span>
+            <span style="color: #f8fafc; font-weight: 800;">${escapeHistoryText(item.resolution)}</span>
             <span>•</span>
             <span style="color: var(--color-accent-1); font-weight: 800;">${formatBytes(item.size_bytes)}</span>
           </div>
@@ -114,6 +127,8 @@ window.HistoryModule = (function () {
   function closeModal() {
     const overlay = document.getElementById('history-modal-overlay');
     if (!overlay) return;
+    refreshSequence += 1;
+    clearTimeout(searchDebounce);
     if (typeof window.playSynth === 'function') window.playSynth('origami');
     overlay.classList.remove('active');
   }
