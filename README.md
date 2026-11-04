@@ -116,3 +116,33 @@ pip install -r requirements.txt
 
 # 4. Lanza la app
 python main.py
+
+
+## Datos de usuario y mantenimiento
+
+En Windows, Aurion guarda los datos persistentes fuera de la carpeta de instalación, en:
+
+```text
+%LOCALAPPDATA%\Aurion
+```
+
+Los archivos principales son:
+
+- `config.json`: preferencias y configuración.
+- `aurion_history.db`: historial de descargas.
+- `.yt_session.dpapi`: sesión de YouTube cifrada con DPAPI cuando la sincronización está activada.
+
+Al iniciar una versión con esta estructura por primera vez, Aurion migra `config.json` y `aurion_history.db` desde la carpeta antigua si todavía no existe una copia en AppData. La migración no sobrescribe datos que ya estén allí.
+
+Al desinstalar, se elimina el archivo de sesión cifrado, pero se conservan las preferencias y el historial. Para borrar también esos datos, elimina manualmente la carpeta `%LOCALAPPDATA%\Aurion`.
+
+### Pruebas de desarrollo
+
+Desde la raíz del proyecto:
+
+```powershell
+python -m unittest discover -s tests -v
+node --test tests/test_extension_response_limits.js
+```
+
+El workflow de GitHub Actions comprueba también la sintaxis de JavaScript y Python y valida los metadatos de empaquetado. La compilación del ejecutable y del instalador debe probarse por separado en Windows.
