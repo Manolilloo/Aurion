@@ -5,6 +5,7 @@ from core.validation import (
     is_http_url,
     is_safe_task_id,
     is_trusted_extension_origin,
+    is_trusted_youtube_url,
     is_trusted_update_redirect_url,
     is_trusted_update_url,
     sanitize_path_component,
@@ -26,6 +27,15 @@ class ValidationTests(unittest.TestCase):
         self.assertFalse(is_allowed_local_api_origin("null"))
         self.assertTrue(is_allowed_local_api_origin("https://animeflv.net"))
         self.assertFalse(is_allowed_local_api_origin("https://animeflv.net:8443"))
+
+    def test_youtube_url_validation(self):
+        self.assertTrue(is_trusted_youtube_url("https://www.youtube.com/watch?v=abcdefghijk"))
+        self.assertTrue(is_trusted_youtube_url("https://youtu.be/abcdefghijk"))
+        self.assertTrue(is_trusted_youtube_url("https://www.youtube.com/@creator/videos"))
+        self.assertFalse(is_trusted_youtube_url("http://www.youtube.com/watch?v=abcdefghijk"))
+        self.assertFalse(is_trusted_youtube_url("https://youtube.com.evil.example/watch?v=abcdefghijk"))
+        self.assertFalse(is_trusted_youtube_url("https://127.0.0.1/watch?v=abcdefghijk"))
+        self.assertFalse(is_trusted_youtube_url("https://youtube.com:8443/watch?v=abcdefghijk"))
 
     def test_auto_update_urls_are_restricted_to_github(self):
         self.assertTrue(is_trusted_update_url(
