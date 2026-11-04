@@ -118,6 +118,27 @@ pip install -r requirements.txt
 python main.py
 
 
+## Motor de descargas adaptativo
+
+El motor elige el método según el tipo de transmisión:
+
+- HLS (`.m3u8`) y DASH (`.mpd`) usan la descarga por fragmentos de yt-dlp.
+- Los archivos HTTP directos pueden usar aria2 para dividir la descarga en conexiones.
+- Las conexiones y los fragmentos se reparten según el número real de tareas del lote, con un máximo de 8 descargas simultáneas.
+- Si HLS o DASH falla por errores temporales de red o fragmentos, Aurion reintenta con menos tareas simultáneas antes de abandonar.
+
+La extensión también lee metadatos de manifiestos HLS y DASH para estimar resolución y tamaño cuando el servidor facilita esa información.
+
+### Diagnóstico de descargas
+
+En Ajustes, pulsa **Diagnóstico de descargas → Abrir registro**. Aurion guarda eventos de inicio, finalización, cancelación y error en:
+
+```text
+%LOCALAPPDATA%\\Aurion\\logs\\download_diagnostics.jsonl
+```
+
+El registro incluye protocolo, host, perfil elegido, conexiones, tamaño, duración y velocidad media efectiva. No almacena URLs completas, parámetros de sesión, cookies ni rutas de archivos. El archivo rota al superar aproximadamente 1 MB y conserva una copia anterior.
+
 ## Datos de usuario y mantenimiento
 
 En Windows, Aurion guarda los datos persistentes fuera de la carpeta de instalación, en:
@@ -142,7 +163,7 @@ Desde la raíz del proyecto:
 
 ```powershell
 python -m unittest discover -s tests -v
-node --test tests/test_extension_response_limits.js
+node --test tests/test_extension_response_limits.js tests/test_extension_manifest_parser.js
 ```
 
 El workflow de GitHub Actions comprueba también la sintaxis de JavaScript y Python y valida los metadatos de empaquetado. La compilación del ejecutable y del instalador debe probarse por separado en Windows.
