@@ -1526,7 +1526,18 @@ start "" "{app_exe_path}"
         return {b_key: any(os.path.isfile(p) for p in paths) for b_key, paths in known_paths.items()}
 
     def launch_browser_for_extension(self, target_url="chrome://extensions", browser_key="chrome"):
-        """Copia la URL al portapapeles y abre una ventana nueva del navegador correspondiente."""
+        """Copia la URL al portapapeles y abre la página de extensiones sin usar cmd/shell."""
+        allowed_extension_pages = {
+            "chrome://extensions",
+            "brave://extensions",
+            "edge://extensions",
+            "opera://extensions",
+            "vivaldi://extensions",
+            "arc://extensions",
+        }
+        if target_url not in allowed_extension_pages:
+            target_url = "chrome://extensions"
+
         def _worker():
             try:
                 import winreg
@@ -1559,12 +1570,30 @@ start "" "{app_exe_path}"
                     except Exception:
                         pass
 
-                subprocess.run(f'cmd /c <nul set /p="{effective_url}"| clip', shell=True, creationflags=0x08000000)
+                flags = 0x08000000 if sys.platform == "win32" else 0
+                try:
+                    subprocess.run(
+                        ["clip.exe"],
+                        input=effective_url,
+                        text=True,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                        creationflags=flags,
+                        timeout=3,
+                        check=False,
+                    )
+                except (OSError, subprocess.SubprocessError):
+                    pass
 
                 if chosen_exe and os.path.isfile(chosen_exe):
-                    subprocess.Popen([chosen_exe, "--new-window"])
+                    subprocess.Popen(
+                        [chosen_exe, "--new-window", effective_url],
+                        creationflags=flags,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
                 else:
-                    subprocess.Popen('cmd /c start ""', shell=True, creationflags=0x08000000)
+                    os.startfile(effective_url)
 
             except Exception as e:
                 print(f"[Core] Error abriendo navegador: {e}")
