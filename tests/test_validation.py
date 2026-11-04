@@ -25,7 +25,9 @@ class ValidationTests(unittest.TestCase):
 
     def test_http_url_validation(self):
         self.assertTrue(is_http_url("https://example.com/video.m3u8?token=a"))
-        self.assertTrue(is_http_url("http://127.0.0.1:8080/media"))
+        self.assertTrue(is_http_url("http://203.0.113.10/media") is False)
+        self.assertFalse(is_http_url("http://localhost:8080/media"))
+        self.assertFalse(is_http_url("http://127.0.0.1:8080/media"))
         self.assertFalse(is_http_url("file:///C:/secret.txt"))
         self.assertFalse(is_http_url("javascript:alert(1)"))
         self.assertFalse(is_http_url("https://user:password@example.com/"))
