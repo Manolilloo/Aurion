@@ -16,7 +16,7 @@ import io
 import webview
 from .downloader import AurionDownloader
 from .database import AurionDatabase
-from .validation import is_allowed_local_api_origin, is_http_url
+from .validation import is_allowed_local_api_origin, is_http_url, is_safe_task_id
 
 APP_VERSION = "1.2.0"
 GITHUB_REPO = "Manolilloo/Aurion"
