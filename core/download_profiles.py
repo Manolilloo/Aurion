@@ -49,14 +49,13 @@ def _detect_protocol(url, is_youtube=False, protocol_hint=None):
     if is_youtube:
         return "youtube"
 
-    if protocol_hint in {"http", "hls", "dash"}:
-        return protocol_hint
-
     value = str(url or "").lower()
     if re.search(r"\.m3u8(?:[?#]|$)", value):
         return "hls"
     if re.search(r"\.mpd(?:[?#]|$)", value):
         return "dash"
+    if protocol_hint in {"http", "hls", "dash"}:
+        return protocol_hint
     return "http"
 
 
