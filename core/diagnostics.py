@@ -46,7 +46,7 @@ def record_download_event(event, details=None, app_data_dir=None, max_bytes=1024
                 if key not in _ALLOWED_FIELDS:
                     continue
                 if isinstance(value, str):
-                    safe_details[key] = value.replace("\\r", " ").replace("\\n", " ")[:120]
+                    safe_details[key] = value.replace("\r", " ").replace("\n", " ")[:120]
                 elif isinstance(value, (int, float, bool)) or value is None:
                     safe_details[key] = value
 
@@ -55,7 +55,7 @@ def record_download_event(event, details=None, app_data_dir=None, max_bytes=1024
             "event": event,
             **safe_details,
         }
-        serialized = json.dumps(entry, ensure_ascii=False, separators=(",", ":")) + "\\n"
+        serialized = json.dumps(entry, ensure_ascii=False, separators=(",", ":")) + "\n"
 
         with _LOG_LOCK:
             if os.path.isfile(log_path) and os.path.getsize(log_path) + len(serialized.encode("utf-8")) > max_bytes:
@@ -66,7 +66,7 @@ def record_download_event(event, details=None, app_data_dir=None, max_bytes=1024
                 except OSError:
                     pass
 
-            with open(log_path, "a", encoding="utf-8", newline="\\n") as log_file:
+            with open(log_path, "a", encoding="utf-8", newline="\n") as log_file:
                 log_file.write(serialized)
         return True
     except (OSError, TypeError, ValueError):
