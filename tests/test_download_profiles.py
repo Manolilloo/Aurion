@@ -2,6 +2,7 @@ import unittest
 
 from core.download_profiles import (
     build_download_profile,
+    effective_parallel_downloads,
     fragment_fallback_levels,
     is_retryable_segment_error,
 )
@@ -99,6 +100,12 @@ class DownloadProfileTests(unittest.TestCase):
         )
 
         self.assertEqual(profile.aria_connections, 8)
+
+    def test_effective_parallel_downloads_respects_actual_batch_size(self):
+        self.assertEqual(effective_parallel_downloads(8, 1), 1)
+        self.assertEqual(effective_parallel_downloads(3, 10), 3)
+        self.assertEqual(effective_parallel_downloads(20, 20), 8)
+        self.assertEqual(effective_parallel_downloads(4, 0), 0)
 
     def test_fragment_fallback_levels_reduce_concurrency_safely(self):
         self.assertEqual(fragment_fallback_levels(16), (8, 4))
