@@ -319,8 +319,14 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 });
 
 // La transferencia de cookies queda desactivada por defecto.
-// Solo se ejecuta después de que el usuario la active en el popup.
-syncYoutubeCookiesToAurion();
+// Si una versión anterior dejó una cookie local, se elimina mientras la opción siga apagada.
+chrome.storage.local.get(["youtubeCookieSyncEnabled"], (prefs) => {
+  if (prefs.youtubeCookieSyncEnabled === true) {
+    syncYoutubeCookiesToAurion();
+  } else {
+    clearYoutubeCookiesFromAurion();
+  }
+});
 setInterval(syncYoutubeCookiesToAurion, 180000);
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (changeInfo.status === 'complete' && tab?.url) {
