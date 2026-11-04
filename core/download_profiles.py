@@ -93,10 +93,13 @@ def build_download_profile(
     configured_aria_connections=16,
     has_aria2=False,
     is_youtube=False,
+    simultaneous_downloads=1,
 ):
     """Choose conservative, protocol-aware transfer settings without network probes."""
     protocol = _detect_protocol(url, is_youtube=is_youtube)
     host = _url_host(url)
+    active_downloads = max(1, min(_safe_int(simultaneous_downloads, 1), 8))
+    per_task_budget = max(4, 32 // active_downloads)
 
     if protocol == "youtube":
         return DownloadProfile(
@@ -109,21 +112,25 @@ def build_download_profile(
         )
 
     if protocol in {"hls", "dash"}:
-        requested_workers = _safe_int(configured_threads, 16)
-        # Very high fragment fan-out can overload smaller video CDNs. Keep the
-        # existing minimum of 8, but cap the number of simultaneous fragments.
-        fragment_workers = max(8, min(requested_workers, 16))
+        requested_workers = max(4, _safe_int(configured_threads, 16))
+        # Share a 32-worker budget across active downloads so a large batch
+        # cannot make every stream open dozens of fragment requests at once.
+        fragment_workers = min(requested_workers, 16, per_task_budget)
         return DownloadProfile(
             protocol=protocol,
             host_class="segmented",
             fragment_workers=fragment_workers,
             use_aria2=False,
             aria_connections=0,
-            reason="Los fragmentos se gestionan con yt-dlp, no con aria2.",
+            reason=(
+                f"Fragmentos con yt-dlp; presupuesto de {per_task_budget} por "
+                f"descarga ({active_downloads} simultáneas)."
+            ),
         )
 
     requested_connections = _safe_int(configured_aria_connections, 16)
     requested_connections = max(1, min(requested_connections, 16))
+    requested_connections = min(requested_connections, max(2, per_task_budget))
 
     if "mp4upload" in host:
         host_class = "mp4upload"
