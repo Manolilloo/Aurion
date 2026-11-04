@@ -1,6 +1,10 @@
 import unittest
 
-from core.download_profiles import build_download_profile
+from core.download_profiles import (
+    build_download_profile,
+    fragment_fallback_levels,
+    is_retryable_segment_error,
+)
 
 
 class DownloadProfileTests(unittest.TestCase):
@@ -70,6 +74,17 @@ class DownloadProfileTests(unittest.TestCase):
         self.assertEqual(profile.protocol, "youtube")
         self.assertFalse(profile.use_aria2)
         self.assertEqual(profile.fragment_workers, 8)
+
+    def test_fragment_fallback_levels_reduce_concurrency_safely(self):
+        self.assertEqual(fragment_fallback_levels(16), (8, 4))
+        self.assertEqual(fragment_fallback_levels(8), (4,))
+        self.assertEqual(fragment_fallback_levels(4), ())
+
+    def test_only_transient_segment_errors_trigger_recovery(self):
+        self.assertTrue(is_retryable_segment_error("HTTP Error 503: Service Unavailable"))
+        self.assertTrue(is_retryable_segment_error("Unable to download a fragment"))
+        self.assertFalse(is_retryable_segment_error("HTTP Error 403: Forbidden"))
+        self.assertFalse(is_retryable_segment_error("Unsupported URL"))
 
     def test_invalid_settings_use_safe_defaults(self):
         profile = build_download_profile(
