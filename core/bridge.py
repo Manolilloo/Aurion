@@ -427,8 +427,6 @@ class AurionBridge:
             return None
         try:
             ctx = ssl.create_default_context()
-            ctx.check_hostname = False
-            ctx.verify_mode = ssl.CERT_NONE
             headers = {'User-Agent': 'Mozilla/5.0'}
             req = urllib.request.Request(image_url, headers=headers)
             with urllib.request.urlopen(req, context=ctx, timeout=5) as resp:
@@ -487,8 +485,6 @@ class AurionBridge:
         query = query.strip()
         headers = {'User-Agent': 'Mozilla/5.0'}
         ctx = ssl.create_default_context()
-        ctx.check_hostname = False
-        ctx.verify_mode = ssl.CERT_NONE
 
         if mode == 'anime':
             graphql_query = """
@@ -704,7 +700,6 @@ class AurionBridge:
             'skip_download': True,
             'extract_flat': 'in_playlist',
             'no_warnings': True,
-            'nocheckcertificate': True,
             'ignoreerrors': True,
             'skip_playlist_after_errors': 0,
             'extractor_args': {
@@ -766,8 +761,6 @@ class AurionBridge:
                             }
                         )
                         ctx_pl = ssl.create_default_context()
-                        ctx_pl.check_hostname = False
-                        ctx_pl.verify_mode = ssl.CERT_NONE
 
                         with urllib.request.urlopen(req, context=ctx_pl, timeout=4) as resp:
                             html_content = resp.read().decode('utf-8', errors='ignore')
@@ -1183,8 +1176,6 @@ class AurionBridge:
                 )
 
                 ctx = ssl.create_default_context()
-                ctx.check_hostname = False
-                ctx.verify_mode = ssl.CERT_NONE
 
                 with urllib.request.urlopen(req, context=ctx, timeout=10) as response:
                     if response.status != 200:
@@ -1540,8 +1531,6 @@ start "" "{app_exe_path}"
             out_path = os.path.abspath(os.path.join(target_dir, f"{clean_t} [Portada 4K].jpg"))
 
             ctx = ssl.create_default_context()
-            ctx.check_hostname = False
-            ctx.verify_mode = ssl.CERT_NONE
 
             for res_variant in ["maxresdefault.jpg", "sddefault.jpg", "hqdefault.jpg"]:
                 url = f"https://i.ytimg.com/vi/{video_id}/{res_variant}"
