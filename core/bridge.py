@@ -409,7 +409,8 @@ class AurionBridge:
                     except Exception:
                         pass
             if self.downloader:
-                self.downloader.cleanup_all_temp()
+                # La limpieza desde ajustes nunca debe borrar temporales de descargas activas.
+                self.downloader._cleanup_orphaned_temp_dirs()
         except Exception as e:
             print(f"[Core] Error limpiando temporales: {e}")
 
@@ -423,14 +424,16 @@ class AurionBridge:
         }
 
     def get_dominant_colors(self, image_url):
-        if not image_url:
+        if not is_http_url(image_url):
             return None
         try:
             ctx = ssl.create_default_context()
             headers = {'User-Agent': 'Mozilla/5.0'}
             req = urllib.request.Request(image_url, headers=headers)
             with urllib.request.urlopen(req, context=ctx, timeout=5) as resp:
-                data = resp.read()
+                data = resp.read(8 * 1024 * 1024 + 1)
+                if len(data) > 8 * 1024 * 1024:
+                    return None
                 img = Image.open(io.BytesIO(data)).convert('RGB')
                 img = img.resize((60, 60))
                 colors = img.getcolors(maxcolors=3600)
@@ -656,32 +659,44 @@ class AurionBridge:
         return True
 
     def start_downloads(self, payload):
-        config = payload.get("config", {}) if isinstance(payload, dict) else {}
+        if not isinstance(payload, dict):
+            return False
+        config = payload.get("config")
+        tasks = payload.get("tasks")
+        if not isinstance(config, dict) or not isinstance(tasks, list) or not tasks:
+            return False
+        config = dict(config)
         dest_dir = str(config.get("dir") or "").strip()
-
-        if not dest_dir:
-            print("[BRIDGE ERROR] Intento de descarga bloqueado: no se especificó ruta de destino.")
+        if not dest_dir or len(dest_dir) > 1024:
+            print("[BRIDGE ERROR] Descarga bloqueada: ruta de destino ausente o inválida.")
             return False
 
-        # Inyectar todos los ajustes globales de Motor & Red desde self.config["settings"]
+        # Inyectar ajustes globales sin mutar el objeto recibido desde JavaScript.
         user_settings = self.config.get("settings", {})
+        if not isinstance(user_settings, dict):
+            user_settings = {}
         config["speed_limit"] = str(user_settings.get("speed_limit", "0"))
         config["file_conflict"] = str(user_settings.get("file_conflict", "rename"))
         config["aria_connections"] = str(user_settings.get("aria_connections", "16"))
         config["finish_action"] = str(user_settings.get("finish_action", "open_folder"))
         config["notify_sound"] = bool(user_settings.get("notify_sound", True))
 
-        tasks = payload.get("tasks", [])
         print(f"\n[BRIDGE] Iniciando lote de {len(tasks)} tarea(s) -> Destino: {dest_dir}")
         return self.downloader.start_engine(config, tasks)
 
     def probe_stream_metadata(self, task_id, stream_url, page_url):
         """Sonda asíncrona de metadatos exactos (tamaño en bytes y resolución)."""
+        if not is_safe_task_id(task_id) or not is_http_url(stream_url):
+            return False
+        if not is_http_url(page_url):
+            page_url = ""
+
         def worker():
             size_bytes, res_str = self.downloader.probe_media_info(stream_url, page_url)
             if self._window:
                 self._window.evaluate_js(
-                    f"window.updateTaskMetadata && window.updateTaskMetadata('{task_id}', {size_bytes}, '{res_str}');"
+                    "window.updateTaskMetadata && window.updateTaskMetadata("
+                    f"{json.dumps(task_id)}, {int(size_bytes)}, {json.dumps(str(res_str))});"
                 )
         threading.Thread(target=worker, daemon=True).start()
         return True
