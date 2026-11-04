@@ -30,7 +30,9 @@ class DownloadDiagnosticsTests(unittest.TestCase):
             self.assertEqual(entry["host"], "cdn.example")
             self.assertNotIn("url", entry)
             self.assertNotIn("file_path", entry)
-            self.assertNotIn("secret", open(log_path, encoding="utf-8").read())
+            with open(log_path, "r", encoding="utf-8") as log_file:
+                log_text = log_file.read()
+            self.assertNotIn("secret", log_text)
 
     def test_rotates_log_when_size_limit_is_reached(self):
         with tempfile.TemporaryDirectory() as root:
