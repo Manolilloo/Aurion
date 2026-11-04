@@ -29,6 +29,10 @@ class AurionHTTPHandler(BaseHTTPRequestHandler):
     MAX_BODY_BYTES = 512 * 1024
     ALLOWED_HOSTS = {"127.0.0.1:6800", "localhost:6800"}
 
+    def setup(self):
+        super().setup()
+        self.connection.settimeout(5)
+
     def log_message(self, format, *args):
         pass
 
@@ -156,6 +160,7 @@ class AurionBridge:
         self.config = self.load_config()
         self._window = None
         self._httpd = None
+        self._httpd_thread = None
         self._is_maximized = False
         self.db = AurionDatabase()
         self.downloader = AurionDownloader(self)
@@ -182,8 +187,27 @@ class AurionBridge:
                     httpd.server_close()
                 self._httpd = None
 
-        threading.Thread(target=run_server, name="Aurion-HTTP", daemon=True).start()
+        self._httpd_thread = threading.Thread(
+            target=run_server,
+            name="Aurion-HTTP",
+            daemon=True
+        )
+        self._httpd_thread.start()
 
+    def stop_internal_server(self):
+        """Detiene el servidor local y espera a que libere el puerto."""
+        httpd = self._httpd
+        if not httpd:
+            return False
+        try:
+            httpd.shutdown()
+            thread = self._httpd_thread
+            if thread and thread is not threading.current_thread():
+                thread.join(timeout=3)
+            return True
+        except Exception as exc:
+            print(f"[Core] Error cerrando el servidor local: {exc}")
+            return False
 
     def on_extension_link(self, data):
         """Valida y envía una transmisión de la extensión al frontend."""
@@ -393,7 +417,7 @@ class AurionBridge:
         try:
             temp_dir = tempfile.gettempdir()
             for f in os.listdir(temp_dir):
-                if f.startswith("aurion_") or f.endswith(".aria2"):
+                if f.startswith("aurion_"):
                     full_p = os.path.join(temp_dir, f)
                     try:
                         if os.path.isfile(full_p):
@@ -644,6 +668,7 @@ class AurionBridge:
     def close_app(self):
         """Cierra la aplicación y asegura el borrado de las carpetas temporales activas."""
         try:
+            self.stop_internal_server()
             dl = getattr(self, 'downloader', None)
             if dl:
                 threading.Thread(target=dl.cleanup_all_temp, daemon=True).start()
