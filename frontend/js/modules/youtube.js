@@ -521,22 +521,53 @@ window.initYoutubeModule = function () {
         if (txt) txt.textContent = loadingText;
         btn.disabled = true;
 
-        currentYtSearchPage++;
-        const loadSize = (currentYtSearchType === 'playlist') ? 4 : 12;
-        const nextResults = await window.pyCall('search_youtube', val, currentYtSearchType, currentYtSearchPage, loadSize);
+        const requestSessionId = ytSearchSessionId;
+        const requestedType = currentYtSearchType;
+        const requestedPage = currentYtSearchPage + 1;
+        const loadSize = requestedType === 'playlist' ? 4 : 12;
+        currentYtSearchPage = requestedPage;
 
-        if (spin) spin.style.display = 'none';
-        btn.disabled = false;
+        try {
+          const nextResults = await window.pyCall(
+            'search_youtube',
+            val,
+            requestedType,
+            requestedPage,
+            loadSize
+          );
 
-        if (nextResults && nextResults.length > 0) {
-          nextResults.forEach(item => {
-            if (!window.modeStates.youtube.results.some(r => r.id === item.id)) {
-              window.modeStates.youtube.results.push(item);
-            }
-          });
-          renderYtResults(window.modeStates.youtube.results);
-        } else {
-          if (txt) txt.textContent = 'FIN DE RESULTADOS';
+          // Una respuesta antigua nunca debe mezclarse con los resultados de otra búsqueda.
+          if (
+            requestSessionId !== ytSearchSessionId ||
+            requestedType !== currentYtSearchType ||
+            val !== ytSearchInput?.value.trim()
+          ) {
+            return;
+          }
+
+          if (nextResults && nextResults.length > 0) {
+            const currentResults = window.modeStates?.youtube?.results || [];
+            nextResults.forEach(item => {
+              if (!currentResults.some(result => result.id === item.id)) {
+                currentResults.push(item);
+              }
+            });
+            window.modeStates.youtube.results = currentResults;
+            renderYtResults(currentResults);
+          } else if (txt) {
+            txt.textContent = 'FIN DE RESULTADOS';
+          }
+        } catch (error) {
+          if (requestSessionId === ytSearchSessionId) {
+            currentYtSearchPage = Math.min(currentYtSearchPage, requestedPage - 1);
+            if (txt) txt.textContent = labelText;
+            console.warn('[YouTube] No se pudieron cargar más resultados:', error);
+          }
+        } finally {
+          if (btn.isConnected && requestSessionId === ytSearchSessionId) {
+            if (spin) spin.style.display = 'none';
+            btn.disabled = false;
+          }
         }
       });
 

@@ -116,6 +116,7 @@ window.AnimeModule = (function () {
     const searchInput = document.getElementById('search-input');
     const suggestionsBox = document.getElementById('search-suggestions');
     let searchDebounceTimer;
+    let searchRequestId = 0;
     let activeSuggIndex = -1;
 
     function updateSelectedSuggestion(items) {
@@ -131,9 +132,15 @@ window.AnimeModule = (function () {
 
     if (searchInput && suggestionsBox) {
       searchInput.addEventListener('input', () => {
-        if (window.__isTourDemoSearching) return;
+        if (window.__isTourDemoSearching) {
+          searchRequestId += 1;
+          clearTimeout(searchDebounceTimer);
+          return;
+        }
         clearTimeout(searchDebounceTimer);
+        const requestId = ++searchRequestId;
         const query = searchInput.value.trim();
+        const requestedMode = window.currentMode;
         activeSuggIndex = -1;
 
         if (query.length < 2) {
@@ -144,7 +151,25 @@ window.AnimeModule = (function () {
 
         searchDebounceTimer = setTimeout(async () => {
           suggestionsBox.innerHTML = '';
-          const list = await window.pyCall('search_media', window.currentMode, query);
+          let list;
+          try {
+            list = await window.pyCall('search_media', requestedMode, query);
+          } catch (error) {
+            if (requestId === searchRequestId) {
+              suggestionsBox.classList.remove('active');
+              console.warn('[Anime Search] No se pudo completar la búsqueda:', error);
+            }
+            return;
+          }
+
+          if (
+            requestId !== searchRequestId ||
+            query !== searchInput.value.trim() ||
+            requestedMode !== window.currentMode
+          ) {
+            return;
+          }
+
           if (list && list.length > 0) {
             list.forEach(item => {
               const div = document.createElement('div');
