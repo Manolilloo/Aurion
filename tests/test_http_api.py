@@ -1,6 +1,9 @@
 import json
+import os
+import tempfile
 import threading
 import unittest
+from unittest.mock import patch
 from http.client import HTTPConnection
 from http.server import ThreadingHTTPServer
 
@@ -90,6 +93,37 @@ class HttpApiTests(unittest.TestCase):
     def test_unknown_endpoint_is_rejected(self):
         status, _ = self.request("POST", "/api/anything", {"x": 1})
         self.assertEqual(status, 404)
+
+    def test_cookie_sync_and_clear_are_explicit_local_operations(self):
+        with tempfile.TemporaryDirectory() as local_app_data, patch.dict(
+            os.environ, {"LOCALAPPDATA": local_app_data}
+        ):
+            cookie_text = (
+                "# Netscape HTTP Cookie File\n"
+                ".youtube.com\tTRUE\t/\tTRUE\t2000000000\tPREF\tvalue\n"
+            )
+            status, _ = self.request(
+                "POST",
+                "/api/sync_cookies",
+                {"cookies_netscape": cookie_text},
+            )
+            self.assertEqual(status, 200)
+            cookie_file = os.path.join(local_app_data, "Aurion", ".yt_session.dat")
+            self.assertTrue(os.path.isfile(cookie_file))
+            with open(cookie_file, "r", encoding="utf-8") as stream:
+                self.assertEqual(stream.read(), cookie_text)
+
+            status, _ = self.request("POST", "/api/clear_cookies", {"clear": True})
+            self.assertEqual(status, 200)
+            self.assertFalse(os.path.exists(cookie_file))
+
+    def test_invalid_cookie_export_is_rejected(self):
+        status, _ = self.request(
+            "POST",
+            "/api/sync_cookies",
+            {"cookies_netscape": "not a Netscape cookie file"},
+        )
+        self.assertEqual(status, 400)
 
 
 if __name__ == "__main__":
