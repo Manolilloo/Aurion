@@ -40,6 +40,16 @@ class DownloadProfileTests(unittest.TestCase):
 
         self.assertEqual(profile.protocol, "hls")
 
+    def test_direct_video_url_overrides_stale_manifest_hint(self):
+        profile = build_download_profile(
+            "https://cdn.example/video.mp4?token=abc",
+            protocol_hint="dash",
+            has_aria2=True,
+        )
+
+        self.assertEqual(profile.protocol, "http")
+        self.assertTrue(profile.use_aria2)
+
     def test_invalid_protocol_hint_falls_back_to_url_detection(self):
         profile = build_download_profile(
             "https://cdn.example/video.m3u8?token=abc",
