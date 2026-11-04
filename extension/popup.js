@@ -5,6 +5,33 @@ function escapePopupHtml(value) {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
+  const cookieSyncToggle = document.getElementById('cookie-sync-toggle');
+  const cookieSyncStatus = document.getElementById('cookie-sync-status');
+
+  if (cookieSyncToggle) {
+    chrome.storage.local.get(['youtubeCookieSyncEnabled'], (settings) => {
+      cookieSyncToggle.checked = settings.youtubeCookieSyncEnabled === true;
+      if (cookieSyncStatus) {
+        cookieSyncStatus.textContent = cookieSyncToggle.checked
+          ? 'Activado. Aurion podrá usar tu sesión para contenido que requiera iniciar sesión.'
+          : 'Desactivado. Las cookies no se transfieren a Aurion.';
+      }
+    });
+
+    cookieSyncToggle.addEventListener('change', () => {
+      const enabled = cookieSyncToggle.checked;
+      cookieSyncToggle.disabled = true;
+      chrome.storage.local.set({ youtubeCookieSyncEnabled: enabled }, () => {
+        cookieSyncToggle.disabled = false;
+        if (cookieSyncStatus) {
+          cookieSyncStatus.textContent = enabled
+            ? 'Activado. La sesión se enviará solo a Aurion en este equipo.'
+            : 'Desactivado. Se ha solicitado borrar la sesión local de Aurion.';
+        }
+      });
+    });
+  }
+
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab || !tab.url) return;
 
