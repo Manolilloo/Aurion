@@ -1,0 +1,119 @@
+"""Deterministic transfer profiles for the supported media protocols.
+
+The profile keeps segmented streams on yt-dlp's fragment downloader and reserves
+aria2 for direct HTTP files, where multi-connection range downloads make sense.
+"""
+from dataclasses import dataclass
+import re
+from urllib.parse import urlparse
+
+
+@dataclass(frozen=True)
+class DownloadProfile:
+    protocol: str
+    host_class: str
+    fragment_workers: int
+    use_aria2: bool
+    aria_connections: int
+    reason: str
+
+
+_TOKEN_SENSITIVE_HOSTS = (
+    "streamtape",
+    "tapecontent",
+    "mixdrop",
+    "mixdrp",
+    "mxcontent",
+    "yourupload",
+    "vidcache",
+    "dood",
+    "d000d",
+)
+
+
+def _safe_int(value, default):
+    try:
+        return int(value)
+    except (TypeError, ValueError, OverflowError):
+        return default
+
+
+def _url_host(url):
+    try:
+        return (urlparse(str(url)).hostname or "").lower()
+    except (TypeError, ValueError):
+        return ""
+
+
+def _detect_protocol(url, is_youtube=False):
+    if is_youtube:
+        return "youtube"
+
+    value = str(url or "").lower()
+    if re.search(r"\.m3u8(?:[?#]|$)", value):
+        return "hls"
+    if re.search(r"\.mpd(?:[?#]|$)", value):
+        return "dash"
+    return "http"
+
+
+def build_download_profile(
+    url,
+    configured_threads=32,
+    configured_aria_connections=16,
+    has_aria2=False,
+    is_youtube=False,
+):
+    """Choose conservative, protocol-aware transfer settings without network probes."""
+    protocol = _detect_protocol(url, is_youtube=is_youtube)
+    host = _url_host(url)
+
+    if protocol == "youtube":
+        return DownloadProfile(
+            protocol="youtube",
+            host_class="youtube",
+            fragment_workers=8,
+            use_aria2=False,
+            aria_connections=0,
+            reason="YouTube conserva su perfil de yt-dlp.",
+        )
+
+    if protocol in {"hls", "dash"}:
+        requested_workers = _safe_int(configured_threads, 16)
+        # Very high fragment fan-out can overload smaller video CDNs. Keep the
+        # existing minimum of 8, but cap the number of simultaneous fragments.
+        fragment_workers = max(8, min(requested_workers, 16))
+        return DownloadProfile(
+            protocol=protocol,
+            host_class="segmented",
+            fragment_workers=fragment_workers,
+            use_aria2=False,
+            aria_connections=0,
+            reason="Los fragmentos se gestionan con yt-dlp, no con aria2.",
+        )
+
+    requested_connections = _safe_int(configured_aria_connections, 16)
+    requested_connections = max(1, min(requested_connections, 16))
+
+    if "mp4upload" in host:
+        host_class = "mp4upload"
+        aria_connections = min(requested_connections, 8)
+        reason = "MP4Upload utiliza un máximo de 8 conexiones."
+    elif any(marker in host for marker in _TOKEN_SENSITIVE_HOSTS):
+        host_class = "token-sensitive"
+        aria_connections = min(requested_connections, 4)
+        reason = "Servidor sensible a conexiones paralelas: máximo 4."
+    else:
+        host_class = "standard"
+        aria_connections = requested_connections
+        reason = "Archivo directo: aria2 puede dividir la descarga si está disponible."
+
+    use_aria2 = bool(has_aria2)
+    return DownloadProfile(
+        protocol="http",
+        host_class=host_class,
+        fragment_workers=8,
+        use_aria2=use_aria2,
+        aria_connections=aria_connections if use_aria2 else 0,
+        reason=reason if use_aria2 else "aria2 no está disponible; se usa yt-dlp.",
+    )
