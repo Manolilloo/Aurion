@@ -25,6 +25,7 @@ from .validation import (
     is_trusted_update_url,
 )
 from .updates import safe_extract_zip
+from .secure_storage import write_protected_file
 
 APP_VERSION = "1.2.0"
 GITHUB_REPO = "Manolilloo/Aurion"
@@ -137,7 +138,7 @@ class AurionHTTPHandler(BaseHTTPRequestHandler):
                 appdata_dir = os.path.join(
                     os.environ.get("LOCALAPPDATA", os.path.expanduser("~")), "Aurion"
                 )
-                for filename in (".yt_session.dat", ".yt_session.dat.tmp"):
+                for filename in (".yt_session.dpapi", ".yt_session.dpapi.tmp", ".yt_session.dat", ".yt_session.dat.tmp"):
                     try:
                         os.remove(os.path.join(appdata_dir, filename))
                     except FileNotFoundError:
@@ -161,11 +162,8 @@ class AurionHTTPHandler(BaseHTTPRequestHandler):
                 os.environ.get("LOCALAPPDATA", os.path.expanduser("~")), "Aurion"
             )
             os.makedirs(appdata_dir, exist_ok=True)
-            cookie_file = os.path.join(appdata_dir, ".yt_session.dat")
-            temp_cookie_file = cookie_file + ".tmp"
-            with open(temp_cookie_file, "w", encoding="utf-8", newline="\n") as cookie_stream:
-                cookie_stream.write(raw_cookies)
-            os.replace(temp_cookie_file, cookie_file)
+            cookie_file = os.path.join(appdata_dir, ".yt_session.dpapi")
+            write_protected_file(cookie_file, raw_cookies.encode("utf-8"))
             if sys.platform == "win32":
                 try:
                     import ctypes
