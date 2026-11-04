@@ -267,6 +267,10 @@ class AurionBridge:
             resolution = "Auto"
         resolution = resolution[:30]
 
+        stream_protocol = str(data.get("protocol") or "http").lower()
+        if stream_protocol not in {"http", "hls", "dash"}:
+            stream_protocol = "http"
+
         try:
             size_bytes = max(0, min(int(data.get("bytes") or 0), 2**63 - 1))
         except (TypeError, ValueError, OverflowError):
@@ -276,6 +280,7 @@ class AurionBridge:
             "page_title": page_title,
             "page_url": page_url,
             "stream_url": stream_url,
+            "protocol": stream_protocol,
             "resolution": resolution,
             "bytes": size_bytes,
         }
