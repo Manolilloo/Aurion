@@ -21,6 +21,7 @@ from .secure_storage import read_protected_file
 from .paths import get_app_data_dir
 from .download_profiles import (
     build_download_profile,
+    effective_parallel_downloads,
     fragment_fallback_levels,
     is_retryable_segment_error,
 )
@@ -756,7 +757,8 @@ class AurionDownloader:
                 configured_workers = int(config.get("simul", 5))
             except (TypeError, ValueError):
                 configured_workers = 5
-            simul_workers = max(1, min(configured_workers, 8))
+            configured_workers = max(1, min(configured_workers, 8))
+            simul_workers = max(1, effective_parallel_downloads(configured_workers, len(tasks)))
             config["simul"] = simul_workers
 
             dest_folder = self.resolve_destination_folder(config)
