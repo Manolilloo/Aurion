@@ -55,7 +55,7 @@ window.animeTourSteps = [
   {
     id: 'threads_simul',
     title: 'Motor de Concurrencia',
-    desc: 'Ajusta los fragmentos y cuántas descargas van a la vez; Aurion reparte las conexiones automáticamente.'
+    desc: 'Ajusta los fragmentos y cuántas descargas van a la vez; Aurion reparte las conexiones automáticamente.',
     target: '#block-threads-simul',
     placement: 'left-center'
   },
