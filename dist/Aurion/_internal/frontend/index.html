@@ -1,0 +1,1240 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Aurion</title>
+  <link rel="stylesheet" href="css/utopia.css">
+</head>
+
+<body class="mode-anime">
+  <!-- FONDOS AMBIENTALES -->
+  <div class="ambient-layer ambient-primary" id="ambient-layer-1"></div>
+  <div class="ambient-layer ambient-secondary" id="ambient-layer-2"></div>
+
+  <!-- BARRA SUPERIOR CUSTOM FRAMELESS -->
+  <div class="top-nav pywebview-drag-region" id="top-nav-bar">
+    <div class="sites-dock" id="sites-dock">
+      <div class="sites-trigger">SITIOS ▶</div>
+      <div class="sites-items-box" id="sites-items-box"></div>
+    </div>
+
+    <div class="switch-center-anchor">
+      <div class="matrix-switch-cluster">
+        <div class="matrix-switch" id="btn-switch-mode" title="Cambiar modo (Atajo: TAB)">
+          <div class="matrix-thumb"></div>
+          <div class="matrix-opt active" id="mode-anime">ANIME</div>
+          <div class="matrix-opt" id="mode-movie">CINE</div>
+          <div class="matrix-opt" id="mode-youtube">YOUTUBE</div>
+        </div>
+        <span class="hotkey-pill" title="Pulsa TAB para alternar modo">TAB</span>
+      </div>
+    </div>
+
+    <!-- CONTROLES DE VENTANA INTEGRADOS CON BOTÓN TUTORIAL LIQUID GLASS -->
+    <div class="nav-right-cluster">
+      <button class="liquid-update-badge-btn" id="btn-update-badge" title="Nueva versión disponible">
+        <span class="liquid-update-glow"></span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+          stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="7 10 12 15 17 10"></polyline>
+          <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+        <span class="update-pulse-dot"></span>
+      </button>
+
+      <!-- BOTÓN ASISTENTE DE EXTENSIÓN (PIEZA DE PUZLE RELLENA) -->
+      <button class="liquid-help-btn liquid-puzzle-btn" id="btn-extension-helper" title="Instalar / Conectar Extensión del Navegador" onclick="window.openExtensionModal && window.openExtensionModal(event)">
+        <span class="liquid-help-glow"></span>
+        <svg class="puzzle-svg-icon" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M20.5 11c-.83 0-1.5.67-1.5 1.5v2c0 .55-.45 1-1 1h-2c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5h-2c-.55 0-1-.45-1-1v-2c.83 0 1.5-.67 1.5-1.5S10.33 9 9.5 9V7c0-.55.45-1 1-1h2c0 .83.67 1.5 1.5 1.5S15.5 6.83 15.5 6h2c.55 0 1 .45 1 1v2c.83 0 1.5.67 1.5 1.5s.67 1.5 1.5 1.5v-.5zM19 3h-3.8c-.42-1.16-1.52-2-2.82-2s-2.4 0.84-2.82 2H5c-1.1 0-2 .9-2 2v4.8c1.16.42 2 1.52 2 2.82s-.84 2.4-2 2.82V19c0 1.1.9 2 2 2h4.8c.42 1.16 1.52 2 2.82 2s2.4-.84 2.82-2H19c1.1 0 2-.9 2-2v-3.8c1.16-.42 2-1.52 2-2.82s-.84-2.4-2-2.82V5c0-1.1-.9-2-2-2z"/>
+        </svg>
+      </button>
+
+      <!-- BOTÓN HISTORIAL Y BASE DE DATOS SQLITE -->
+      <button class="liquid-help-btn" id="btn-history-modal" title="Historial de Descargas y Estadísticas (SQLite)">
+        <span class="liquid-help-glow"></span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--color-accent-1);">
+          <path d="M3 3v5h5"></path>
+          <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"></path>
+          <path d="M12 7v5l4 2"></path>
+        </svg>
+      </button>
+
+      <button class="liquid-help-btn" id="win-help" title="Guía interactiva y Tutorial">
+        <span class="liquid-help-glow"></span>
+        <span class="liquid-help-txt">?</span>
+      </button>
+
+      <div class="window-controls-box">
+        <button class="win-btn win-settings-btn" id="win-settings" title="Ajustes de Aurion">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+        </button>
+        <button class="win-btn" id="win-min" title="Minimizar">─</button>
+        <button class="win-btn" id="win-max" title="Maximizar / Restaurar">□</button>
+        <button class="win-btn win-btn-close" id="win-close" title="Cerrar">✕</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CABINA PRINCIPAL -->
+  <div class="cockpit" id="cockpit-grid">
+
+    <!-- COLUMNA 1: PIPELINE ACTIVO (IZQUIERDA) -->
+    <div class="glass-box">
+      <div class="glass-inner">
+        <div
+          style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255, 255, 255, 0.06); padding-bottom: 6px; margin-bottom: 4px;">
+          <div class="box-header" style="border-bottom: none; margin-bottom: 0; padding-bottom: 0;">PIPELINE
+            ACTIVO</div>
+          <span id="badge-single-season"
+            style="font-size: 8.5px; font-weight: 800; color: #ffaa00; background: rgba(255, 170, 0, 0.1); border: 1px solid rgba(255, 170, 0, 0.25); padding: 2px 6px; border-radius: 6px; letter-spacing: 0.5px;">1
+            TEMPORADA A LA VEZ</span>
+        </div>
+        <div class="queue-area" id="queue-list">
+          <div style="text-align: center; color: var(--color-text-dim); font-size: 12px; margin-top: 40px;">
+            A la espera de transmisiones...
+          </div>
+        </div>
+        <div class="neu-controls">
+          <button class="btn-neu" id="btn-clear" style="flex: 1;" title="Limpiar tareas terminadas o vaciar cola">🧹
+            VACIAR</button>
+          <div class="total-size-badge" id="total-queue-size" title="Peso total acumulado">
+            TOTAL: <span id="val-total-size">0 MB</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- COLUMNA 2: ESCENARIO CENTRAL (DIRECTO AL WORKSPACE) -->
+    <div class="center-stage" id="center-stage">
+
+      <div class="workspace-card is-active" id="workspace-card" style="display: flex;">
+        <div class="search-container">
+          <input type="text" class="search-input" id="search-input" placeholder="Invoca un anime..." autocomplete="off">
+          <div class="search-suggestions" id="search-suggestions"></div>
+        </div>
+
+        <div class="parallax-wrap" id="parallax-sensor">
+          <div class="parallax-poster" id="main-poster">
+            <!-- Emblema central interactivo para nuevos usuarios -->
+            <div class="tour-launcher-center" id="tour-launcher-center">
+              <div class="tour-launcher-badge">PRIMEROS PASOS</div>
+              <h2 class="tour-launcher-title">DESCUBRE AURION</h2>
+              <p class="tour-launcher-sub">Aprende a exprimir las descargas y la interfaz en 1 minuto</p>
+              <button class="tour-launch-btn" id="btn-start-tour">
+                <span class="tour-btn-sparkle">✨</span>
+                <span>INICIAR TOUR GUIADO</span>
+                <span class="tour-btn-arrow">➔</span>
+              </button>
+            </div>
+
+            <!-- Tarjeta informal de fin de tour -->
+            <div class="tour-finished-card" id="tour-finished-card" style="display: none;">
+              <div class="tour-finished-badge">¡TOUR COMPLETADO! 🎉</div>
+              <h2 class="tour-finished-title">¡Ya eres todo un pro!</h2>
+              <p class="tour-finished-sub">
+                Para empezar a descargar, abre <b>SITIOS</b> arriba a la izquierda y elige tu anime o peli. Cuando estés en el reproductor, ¡la extensión se encargará de todo!
+              </p>
+              <div class="tour-finished-actions">
+                <button class="btn-tour-primary" id="btn-tour-finish-ext">
+                  <span>Instalar extensión 🧩</span>
+                </button>
+                <button class="btn-tour-secondary" id="btn-tour-finish-close">
+                  <span>¡A descargar! 🚀</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="poster-info" id="poster-info-bar" style="display: none;">
+              <div class="poster-tags" id="poster-tags">AURION READY</div>
+              <div class="poster-title" id="poster-title">Esperando consulta...</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mag-wrapper" id="mag-wrap">
+          <div class="split-cluster" id="split-cluster-master">
+            <button class="btn-god btn-split-main" id="btn-master">
+              <span class="btn-god-txt" id="mag-txt" data-target="INICIAR EXTRACCIÓN">INICIAR EXTRACCIÓN</span>
+            </button>
+            <button class="btn-split-cancel" id="btn-cancel-master" title="Cancelar descargas activas">
+              <span>⏹ CANCELAR</span>
+            </button>
+          </div>
+          <span class="btn-god-hotkey-below" title="Atajo: Espacio">ESPACIO</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- COLUMNA 3: CONSOLA DE INGENIERÍA (DERECHA) -->
+    <div class="glass-box">
+      <div class="glass-inner">
+        <div class="box-header">INGENIERÍA MULTIMEDIA</div>
+
+        <div class="settings-area">
+          <div id="block-dest-dir">
+            <label class="section-label">DESTINO LOCAL</label>
+            <div style="display: flex; gap: 8px;">
+              <input type="text" class="search-input" id="cfg-dir"
+                style="flex: 1; border-radius: 12px; padding: 8px 12px; font-size: 11px; text-align: left;" value
+                placeholder="Seleccionar carpeta de destino...">
+              <button class="btn-neu" id="btn-browse-dir" style="padding: 0 14px; border-radius: 12px;"
+                title="Buscar en explorador">📂</button>
+            </div>
+          </div>
+          <input type="hidden" id="cfg-prefix" value>
+
+          <div id="block-season-group">
+            <!-- NUMERACIÓN COLAPSABLE (SOLO ANIME) -->
+            <div class="collapsible-section" id="section-steppers">
+              <div class="collapsible-inner">
+                <div class="steppers-grid-wrapper" id="steppers-wrapper" style="justify-content: center;">
+                  <div class="stepper-wrapper-col" id="col-season" style="max-width: 100%; width: 100%;">
+                    <label class="section-label" style="text-align: center;">TEMPORADA</label>
+                    <div class="stepper-box" data-id="cfg-season" data-min="1" data-max="99">
+                      <button class="step-btn step-dec" type="button">−</button>
+                      <div class="step-viewport">
+                        <span class="step-val" id="disp-cfg-season">1</span>
+                      </div>
+                      <button class="step-btn step-inc" type="button">+</button>
+                      <input type="hidden" id="cfg-season" value="1">
+                    </div>
+                  </div>
+                  <input type="hidden" id="cfg-start-ep" value="1">
+                </div>
+              </div>
+            </div>
+
+            <!-- TOGGLE: TEMPORADA ÚNICA (SOLO ANIME) -->
+            <div class="toggle-card" id="card-single-season" style="margin-top: 6px;">
+              <span class="toggle-label">TEMPORADA ÚNICA</span>
+              <label class="switch-toggle">
+                <input type="checkbox" id="cfg-single-season">
+                <span class="switch-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <div id="block-toggles-group" style="display: flex; flex-direction: column; gap: 8px;">
+            <!-- TOGGLE: PORTADA -->
+            <div class="toggle-card" id="card-save-cover">
+              <span class="toggle-label">GUARDAR PORTADA (FOLDER.JPG)</span>
+              <label class="switch-toggle">
+                <input type="checkbox" id="cfg-save-cover" checked>
+                <span class="switch-slider"></span>
+              </label>
+            </div>
+
+            <!-- TOGGLE: ABRIR CARPETA AL FINALIZAR -->
+            <div class="toggle-card" id="card-open-folder">
+              <span class="toggle-label">ABRIR CARPETA AL FINALIZAR</span>
+              <label class="switch-toggle">
+                <input type="checkbox" id="cfg-open-folder" checked>
+                <span class="switch-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <!-- CHIP: CONTENEDOR (MKV POR DEFECTO) -->
+          <div id="block-container-fmt">
+            <label class="section-label">CONTENEDOR</label>
+            <div class="chip-group" data-cfg="fmt">
+              <div class="chip-glider"></div>
+              <button class="chip-btn" data-val="mp4">.MP4</button>
+              <button class="chip-btn active" data-val="mkv">.MKV</button>
+            </div>
+          </div>
+
+          <!-- CHIPS: HILOS Y PARALELAS -->
+          <div id="block-threads-simul" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div>
+              <label class="section-label">HILOS: <span id="val-threads"
+                  style="color: var(--color-accent-1);">32</span></label>
+              <div class="chip-group" data-cfg="threads">
+                <div class="chip-glider"></div>
+                <button class="chip-btn active" data-val="32">32 H</button>
+                <button class="chip-btn" data-val="16">16 H</button>
+                <button class="chip-btn" data-val="8">8 H</button>
+              </div>
+            </div>
+            <div>
+              <label class="section-label">PARALELAS: <span id="val-simul"
+                  style="color: var(--color-accent-1);">20</span></label>
+              <div class="chip-group" data-cfg="simul">
+                <div class="chip-glider"></div>
+                <button class="chip-btn active" data-val="20">20 S</button>
+                <button class="chip-btn" data-val="10">10 S</button>
+                <button class="chip-btn" data-val="5">5 S</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- TELEMETRÍA DE DISCO -->
+          <div class="telemetry-card" id="block-telemetry">
+            <div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: 800;">
+              <span id="disk-drive-name">J: DISCO</span>
+              <span id="disk-free-txt" style="color: var(--color-accent-1);">171.5 GB Libres / 931.5 GB</span>
+            </div>
+            <div class="disk-bar-track">
+              <div class="disk-bar-fill" id="disk-bar-fill" style="width: 82%;"></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <!-- VISTA DEDICADA YOUTUBE (OCULTA POR DEFECTO) -->
+  <div class="cockpit yt-cockpit" id="yt-stage" style="display: none;">
+    <!-- COLUMNA IZQUIERDA: Buscador dinámico y Lista de resultados -->
+    <div class="yt-search-col">
+      <div class="yt-hero-wrapper" id="yt-hero-wrapper">
+        <div class="yt-search-row-container">
+          <div class="yt-search-input-box">
+            <svg class="yt-search-ico" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+              stroke-width="2">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="text" class="search-input yt-input" id="yt-search-input"
+              placeholder="Buscar o pegar enlace de YouTube..." autocomplete="off">
+            <button class="yt-clear-btn" id="yt-clear-btn" style="display: none;">✕</button>
+          </div>
+
+          <!-- CONMUTADOR FLUIDO VÍDEOS / LISTAS -->
+          <div class="chip-group yt-search-mode-switch" id="yt-search-mode-switch">
+            <div class="chip-glider"></div>
+            <button class="chip-btn active" data-search-mode="video">VÍDEOS</button>
+            <button class="chip-btn" data-search-mode="playlist">LISTAS</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- TELÓN DE FONDO BLUR Y TUTORIAL YOUTUBE -->
+      <div class="yt-tutorial-backdrop" id="yt-tutorial-backdrop"></div>
+
+      <!-- TUTORIAL RÁPIDO DEDICADO YOUTUBE -->
+      <div class="welcome-card yt-welcome-card" id="yt-welcome-card" style="display: none;">
+        <h2 class="shimmer-text">TUTORIAL YOUTUBE</h2>
+
+        <p class="welcome-desc">
+          Aquí vas a poder bajarte cualquier vídeo o audio de YouTube sin
+          rollos de anuncios raros ni páginas que te meten 20 virus.
+        </p>
+
+        <p class="welcome-desc">
+          Puedes escribir <b>el nombre del vídeo</b> directamente en el
+          buscador o si tienes el link a mano, <b>pegas la URL completa</b> y
+          le das al Enter. Sale al instante con su miniatura y su duración en
+          horas y minutos para que no te líes.
+        </p>
+
+        <p class="welcome-subdesc">
+          En el panel de la derecha eliges si quieres el <b>VÍDEO (MP4)</b>
+          con calidades desde <b>MIN</b> hasta <b>4K</b> o si prefieres solo
+          el audio en <b>MP3</b> para meterlo al móvil o donde te dé la gana.
+          Cada vídeo se guarda limpio en su propia carpetita.
+        </p>
+
+        <p class="welcome-desc">
+          Recuerda pulsar en <b>DESCARGAR</b> y verás la barra rellenándose en
+          vivo sin saltos raros.
+        </p>
+
+        <div class="welcome-footer-tag" id="yt-tutorial-close-btn" style="cursor: pointer;">
+          ¡Entendido, a descargar! 😼
+        </div>
+      </div>
+
+      <!-- LISTA DESPLEGABLE GRANDE CON ESTILO FLUIDO -->
+      <div class="yt-results-dock" id="yt-results-dock" style="display: none;">
+        <div class="yt-results-scroll" id="yt-results-list"></div>
+      </div>
+
+      <!-- NUEVA PANTALLA COMPLETA: VISTA DEL CANAL DE YOUTUBE -->
+      <div class="yt-channel-view" id="yt-channel-view" style="display: none;">
+        <div class="yt-channel-top-bar">
+          <button class="btn-channel-back" id="btn-channel-back" title="Volver a los resultados de búsqueda">
+            <span class="btn-back-arrow">←</span>
+            <span>VOLVER A BÚSQUEDA</span>
+          </button>
+        </div>
+
+        <div class="yt-channel-loading-box" id="yt-channel-loading" style="display: none;">
+          <div class="yt-orbital-spinner"></div>
+          <span class="yt-loading-txt">CARGANDO CANAL Y VÍDEOS...</span>
+        </div>
+
+        <div class="yt-channel-content-scroll" id="yt-channel-content" style="display: none;">
+          <!-- CABECERA HERO ÚNICA Y COMPACTA -->
+          <div class="yt-channel-hero-card" id="yt-channel-hero">
+            <div class="yt-channel-banner" id="yt-channel-banner"></div>
+            <div class="yt-channel-identity-cluster">
+              <div class="yt-channel-avatar-box">
+                <img id="yt-channel-avatar-img" src="" alt="Avatar" style="display: block;">
+              </div>
+              <div class="yt-channel-meta-box">
+                <h2 class="yt-channel-name" id="yt-channel-name">Canal</h2>
+                <div class="yt-channel-bio" id="yt-channel-bio"></div>
+                <div class="yt-channel-badges-row">
+                  <div class="yt-stat-pill" title="Suscriptores del canal">
+                    <span class="stat-pill-label">SUSCRIPTORES</span>
+                    <span class="stat-pill-val" id="yt-channel-subs">--</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- SECCIÓN DE VÍDEOS RECIENTES -->
+          <div class="yt-channel-videos-header">
+            <span class="box-header" style="border: none; margin: 0; padding: 0;">VÍDEOS RECIENTES</span>
+          </div>
+
+          <div class="yt-channel-videos-grid" id="yt-channel-videos-grid"></div>
+
+          <!-- BOTÓN CARGAR MÁS -->
+          <div class="yt-channel-load-more-box" id="yt-channel-load-more-box">
+            <button class="btn-channel-load-more" id="btn-channel-load-more">
+              <span class="btn-load-more-spinner" id="spin-load-more" style="display: none;"></span>
+              <span id="txt-load-more">CARGAR MÁS VÍDEOS ▾</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- VISTA DE LISTA DE REPRODUCCIÓN (PLAYLIST) -->
+      <div class="yt-channel-view" id="yt-playlist-view" style="display: none;">
+        <div class="yt-channel-top-bar" style="justify-content: space-between;">
+          <button class="btn-channel-back" id="btn-playlist-back" title="Volver a los resultados de búsqueda">
+            <span class="btn-back-arrow">←</span>
+            <span>VOLVER A BÚSQUEDA</span>
+          </button>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn-neu" id="btn-playlist-toggle-panel" style="border-radius: 10px; font-size: 11px; padding: 6px 14px;">⚙ OPCIONES</button>
+            <button class="btn-neu" id="btn-playlist-select-all" style="border-radius: 10px; font-size: 11px; padding: 6px 14px;">✔ SELECCIONAR TODOS</button>
+          </div>
+        </div>
+
+        <div class="yt-channel-loading-box" id="yt-playlist-loading" style="display: none;">
+          <div class="yt-orbital-spinner"></div>
+          <span class="yt-loading-txt">EXTRAYENDO LISTA DE REPRODUCCIÓN...</span>
+        </div>
+
+        <div class="yt-channel-content-scroll" id="yt-playlist-content" style="display: none;">
+          <div class="yt-playlist-header-card">
+            <div class="yt-playlist-thumb-container">
+              <img id="yt-playlist-thumb-img" src="" alt="Thumbnail" class="yt-playlist-main-thumb">
+            </div>
+            <div class="yt-playlist-header-details">
+              <h2 class="yt-playlist-main-title" id="yt-playlist-title">Lista de Reproducción</h2>
+              <div class="yt-playlist-main-uploader" id="yt-playlist-uploader">Canal</div>
+              <div class="yt-channel-badges-row">
+                <div class="yt-stat-pill">
+                  <span class="stat-pill-label">TOTAL ELEMENTOS</span>
+                  <span class="stat-pill-val" id="yt-playlist-count">0 vídeos</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="yt-channel-videos-header" style="justify-content: space-between; align-items: center;">
+            <span class="box-header" style="border: none; margin: 0; padding: 0;">VÍDEOS INCLUIDOS</span>
+            <span id="yt-playlist-selection-status" style="font-size: 11px; font-weight: 800; color: var(--color-accent-1);">0 SELECCIONADOS</span>
+          </div>
+
+          <div class="yt-playlist-rows-list" id="yt-playlist-videos-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- COLUMNA DERECHA: Panel 'X' (Opciones, Previa y Descarga) -->
+    <div class="glass-box yt-sidebar-box" id="yt-sidebar-box">
+      <div class="glass-inner">
+        <div class="box-header" style="display: flex; justify-content: space-between; align-items: center;">
+          <span>PANEL YOUTUBE</span>
+          <button class="yt-panel-toggle-btn" id="yt-btn-close-panel" title="Ocultar panel lateral">✕</button>
+        </div>
+
+        <!-- Previsualización -->
+        <div class="yt-preview-card">
+          <div class="yt-preview-media" id="yt-preview-media">
+            <img id="yt-preview-img" src alt="Thumbnail" style="display: none;">
+            <div class="yt-preview-empty" id="yt-preview-empty">
+              <span>SELECCIONA UN VÍDEO</span>
+            </div>
+          </div>
+          <div class="yt-preview-meta">
+            <div class="yt-prev-title" id="yt-prev-title">Ningún vídeo activo</div>
+          </div>
+        </div>
+
+        <div class="settings-area" style="margin-top: 15px;">
+          <!-- Destino de descarga -->
+          <div>
+            <label class="section-label">DESTINO LOCAL</label>
+            <div style="display: flex; gap: 8px;">
+              <input type="text" class="search-input" id="yt-cfg-dir"
+                style="flex: 1; border-radius: 12px; padding: 8px 12px; font-size: 11px; text-align: left;" value
+                placeholder="Seleccionar carpeta de destino...">
+              <button class="btn-neu" id="yt-btn-browse" style="padding: 0 14px; border-radius: 12px;"
+                title="Buscar carpeta">📂</button>
+            </div>
+          </div>
+
+          <!-- Selector de formato -->
+          <div>
+            <label class="section-label">FORMATO DE SALIDA</label>
+            <div class="chip-group" id="yt-format-chips">
+              <div class="chip-glider"></div>
+              <button class="chip-btn active" data-format="video">VÍDEO
+                (MP4)</button>
+              <button class="chip-btn" data-format="audio">AUDIO
+                (MP3)</button>
+            </div>
+          </div>
+
+          <!-- Selector de resolución (solo si es vídeo) -->
+          <div id="yt-res-group">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+              <label class="section-label" style="margin-bottom: 0;">CALIDAD
+                MÁXIMA</label>
+              <span class="yt-drag-hint">↔ ARRASTRA</span>
+            </div>
+            <div class="chip-group yt-chips-resolutions" id="yt-res-chips">
+              <div class="chip-glider"></div>
+              <button class="chip-btn" data-res="min">MIN</button>
+              <button class="chip-btn" data-res="144">144p</button>
+              <button class="chip-btn" data-res="240">240p</button>
+              <button class="chip-btn" data-res="360">360p</button>
+              <button class="chip-btn" data-res="480">480p</button>
+              <button class="chip-btn" data-res="720">720p</button>
+              <button class="chip-btn active" data-res="1080">1080p</button>
+              <button class="chip-btn" data-res="1440">2K</button>
+              <button class="chip-btn" data-res="2160">4K</button>
+              <button class="chip-btn" data-res="max">MÁX</button>
+            </div>
+          </div>
+
+          <!-- Toggle: Abrir carpeta al finalizar (YouTube) -->
+          <div class="toggle-card" id="yt-card-open-folder">
+            <span class="toggle-label">ABRIR CARPETA AL FINALIZAR</span>
+            <label class="switch-toggle">
+              <input type="checkbox" id="yt-cfg-open-folder" checked>
+              <span class="switch-slider"></span>
+            </label>
+          </div>
+
+          <!-- Botón de extracción con bifurcación elástica -->
+          <div class="mag-wrapper" style="margin-top: 18px;">
+            <div class="split-cluster" id="yt-split-cluster">
+              <button class="btn-god btn-split-main" id="yt-btn-download">
+                <span class="btn-god-txt" id="yt-btn-txt">DESCARGAR
+                  VÍDEO</span>
+              </button>
+              <button class="btn-split-cancel" id="yt-btn-cancel" title="Cancelar descarga activa">
+                <span>⏹ CANCELAR</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Barra de progreso de descarga YouTube -->
+          <div class="yt-download-progress-box" id="yt-dl-progress-box" style="display: none;">
+            <div class="yt-progress-meta">
+              <span class="yt-progress-status" id="yt-dl-status">Iniciando...</span>
+              <span id="yt-dl-speed">0% • 0 KB/s</span>
+            </div>
+            <div class="yt-progress-track">
+              <div class="yt-progress-bar" id="yt-dl-bar"></div>
+            </div>
+          </div>
+
+          <!-- Telemetría de disco compacta en YouTube -->
+          <div class="telemetry-card yt-telemetry-box" style="margin-top: 6px; padding: 6px 10px;">
+            <div style="display: flex; justify-content: space-between; font-size: 10px; font-weight: 800;">
+              <span id="yt-disk-drive-name">DISCO</span>
+              <span id="yt-disk-free-txt" style="color: var(--color-accent-1);">Calculando...</span>
+            </div>
+            <div class="disk-bar-track" style="height: 4px; margin-top: 3px;">
+              <div class="disk-bar-fill" id="yt-disk-bar-fill" style="width: 0%;"></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================
+       MODAL HUD FLOTANTE: TOUR DE YOUTUBE
+       ======================================================== -->
+  <div class="modal-backdrop yt-tour-modal-backdrop" id="yt-tour-modal-backdrop">
+    <div class="modal-glass-card yt-tour-card-hud" id="yt-tour-card-hud">
+      <div class="modal-header">
+        <span class="modal-badge" id="yt-tour-step-badge">YOUTUBE • PASO 1 DE 5</span>
+        <button class="modal-btn-close" id="yt-tour-btn-close" title="Cerrar (Esc)">✕</button>
+      </div>
+
+      <div class="yt-tour-interactive-stage" id="yt-tour-interactive-stage"></div>
+
+      <div class="yt-tour-text-block">
+        <h3 class="yt-tour-title" id="yt-tour-title">Título del paso</h3>
+        <p class="yt-tour-desc" id="yt-tour-desc">Descripción explicativa del paso actual.</p>
+      </div>
+
+      <div class="yt-tour-actions-row" id="yt-tour-actions-row"></div>
+    </div>
+  </div>
+
+  <!-- MODAL HUD INTELIGENTE -->
+  <div class="modal-backdrop" id="match-modal-backdrop">
+    <div class="modal-glass-card" id="match-modal-card">
+      <div class="modal-header">
+        <span class="modal-badge">TRANSMISIÓN DETECTADA</span>
+        <button class="modal-btn-close" id="modal-btn-dismiss">✕</button>
+      </div>
+
+      <div class="modal-proposal-box">
+        <div class="modal-proposal-thumb" id="modal-prop-thumb"></div>
+        <div class="modal-proposal-details">
+          <div class="modal-proposal-sub" id="modal-prop-sub">COINCIDENCIA
+            ENCONTRADA:</div>
+          <div class="modal-proposal-title" id="modal-prop-title">Buscando...</div>
+          <div class="modal-proposal-meta" id="modal-prop-meta">Calculando
+            compatibilidad...</div>
+        </div>
+      </div>
+
+      <div class="modal-actions" id="modal-initial-actions">
+        <button class="modal-btn modal-btn-confirm" id="modal-btn-confirm">✔
+          SÍ, ES CORRECTO</button>
+        <button class="modal-btn modal-btn-correct" id="modal-btn-show-search">✏ CORREGIR TÍTULO</button>
+      </div>
+
+      <div class="modal-manual-section" id="modal-manual-section">
+        <div class="modal-manual-inner">
+          <div class="matrix-switch" id="modal-switch-container" style="margin: 0 auto 12px auto; width: 100%;">
+            <div class="matrix-thumb" id="modal-matrix-thumb"></div>
+            <div class="matrix-opt active" id="modal-mode-anime">ANIME</div>
+            <div class="matrix-opt" id="modal-mode-movie">CINE</div>
+          </div>
+          <div class="search-container" style="margin-top: 10px; position: relative;">
+            <input type="text" class="search-input" id="modal-search-input" placeholder="Escribe el nombre real..."
+              autocomplete="off">
+            <div class="search-suggestions" id="modal-suggestions"></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- MODAL DE AJUSTES Y CONFIGURACIÓN -->
+  <div id="settings-modal-overlay" class="tour-modal-backdrop" style="display: none; z-index: 999999;">
+    <div class="settings-modal-card">
+      <div class="settings-sidebar">
+        <div class="settings-brand-header">
+          <div class="settings-icon-badge">⚙️</div>
+          <div>
+            <span class="settings-brand-title">AJUSTES</span>
+            <span class="settings-brand-sub">Aurion v1.1.8</span>
+          </div>
+        </div>
+        <div class="settings-nav-list">
+          <button class="settings-tab-btn active" data-tab="general">
+            <span>🛠 General</span>
+          </button>
+          <button class="settings-tab-btn" data-tab="appearance">
+            <span>🎨 Apariencia</span>
+          </button>
+          <button class="settings-tab-btn" data-tab="engine">
+            <span>⚡ Motor & Red</span>
+          </button>
+          <button class="settings-tab-btn" data-tab="about">
+            <span>ℹ Acerca de</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="settings-main-panel">
+        <div class="settings-header-bar">
+          <h3 id="settings-view-title">Configuración del Sistema</h3>
+          <button id="settings-modal-close" class="settings-close-x">✕</button>
+        </div>
+
+        <div class="settings-scroll-body">
+          <!-- TAB 1: GENERAL -->
+          <div id="tab-content-general" class="settings-tab-content active">
+            <div class="settings-row">
+              <div class="settings-row-text">
+                <strong>Efectos de Sonido</strong>
+                <span>Ruiditos suaves al tocar botones y cambiar de sección.</span>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="setting-chk-sound" checked>
+                <span class="slider"></span>
+              </label>
+            </div>
+
+            <div class="settings-row">
+              <div class="settings-row-text">
+                <strong>Modo Ahorro de Gráfica (Baja GPU)</strong>
+                <span>Apaga transparencias y desenfoques pesados para que el ordenador vuele.</span>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="setting-chk-perf">
+                <span class="slider"></span>
+              </label>
+            </div>
+
+            <div class="settings-row">
+              <div class="settings-row-text">
+                <strong>Buscar Nuevas Versiones al Entrar</strong>
+                <span>Revisa automáticamente si has sacado una actualización nueva al abrir Aurion.</span>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="setting-chk-updates" checked>
+                <span class="slider"></span>
+              </label>
+            </div>
+
+            <div class="settings-row">
+              <div class="settings-row-text">
+                <strong>Sonido de Finalización</strong>
+                <span>Emite una melodía suave cuando todos los archivos terminan de descargarse.</span>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="setting-chk-notify" checked>
+                <span class="slider"></span>
+              </label>
+            </div>
+
+            <div class="settings-row">
+              <div class="settings-row-text">
+                <strong>Limpiar Archivos Basura</strong>
+                <span>Borra cachos de descargas canceladas y temporales para ganar espacio libre.</span>
+              </div>
+              <button id="btn-clear-temp-cache" class="settings-action-btn">
+                <span class="btn-clean-ico">🧹</span>
+                <span id="txt-clean-temp">Limpiar Caché</span>
+              </button>
+            </div>
+
+            <div class="settings-row">
+              <div class="settings-row-text">
+                <strong>Configuración y Datos Locales</strong>
+                <span>Gestiona el archivo config.json o restaura los valores de fábrica de Aurion.</span>
+              </div>
+              <div style="display: flex; gap: 8px;">
+                <button id="btn-open-config-folder" class="settings-action-btn" style="background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.15);">
+                  <span>📂 Abrir Carpeta</span>
+                </button>
+                <button id="btn-reset-factory" class="settings-action-btn" style="color: #f87171; border-color: rgba(248,113,113,0.3);">
+                  <span>🔄 Reset</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 2: APARIENCIA -->
+          <div id="tab-content-appearance" class="settings-tab-content">
+            <div class="settings-row">
+              <div class="settings-row-text">
+                <strong>Color de Acento</strong>
+                <span>Elige si los colores cambian con el póster o prefieres un tono fijo.</span>
+              </div>
+              <div class="ios-dropdown" id="dropdown-accent" data-val="dynamic">
+                <button type="button" class="ios-dropdown-trigger">
+                  <span class="ios-dropdown-label">🌈 Automático (Póster)</span>
+                  <span class="ios-dropdown-arrow">▾</span>
+                </button>
+                <div class="ios-dropdown-menu">
+                  <div class="ios-dropdown-item active" data-val="dynamic">🌈 Automático (Póster)</div>
+                  <div class="ios-dropdown-item" data-val="gold">⚡ Oro Eléctrico</div>
+                  <div class="ios-dropdown-item" data-val="neon">💖 Rosa Cyberpunk</div>
+                  <div class="ios-dropdown-item" data-val="cyan">💎 Cian Diamante</div>
+                  <div class="ios-dropdown-item" data-val="purple">🔮 Púrpura Neón</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="settings-row">
+              <div class="settings-row-text">
+                <strong>Brillo Ambiental de Fondo</strong>
+                <span>Intensidad de las luces de color desenfocadas de la pantalla.</span>
+              </div>
+              <div class="ios-dropdown" id="dropdown-glow" data-val="normal">
+                <button type="button" class="ios-dropdown-trigger">
+                  <span class="ios-dropdown-label">✨ Normal (Equilibrado)</span>
+                  <span class="ios-dropdown-arrow">▾</span>
+                </button>
+                <div class="ios-dropdown-menu">
+                  <div class="ios-dropdown-item" data-val="subtle">🌙 Suave</div>
+                  <div class="ios-dropdown-item active" data-val="normal">✨ Normal (Equilibrado)</div>
+                  <div class="ios-dropdown-item" data-val="intense">🔥 Intenso</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- FILA: CARÁTULA GIRATORIA AMBIENTAL -->
+            <div class="settings-row">
+              <div class="settings-row-text">
+                <strong>Carátula Giratoria Ambiental</strong>
+                <span>Gira suavemente el fondo desenfocado para un efecto holográfico vivo.</span>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="setting-chk-spinning-cover">
+                <span class="slider"></span>
+              </label>
+            </div>
+
+            <!-- FILA: VELOCIDAD DE ROTACIÓN -->
+            <div class="settings-row" id="row-spin-speed">
+              <div class="settings-row-text">
+                <strong>Velocidad de Giro</strong>
+                <span>Ritmo de rotación del fondo ambiental desenfocado.</span>
+              </div>
+              <div class="ios-dropdown" id="dropdown-spin-speed" data-val="normal">
+                <button type="button" class="ios-dropdown-trigger">
+                  <span class="ios-dropdown-label">✨ Normal (Equilibrado)</span>
+                  <span class="ios-dropdown-arrow">▾</span>
+                </button>
+                <div class="ios-dropdown-menu">
+                  <div class="ios-dropdown-item" data-val="slow">🌙 Lenta (Hipnótica)</div>
+                  <div class="ios-dropdown-item active" data-val="normal">✨ Normal (Equilibrado)</div>
+                  <div class="ios-dropdown-item" data-val="fast">⚡ Rápida (Vinilo)</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- DOCK DE CÁPSULAS MAGNÉTICAS (DYNAMIC ISLAND STYLE) -->
+            <div class="settings-row magnetic-dock-card">
+              <div class="settings-row-text" style="max-width: 100%;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <strong>Espacio de Trabajo Modular</strong>
+                  <span class="magnetic-dock-hint">⚡ ARRASTRA PARA ORDENAR • CLIC EN CÁPSULA PARA ACTIVAR/APAGAR</span>
+                </div>
+                <span>Personaliza tu cabecera: reordena los módulos con arrastre magnético o apaga los que no utilices.</span>
+              </div>
+
+              <!-- CONTENEDOR CÁPSULA FLOTANTE -->
+              <div class="magnetic-capsule-chassis">
+                <div class="magnetic-capsule-dock" id="magnetic-capsule-dock">
+                  <!-- Se inyectan las cápsulas dinámicamente -->
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 3: MOTOR & RED -->
+          <div id="tab-content-engine" class="settings-tab-content">
+            <div class="settings-row">
+              <div class="settings-row-text">
+                <strong>Límite de Descarga</strong>
+                <span>Para no comerte todo el internet si juegas o ves directos.</span>
+              </div>
+              <div class="ios-dropdown" id="dropdown-speed" data-val="0">
+                <button type="button" class="ios-dropdown-trigger">
+                  <span class="ios-dropdown-label">⚡ Ilimitado</span>
+                  <span class="ios-dropdown-arrow">▾</span>
+                </button>
+                <div class="ios-dropdown-menu">
+                  <div class="ios-dropdown-item active" data-val="0">⚡ Ilimitado</div>
+                  <div class="ios-dropdown-item" data-val="5M">🐢 5 MB/s</div>
+                  <div class="ios-dropdown-item" data-val="10M">🚀 10 MB/s</div>
+                  <div class="ios-dropdown-item" data-val="25M">🔥 25 MB/s</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="settings-row">
+              <div class="settings-row-text">
+                <strong>Si el archivo ya existe</strong>
+                <span>Qué hacer cuando un episodio o película ya está en tu carpeta.</span>
+              </div>
+              <div class="ios-dropdown" id="dropdown-conflict" data-val="rename">
+                <button type="button" class="ios-dropdown-trigger">
+                  <span class="ios-dropdown-label">🔢 Renombrar (1)</span>
+                  <span class="ios-dropdown-arrow">▾</span>
+                </button>
+                <div class="ios-dropdown-menu">
+                  <div class="ios-dropdown-item active" data-val="rename">🔢 Renombrar (1)</div>
+                  <div class="ios-dropdown-item" data-val="skip">⏭ Omitir descarga</div>
+                  <div class="ios-dropdown-item" data-val="overwrite">🔁 Sobrescribir</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="settings-row">
+              <div class="settings-row-text">
+                <strong>Conexiones por Archivo (Aria2)</strong>
+                <span>Hilos simultáneos que abren tus descargas para maximizar la velocidad.</span>
+              </div>
+              <div class="ios-dropdown" id="dropdown-aria-conn" data-val="16">
+                <button type="button" class="ios-dropdown-trigger">
+                  <span class="ios-dropdown-label">🚀 16 Hilos (Recomendado)</span>
+                  <span class="ios-dropdown-arrow">▾</span>
+                </button>
+                <div class="ios-dropdown-menu">
+                  <div class="ios-dropdown-item" data-val="4">🐢 4 Hilos (Bajo)</div>
+                  <div class="ios-dropdown-item" data-val="8">⚡ 8 Hilos (Medio)</div>
+                  <div class="ios-dropdown-item active" data-val="16">🚀 16 Hilos (Recomendado)</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="settings-row">
+              <div class="settings-row-text">
+                <strong>Acción al Completar Lote</strong>
+                <span>Comportamiento de Windows una vez la descarga termina con éxito.</span>
+              </div>
+              <div class="ios-dropdown" id="dropdown-finish-action" data-val="open_folder">
+                <button type="button" class="ios-dropdown-trigger">
+                  <span class="ios-dropdown-label">📁 Abrir Carpeta</span>
+                  <span class="ios-dropdown-arrow">▾</span>
+                </button>
+                <div class="ios-dropdown-menu">
+                  <div class="ios-dropdown-item active" data-val="open_folder">📁 Abrir Carpeta</div>
+                  <div class="ios-dropdown-item" data-val="none">🛑 No hacer nada</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="settings-status-box">
+              <div class="settings-status-item">
+                <span>Motor de bajadas (aria2c):</span>
+                <strong id="status-bin-aria" class="status-pill">COMPROBANDO...</strong>
+              </div>
+              <div class="settings-status-item">
+                <span>Procesador de vídeo (ffmpeg):</span>
+                <strong id="status-bin-ffmpeg" class="status-pill">COMPROBANDO...</strong>
+              </div>
+              <div class="settings-status-item">
+                <span>Receptor del navegador:</span>
+                <strong style="color: #10b981;">PUERTO 6800 LISTO</strong>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 4: ACERCA DE -->
+          <div id="tab-content-about" class="settings-tab-content">
+            <div class="about-hero-box">
+              <div class="about-logo-halo">
+                <span class="halo-particle"></span>
+                <span class="about-logo-emoji">⚡</span>
+              </div>
+              <h2>Aurion Desktop</h2>
+              <div class="about-version-badge-wrap">
+                <span class="about-version-tag">Versión 1.1.8</span>
+                <span class="about-build-tag">BUILD ESTABLE</span>
+              </div>
+              <p>Centro multimedia ultrarrápido y modular para descargas directas de Anime, Películas y YouTube sin anuncios ni bloqueos.</p>
+              
+              <div class="about-update-action-cluster">
+                <button id="btn-manual-check-updates" class="btn-check-updates-god" title="Comprobar canal de GitHub Releases">
+                  <div class="update-btn-spinner" id="update-btn-spin"></div>
+                  <span class="update-btn-icon" id="update-btn-ico">🔄</span>
+                  <span class="update-btn-text" id="update-btn-txt">Buscar actualizaciones ahora</span>
+                </button>
+                <div class="update-status-feedback" id="update-status-feedback"></div>
+              </div>
+
+              <div class="about-meta-footer">
+                <span>Desarrollado para máxima eficiencia y velocidad</span>
+                <span>Aurion Engine • MIT License</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- POPUP GLASS DE CONFIRMACIÓN DE RESET -->
+      <div id="settings-confirm-dialog" class="settings-confirm-overlay" style="display: none;">
+        <div class="settings-confirm-card">
+          <div class="settings-confirm-icon">⚠️</div>
+          <h4 class="settings-confirm-title">¿Restablecer Ajustes?</h4>
+          <p class="settings-confirm-desc">Se restaurarán todos los valores originales de Aurion. Las descargas ya guardadas no se verán afectadas.</p>
+          <div class="settings-confirm-actions">
+            <button id="btn-cancel-reset" type="button" class="btn-confirm-cancel">Cancelar</button>
+            <button id="btn-do-reset" type="button" class="btn-confirm-danger">Restablecer</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DE ACTUALIZACIÓN FLUIDO -->
+  <div class="update-modal-overlay" id="update-modal-overlay">
+    <div class="update-modal-card" id="update-modal-card">
+      <div class="update-icon-wrapper">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+          stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="7 10 12 15 17 10"></polyline>
+          <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+      </div>
+      <h3 class="update-title" id="update-title">Actualización lista</h3>
+      <span class="update-badge" id="update-badge-version">v1.0.1</span>
+      <p class="update-desc" id="update-desc">Hay una versión más reciente de
+        Aurion con mejoras de rendimiento y correcciones.</p>
+
+      <div class="update-progress-container" id="update-progress-container">
+        <div class="update-progress-track">
+          <div class="update-progress-fill" id="update-progress-fill"></div>
+        </div>
+        <div class="update-progress-text">
+          <span id="update-status-text">Descargando parche...</span>
+          <span id="update-pct-text">0%</span>
+        </div>
+      </div>
+
+      <div class="update-actions" id="update-actions">
+        <button class="btn-update-secondary" id="btn-update-later">Más
+          tarde</button>
+        <button class="btn-update-primary" id="btn-update-now">Actualizar
+          ahora</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL HUD: ASISTENTE DE EXTENSIÓN FLUIDO -->
+  <div class="ext-modal-overlay" id="ext-modal-overlay">
+    <div class="ext-modal-card" id="ext-modal-card">
+      <div class="ext-modal-header">
+        <div class="ext-badge">CONEXIÓN INSTANTÁNEA</div>
+        <button class="ext-close-btn" id="ext-modal-close">✕</button>
+      </div>
+
+      <h3 class="ext-modal-title">Instalar Extensión de Aurion</h3>
+
+      <!-- TRÍPTICO HORIZONTAL EQUILIBRADO Y PASO A PASO -->
+      <div class="ext-steps-triptych">
+        <!-- COLUMNA 1: NAVEGADOR Y RUTA -->
+        <div class="ext-step-card is-active-step" id="card-step-1">
+          <div class="ext-step-top">
+            <div class="ext-step-card-header">
+              <span class="ext-step-num">1</span>
+              <h4>Tu Navegador</h4>
+            </div>
+            <p class="ext-step-sub">Elige tu navegador habitual para copiar su ruta:</p>
+
+            <div class="ext-browser-selector" id="ext-browser-selector">
+              <button class="ext-browser-chip active" data-browser="brave" data-url="brave://extensions">
+                <span class="browser-icon">🦁</span>
+                <span>Brave</span>
+              </button>
+              <button class="ext-browser-chip" data-browser="chrome" data-url="chrome://extensions">
+                <span class="browser-icon">🌐</span>
+                <span>Chrome</span>
+              </button>
+              <button class="ext-browser-chip" data-browser="edge" data-url="edge://extensions">
+                <span class="browser-icon">🌊</span>
+                <span>Edge</span>
+              </button>
+              <button class="ext-browser-chip" data-browser="opera" data-url="opera://extensions">
+                <span class="browser-icon">⭕</span>
+                <span>Opera</span>
+              </button>
+              <button class="ext-browser-chip" data-browser="operagx" data-url="opera://extensions">
+                <span class="browser-icon">🎮</span>
+                <span>Opera GX</span>
+              </button>
+              <button class="ext-browser-chip" data-browser="vivaldi" data-url="vivaldi://extensions">
+                <span class="browser-icon">🔴</span>
+                <span>Vivaldi</span>
+              </button>
+              <button class="ext-browser-chip" data-browser="arc" data-url="arc://extensions">
+                <span class="browser-icon">🌈</span>
+                <span>Arc</span>
+              </button>
+              <button class="ext-browser-chip" data-browser="chromium" data-url="chrome://extensions">
+                <span class="browser-icon">⚙️</span>
+                <span>Chromium</span>
+              </button>
+            </div>
+
+            <div class="mock-browser-omnibox">
+              <span class="mock-lock-icon">🔒</span>
+              <div class="mock-url-input-track">
+                <span class="mock-url-text" id="mock-url-text">brave://extensions</span>
+                <span class="mock-cursor-caret">|</span>
+              </div>
+              <div class="mock-kbd-pill">Ctrl + V</div>
+            </div>
+            <div class="ext-step-instructions">
+              <span class="ext-card-tip">Pega con <b>Ctrl + V</b> y pulsa <b>Enter</b></span>
+              <span class="ext-fallback-notice">ℹ Si no tienes este navegador instalado, se abrirá tu navegador predeterminado.</span>
+            </div>
+          </div>
+
+          <button class="btn-step-action" id="btn-action-step-1">
+            <span>Copiar y abrir ventana ➔</span>
+          </button>
+        </div>
+
+        <!-- COLUMNA 2: MODO DESARROLLADOR -->
+        <div class="ext-step-card is-pending-step" id="card-step-2">
+          <div class="ext-step-top">
+            <div class="ext-step-card-header">
+              <span class="ext-step-num">2</span>
+              <h4>Modo Desarrollador</h4>
+            </div>
+            <p class="ext-step-sub">Enciende la palanca arriba a la derecha en la ventana:</p>
+
+            <div class="mock-browser-toggle-box">
+              <span class="mock-toggle-label">Modo de desarrollador</span>
+              <div class="mock-switch">
+                <div class="mock-switch-thumb"></div>
+              </div>
+              <div class="mock-cursor-hand">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="#ffffff" stroke="#000000" stroke-width="1.5">
+                  <path d="M4 3l7.5 17 2.5-6.5L20.5 11 4 3z"/>
+                </svg>
+              </div>
+            </div>
+            <span class="ext-card-tip">Permite cargar extensiones locales sin tienda</span>
+          </div>
+
+          <button class="btn-step-action" id="btn-action-step-2">
+            <span>Hecho, siguiente paso ➔</span>
+          </button>
+        </div>
+
+        <!-- COLUMNA 3: ARRASTRAR Y SOLTAR -->
+        <div class="ext-step-card is-pending-step" id="card-step-3">
+          <div class="ext-step-top">
+            <div class="ext-step-card-header">
+              <span class="ext-step-num">3</span>
+              <h4>Arrastra y Suelta</h4>
+            </div>
+            <p class="ext-step-sub">Suelta la carpeta que se abre dentro del navegador:</p>
+
+            <div class="mock-drag-drop-box">
+              <div class="mock-folder-pill">
+                <span>📁 extension</span>
+              </div>
+              <span class="mock-drag-arrow">➔</span>
+              <div class="mock-browser-drop-zone">
+                <span>🌐 Navegador</span>
+              </div>
+            </div>
+            <span class="ext-card-tip">¡Quedará instalada para siempre!</span>
+          </div>
+
+          <!-- Cluster de acción para el Paso 3 con transición fluida -->
+          <div class="ext-step-action-swap">
+            <button class="btn-step-action" id="btn-action-step-3">
+              <span>Abrir carpeta en Windows 📂</span>
+            </button>
+            <button class="btn-step-reopen" id="btn-reopen-folder" title="Vuelve a mostrar la carpeta en Windows">
+              <span>Reabrir carpeta 📂</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="ext-modal-actions is-hidden" id="ext-modal-actions-box">
+        <button class="btn-ext-primary" id="btn-ext-done">¡Todo listo, comenzar! 🚀</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CURSOR VIRTUAL PARA DEMOS INTERACTIVAS -->
+  <div class="tour-virtual-cursor" id="tour-virtual-cursor">
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="#ffffff" stroke="#000000" stroke-width="1.5">
+      <path d="M4 3l7.5 17 2.5-6.5L20.5 11 4 3z"/>
+    </svg>
+  </div>
+
+  <!-- HUD DEL TOUR GUIADO CINEMÁTICO -->
+  <div class="tour-backdrop" id="tour-backdrop"></div>
+  <div class="tour-card" id="tour-card">
+    <div class="tour-card-header">
+      <div class="tour-step-badge" id="tour-step-badge">PASO 1 DE 13</div>
+      <button class="tour-card-skip" id="tour-btn-skip">Saltar todo ✕</button>
+    </div>
+    <div class="tour-card-body">
+      <h3 class="tour-card-title" id="tour-card-title">Título del paso</h3>
+      <p class="tour-card-desc" id="tour-card-desc">Descripción detallada de la función.</p>
+    </div>
+    <div class="tour-card-actions" id="tour-card-actions">
+      <!-- Los botones de navegación se inyectan dinámicamente -->
+    </div>
+  </div>
+
+  <!-- Tours guiados -->
+  <script src="js/tours/tour_anime.js"></script>
+  <script src="js/tours/tour_cinema.js"></script>
+  <script src="js/tours/tour_youtube.js"></script>
+
+  <!-- Módulos específicos -->
+  <script src="js/animations.js"></script>
+  <script src="js/modules/youtube.js"></script>
+  <script src="js/modules/settings.js"></script>
+  <script src="js/modules/anime.js"></script>
+  <script src="js/modules/cinema.js"></script>
+  <script src="js/modules/extension_bridge.js"></script>
+
+  <!-- MODAL HUD: HISTORIAL DE DESCARGAS Y TELEMETRÍA SQLITE -->
+  <div id="history-modal-overlay" class="modal-backdrop" style="z-index: 999998;">
+    <div class="history-modal-card">
+      <div class="history-modal-header">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div class="settings-icon-badge">🗄️</div>
+          <div>
+            <h3 style="font-size: 16px; font-weight: 900; color: #fff; letter-spacing: 0.6px; margin: 0;">HISTORIAL DE DESCARGAS</h3>
+            <span style="font-size: 11px; font-weight: 700; color: var(--color-accent-1);">Motor SQLite3 Persistente • Biblioteca Local</span>
+          </div>
+        </div>
+        <button id="history-modal-close" class="settings-close-x">✕</button>
+      </div>
+
+      <!-- TARJETAS DE ESTADÍSTICAS GLOBALES SQL -->
+      <div class="history-stats-grid">
+        <div class="history-stat-box">
+          <span class="history-stat-label">TOTAL DESCARGADOS</span>
+          <strong class="history-stat-value" id="hist-stat-count">0</strong>
+        </div>
+        <div class="history-stat-box">
+          <span class="history-stat-label">VOLUMEN EN DISCO</span>
+          <strong class="history-stat-value" id="hist-stat-size" style="color: var(--color-accent-1);">0 MB</strong>
+        </div>
+        <div class="history-stat-box">
+          <span class="history-stat-label">ANIME / CINE / YT</span>
+          <strong class="history-stat-value" id="hist-stat-breakdown" style="font-size: 14px;">0 • 0 • 0</strong>
+        </div>
+      </div>
+
+      <!-- BARRA DE FILTROS Y BÚSQUEDA -->
+      <div class="history-toolbar">
+        <input type="text" id="history-search-input" class="search-input" placeholder="Buscar en tu biblioteca descargada..." style="flex: 1; height: 38px !important; border-radius: 12px !important;">
+        <div class="history-filter-pills" id="history-filter-pills">
+          <button class="hist-pill active" data-filter="all">TODOS</button>
+          <button class="hist-pill" data-filter="anime">ANIME</button>
+          <button class="hist-pill" data-filter="movie">CINE</button>
+          <button class="hist-pill" data-filter="youtube">YOUTUBE</button>
+        </div>
+        <button id="btn-clear-history" class="btn-neu" style="height: 38px; padding: 0 14px; border-radius: 12px !important; color: #f87171 !important;" title="Vaciar registro de base de datos">🗑 Vaciar</button>
+      </div>
+
+      <!-- LISTA DE ELEMENTOS DESCARGADOS -->
+      <div class="history-list-container" id="history-list-container"></div>
+    </div>
+  </div>
+
+  <!-- Módulo de Historial SQLite -->
+  <script src="js/modules/history.js"></script>
+
+  <!-- Orquestador principal -->
+  <script src="js/app.js"></script>
+</body>
+</html>
