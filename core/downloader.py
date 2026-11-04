@@ -213,8 +213,12 @@ class AurionDownloader:
         req = urllib.request.Request(api_url, data=payload, headers={'Content-Type': 'application/json', 'User-Agent': 'Mozilla/5.0'})
 
         with urllib.request.urlopen(req, context=ctx, timeout=10) as resp:
-            api_response_url = resp.geturl()
-            if not api_response_url.startswith("https://g.api.mega.co.nz/"):
+            api_response_url = urlparse(resp.geturl())
+            if (
+                api_response_url.scheme.lower() != "https"
+                or api_response_url.hostname != "g.api.mega.co.nz"
+                or api_response_url.port not in (None, 443)
+            ):
                 raise ValueError("La API de MEGA redirigió a un host inesperado.")
             api_response = self._read_limited_response(resp, max_bytes=4 * 1024 * 1024)
             res_data = json.loads(api_response.decode("utf-8"))
