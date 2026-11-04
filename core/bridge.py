@@ -1796,28 +1796,3 @@ class AurionBridge:
         except (OSError, ValueError) as exc:
             print(f"[Bridge] Error guardando miniatura: {exc}")
         return False
-
-        target_dir = (dest_dir or "").strip() or os.path.join(os.path.expanduser("~"), "Pictures", "Aurion_Thumbnails")
-        try:
-            os.makedirs(target_dir, exist_ok=True)
-            clean_t = "".join(c for c in (title or video_id) if c not in r'\/:*?"<>|').strip() or video_id
-            out_path = os.path.abspath(os.path.join(target_dir, f"{clean_t} [Portada 4K].jpg"))
-
-            ctx = ssl.create_default_context()
-
-            for res_variant in ["maxresdefault.jpg", "sddefault.jpg", "hqdefault.jpg"]:
-                url = f"https://i.ytimg.com/vi/{video_id}/{res_variant}"
-                try:
-                    req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-                    with urllib.request.urlopen(req, context=ctx, timeout=5) as resp:
-                        if resp.status == 200:
-                            with open(out_path, "wb") as f:
-                                f.write(resp.read())
-                            # Abrir directamente la carpeta donde se ha guardado sin el bug de "Mis Documentos" de Windows
-                            os.startfile(os.path.abspath(target_dir))
-                            return True
-                except Exception:
-                    continue
-        except Exception as e:
-            print(f"[Bridge] Error guardando miniatura: {e}")
-        return False
