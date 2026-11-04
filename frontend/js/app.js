@@ -1,6 +1,26 @@
 let currentMode = window.currentMode = 'anime';
 const downloadQueue = [];
 
+function escapeAurionHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, char => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[char]));
+}
+
+function safeAurionImageUrl(value) {
+  try {
+    const parsed = new URL(String(value || ''));
+    return parsed.protocol === 'https:' ? parsed.href : '';
+  } catch (_) {
+    return '';
+  }
+}
+
+function safeAurionBackground(value) {
+  const imageUrl = safeAurionImageUrl(value);
+  return imageUrl ? `url("${imageUrl}")` : 'none';
+}
+
 const portalData = {
   anime: [
     { id: 'FLV', title: 'AnimeFLV', url: 'https://www3.animeflv.net/', icon: 'assets/icons/animeflv.png' },
@@ -446,7 +466,7 @@ function renderQueueCard(task) {
   const sizeBytes = task.bytes || 0;
   const sizeStr = sizeBytes > 0 ? formatBytes(sizeBytes) : '-- MB';
   const resStr = task.resolution || 'N/D';
-  const percent = task.progress !== undefined ? task.progress : 0;
+  const percent = Math.max(0, Math.min(100, Number(task.progress) || 0));
 
   const isError = task.status === 'Error' || task.status === 'Fallo al descargar';
 
@@ -454,28 +474,29 @@ function renderQueueCard(task) {
   card.className = `pipeline-card ${isCompleted ? 'completed' : ''} ${isError ? 'is-error' : ''}`;
   card.id = task.id;
 
+  const safeTaskId = escapeAurionHtml(task.id);
   card.innerHTML = `
     <div class="pipeline-card-top">
-      <span class="pipeline-card-title" title="${task.title}">${task.title}</span>
+      <span class="pipeline-card-title" title="${escapeAurionHtml(task.title)}">${escapeAurionHtml(task.title)}</span>
       <div class="pipeline-card-actions">
-        <button class="pipeline-card-btn-retry" id="btn-retry-${task.id}" title="Reintentar descarga" style="display: ${isError ? 'inline-flex' : 'none'};">🔄</button>
+        <button class="pipeline-card-btn-retry" id="btn-retry-${safeTaskId}" title="Reintentar descarga" style="display: ${isError ? 'inline-flex' : 'none'};">🔄</button>
         <button class="pipeline-card-btn-del" title="Eliminar">✕</button>
       </div>
     </div>
     <div class="pipeline-card-meta">
       <div class="pipeline-tags-cluster">
-        <span class="pipeline-card-size" id="task-size-${task.id}">${sizeStr}</span>
-        <span class="pipeline-card-res" id="task-res-${task.id}">${resStr}</span>
+        <span class="pipeline-card-size" id="task-size-${safeTaskId}">${escapeAurionHtml(sizeStr)}</span>
+        <span class="pipeline-card-res" id="task-res-${safeTaskId}">${escapeAurionHtml(resStr)}</span>
       </div>
-      <span class="pipeline-card-status" id="task-status-${task.id}">${task.status}</span>
+      <span class="pipeline-card-status" id="task-status-${safeTaskId}">${escapeAurionHtml(task.status)}</span>
     </div>
     <div class="pipeline-progress-track">
-      <div class="pipeline-progress-fill" id="task-progress-${task.id}" style="width: ${percent}%;"></div>
+      <div class="pipeline-progress-fill" id="task-progress-${safeTaskId}" style="width: ${percent}%;"></div>
     </div>
   `;
 
   // Listener del botón de reintento
-  const retryBtn = card.querySelector(`#btn-retry-${task.id}`);
+  const retryBtn = card.querySelector('.pipeline-card-btn-retry');
   if (retryBtn) {
     retryBtn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -583,10 +604,12 @@ function loadState(mode) {
     if (posterInfo) posterInfo.style.display = 'block';
 
     if (pTitle) pTitle.innerText = state.title;
-    if (pTags) pTags.innerHTML = state.tags || 'SISTEMA LISTO';
-    if (mPoster) mPoster.style.backgroundImage = state.bg;
-    if (aL1) aL1.style.backgroundImage = state.bg;
-    if (aL2) aL2.style.backgroundImage = state.bg;
+    if (pTags) pTags.textContent = state.tags || 'SISTEMA LISTO';
+    const storedBgMatch = String(state.bg || '').match(/^url\((?:["']?)(https:\/\/[^"')]+)(?:["']?)\)$/i);
+    const safeStoredBg = storedBgMatch ? safeAurionBackground(storedBgMatch[1]) : 'none';
+    if (mPoster) mPoster.style.backgroundImage = safeStoredBg;
+    if (aL1) aL1.style.backgroundImage = safeStoredBg;
+    if (aL2) aL2.style.backgroundImage = safeStoredBg;
   } else {
     // Solo si la app está completamente vacía se muestra la invitación central
     if (launcherCenter) {
@@ -822,8 +845,9 @@ function applyDynamicPalette(c1, c2) {
 }
 
 function updatePoster(imgUrl, title, meta) {
-  const hasRealImage = typeof imgUrl === 'string' && imgUrl.trim() !== '' && imgUrl !== 'none';
-  const bgVal = hasRealImage ? `url('${imgUrl}')` : 'none';
+  const safeImageUrl = safeAurionImageUrl(imgUrl);
+  const hasRealImage = Boolean(safeImageUrl);
+  const bgVal = hasRealImage ? safeAurionBackground(safeImageUrl) : 'none';
   const aL1 = document.getElementById('ambient-layer-1');
   const aL2 = document.getElementById('ambient-layer-2');
   const mPoster = document.getElementById('main-poster');
@@ -834,7 +858,7 @@ function updatePoster(imgUrl, title, meta) {
   if (aL2) aL2.style.backgroundImage = bgVal;
   if (mPoster) mPoster.style.backgroundImage = bgVal;
   if (pTitle) pTitle.innerText = title;
-  if (pTags) pTags.innerHTML = meta;
+  if (pTags) pTags.textContent = String(meta ?? '');
 
   // Blindaje: la tarjeta de bienvenida central NO se oculta jamás salvo que haya carátula real
   const launcherCenter = document.getElementById('tour-launcher-center');
