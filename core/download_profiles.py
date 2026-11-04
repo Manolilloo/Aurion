@@ -75,6 +75,13 @@ _RETRYABLE_SEGMENT_MARKERS = (
 )
 
 
+def effective_parallel_downloads(configured_workers, task_count, maximum=8):
+    """Return the actual number of workers needed for the current batch."""
+    configured = max(1, min(_safe_int(configured_workers, 1), maximum))
+    count = max(0, _safe_int(task_count, 0))
+    return min(configured, count)
+
+
 def fragment_fallback_levels(current_workers):
     """Return progressively smaller, unique fragment-worker counts."""
     current = max(1, _safe_int(current_workers, 8))
