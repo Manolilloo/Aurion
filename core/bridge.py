@@ -16,7 +16,7 @@ import io
 import webview
 from .downloader import AurionDownloader
 from .database import AurionDatabase
-from .validation import is_http_url, is_trusted_extension_origin
+from .validation import is_allowed_local_api_origin, is_http_url
 
 APP_VERSION = "1.2.0"
 GITHUB_REPO = "Manolilloo/Aurion"
@@ -50,7 +50,7 @@ class AurionHTTPHandler(BaseHTTPRequestHandler):
     def _trusted_request_origin(self):
         origin = self.headers.get("Origin", "")
         host = self.headers.get("Host", "").lower()
-        if not is_trusted_extension_origin(origin):
+        if not is_allowed_local_api_origin(origin):
             self._send_json(403, {"status": "error", "message": "Origen no autorizado"})
             return None
         if host not in self.ALLOWED_HOSTS:
