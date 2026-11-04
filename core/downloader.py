@@ -910,6 +910,7 @@ class AurionDownloader:
             has_aria2=self.has_aria2,
             is_youtube=is_yt,
             simultaneous_downloads=config.get("simul", 1),
+            protocol_hint=task.get("protocol"),
         )
         is_segmented_stream = profile.protocol in {"hls", "dash"}
         threads_count = profile.fragment_workers
