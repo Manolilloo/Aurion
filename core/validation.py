@@ -92,6 +92,33 @@ def is_http_url(value: str, max_length: int = 8192) -> bool:
         return False
 
 
+def is_trusted_youtube_url(value: str) -> bool:
+    """Accept public HTTPS YouTube video/channel/playlist URLs only."""
+    if not is_http_url(value, max_length=2048):
+        return False
+    try:
+        parsed = urlsplit(value.strip())
+        hostname = (parsed.hostname or "").lower().rstrip(".")
+        allowed_hosts = {
+            "youtube.com",
+            "www.youtube.com",
+            "m.youtube.com",
+            "music.youtube.com",
+            "youtu.be",
+            "www.youtube-nocookie.com",
+            "youtube-nocookie.com",
+        }
+        return (
+            parsed.scheme.lower() == "https"
+            and parsed.username is None
+            and parsed.password is None
+            and hostname in allowed_hosts
+            and (parsed.port is None or parsed.port == 443)
+        )
+    except ValueError:
+        return False
+
+
 def is_trusted_update_url(value: str) -> bool:
     """Accept only Aurion release assets or the repository's GitHub source archive."""
     if not isinstance(value, str) or len(value) > 4096:
