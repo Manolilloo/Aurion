@@ -762,56 +762,6 @@ class AurionDownloader:
         except Exception as e:
             print(f"[Core] Error descargando portada: {e}")
 
-    def _orchestrate_downloads(self, config, tasks):
-        simul_workers = int(config.get("simul", 5))
-        dest_folder = self.resolve_destination_folder(config)
-
-        self._save_cover_image(config)
-
-        print(f"\n[Core] Iniciando pool de descargas: {simul_workers} simultáneas en '{dest_folder}'")
-
-        any_success = False
-        with ThreadPoolExecutor(max_workers=simul_workers) as executor:
-            futures = [
-                executor.submit(self._download_single_task, task, dest_folder, config)
-                for task in tasks
-            ]
-            for f in futures:
-                try:
-                    if f.result() is True:
-                        any_success = True
-                except Exception as e:
-                    print(f"[Core] Error no capturado en worker: {e}")
-
-        self.is_downloading = False
-        print("\n[Core] Todas las tareas del lote han concluido.")
-
-        if any_success:
-            if self.bridge and self.bridge._window:
-                try:
-                    self.bridge._window.evaluate_js("window.onBatchFinished && window.onBatchFinished();")
-                except Exception:
-                    pass
-
-            finish_action = str(config.get("finish_action", "open_folder"))
-            should_open = bool(config.get("open_folder", True)) and (finish_action != "none")
-
-            if should_open:
-                def _delayed_open(target_dest):
-                    try:
-                        time.sleep(0.8)
-                        parent_folder = os.path.dirname(target_dest)
-                        target_open = parent_folder if os.path.basename(target_dest).lower().startswith("temporada") else target_dest
-                        abs_dest = os.path.abspath(target_open if os.path.exists(target_open) else target_dest)
-
-                        if os.path.exists(abs_dest):
-                            print(f"[Core] Abriendo carpeta en explorador: {abs_dest}")
-                            os.startfile(abs_dest)
-                    except Exception as e:
-                        print(f"[Core] Error abriendo carpeta: {e}")
-
-                threading.Thread(target=_delayed_open, args=(dest_folder,), daemon=True).start()
-
     def _download_single_task(self, task, dest_folder, config):
         if not isinstance(task, dict) or not isinstance(config, dict):
             return False
