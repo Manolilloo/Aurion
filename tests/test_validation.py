@@ -1,6 +1,7 @@
 import unittest
 
 from core.validation import (
+    is_allowed_local_api_origin,
     is_http_url,
     is_safe_task_id,
     is_trusted_extension_origin,
@@ -13,6 +14,14 @@ class ValidationTests(unittest.TestCase):
         self.assertTrue(is_trusted_extension_origin("chrome-extension://abcdefghijklmnopabcdefghijklmnop"))
         self.assertFalse(is_trusted_extension_origin("https://example.com"))
         self.assertFalse(is_trusted_extension_origin("chrome-extension://invalid-id"))
+
+    def test_local_api_origin_allowlist(self):
+        self.assertTrue(is_allowed_local_api_origin("chrome-extension://abcdefghijklmnopabcdefghijklmnop"))
+        self.assertTrue(is_allowed_local_api_origin("https://www3.animeflv.net"))
+        self.assertTrue(is_allowed_local_api_origin("https://player.streamtape.com"))
+        self.assertFalse(is_allowed_local_api_origin("https://example.com"))
+        self.assertFalse(is_allowed_local_api_origin("https://evilstreamtape.com"))
+        self.assertFalse(is_allowed_local_api_origin("null"))
 
     def test_http_url_validation(self):
         self.assertTrue(is_http_url("https://example.com/video.m3u8?token=a"))
