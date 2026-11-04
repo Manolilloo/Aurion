@@ -8,6 +8,7 @@ from http.client import HTTPConnection
 from http.server import ThreadingHTTPServer
 
 from core.bridge import AurionHTTPHandler
+from core.secure_storage import read_protected_file
 
 
 EXTENSION_ORIGIN = "chrome-extension://abcdefghijklmnopabcdefghijklmnop"
@@ -108,14 +109,17 @@ class HttpApiTests(unittest.TestCase):
                 {"cookies_netscape": cookie_text},
             )
             self.assertEqual(status, 200)
-            cookie_file = os.path.join(local_app_data, "Aurion", ".yt_session.dat")
+            cookie_file = os.path.join(local_app_data, "Aurion", ".yt_session.dpapi")
             self.assertTrue(os.path.isfile(cookie_file))
-            with open(cookie_file, "r", encoding="utf-8") as stream:
-                self.assertEqual(stream.read(), cookie_text)
+            with open(cookie_file, "rb") as stream:
+                encrypted = stream.read()
+            self.assertNotIn(cookie_text.encode("utf-8"), encrypted)
+            self.assertEqual(read_protected_file(cookie_file).decode("utf-8"), cookie_text)
 
             status, _ = self.request("POST", "/api/clear_cookies", {"clear": True})
             self.assertEqual(status, 200)
             self.assertFalse(os.path.exists(cookie_file))
+            self.assertFalse(os.path.exists(os.path.join(local_app_data, "Aurion", ".yt_session.dat")))
 
     def test_invalid_cookie_export_is_rejected(self):
         status, _ = self.request(
