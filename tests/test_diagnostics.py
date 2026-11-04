@@ -2,7 +2,9 @@ import json
 import os
 import tempfile
 import unittest
+from unittest.mock import patch
 
+from core.bridge import AurionBridge
 from core.diagnostics import record_download_event
 
 
@@ -47,6 +49,17 @@ class DownloadDiagnosticsTests(unittest.TestCase):
             log_path = os.path.join(root, "logs", "download_diagnostics.jsonl")
             self.assertTrue(os.path.isfile(log_path))
             self.assertTrue(os.path.isfile(log_path + ".1"))
+
+    def test_bridge_opens_the_local_diagnostic_log(self):
+        with tempfile.TemporaryDirectory() as root:
+            bridge = object.__new__(AurionBridge)
+            with patch("core.bridge.get_app_data_dir", return_value=root):
+                with patch("core.bridge.os.startfile", create=True) as open_file:
+                    self.assertTrue(bridge.open_download_diagnostics())
+
+            log_path = os.path.join(root, "logs", "download_diagnostics.jsonl")
+            self.assertTrue(os.path.isfile(log_path))
+            open_file.assert_called_once_with(log_path)
 
     def test_rejects_unknown_event_names(self):
         with tempfile.TemporaryDirectory() as root:
