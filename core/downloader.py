@@ -25,6 +25,7 @@ from .download_profiles import (
     fragment_fallback_levels,
     is_retryable_segment_error,
 )
+from .diagnostics import record_download_event
 
 
 def get_binary_path(binary_name):
@@ -1241,6 +1242,14 @@ class AurionDownloader:
                 ydl_opts['external_downloader_args'] = {'aria2c': aria_args}
 
         transfer_started_at = time.monotonic()
+        record_download_event("started", {
+            "protocol": profile.protocol,
+            "host": netloc,
+            "host_class": profile.host_class,
+            "fragment_workers": threads_count if profile.protocol in {"hls", "dash"} else None,
+            "aria2_connections": configured_aria_conns,
+            "simultaneous_downloads": config.get("simul", 1),
+        })
         try:
             if self.bridge and self.bridge._window:
                 self.bridge._window.evaluate_js(
@@ -1496,6 +1505,13 @@ class AurionDownloader:
 
             min_size_threshold = 20 * 1024 if is_yt else 1 * 1024 * 1024
             if real_file_bytes < min_size_threshold:
+                record_download_event("failed", {
+                    "protocol": profile.protocol,
+                    "host": netloc,
+                    "host_class": profile.host_class,
+                    "error_type": "InvalidStreamSize",
+                    "size_bytes": real_file_bytes,
+                })
                 print(f"[Core] ADVERTENCIA: Archivo demasiado pequeño ({real_file_bytes} bytes).")
                 try:
                     if os.path.exists(final_file_path):
@@ -1507,6 +1523,19 @@ class AurionDownloader:
                         f"window.updateDownloadProgress && window.updateDownloadProgress('{task_id}', 0, 'Fallo', 'Stream inválido');"
                     )
                 return False
+
+            record_download_event("completed", {
+                "protocol": profile.protocol,
+                "host": netloc,
+                "host_class": profile.host_class,
+                "fragment_workers": threads_count if profile.protocol in {"hls", "dash"} else None,
+                "aria2_connections": configured_aria_conns,
+                "simultaneous_downloads": config.get("simul", 1),
+                "size_bytes": real_file_bytes,
+                "duration_seconds": round(elapsed_seconds, 2),
+                "average_speed_mib_s": round(average_speed_mb, 2),
+                "resolution": final_res_label,
+            })
 
             if self.bridge and hasattr(self.bridge, 'db') and self.bridge.db:
                 rec_mode = "youtube" if is_yt else config.get("active_mode", "anime")
@@ -1531,6 +1560,12 @@ class AurionDownloader:
 
         except Exception as e:
             if "TASK_CANCELLED_BY_USER" in str(e):
+                record_download_event("cancelled", {
+                    "protocol": profile.protocol,
+                    "host": netloc,
+                    "host_class": profile.host_class,
+                    "duration_seconds": round(max(time.monotonic() - transfer_started_at, 0), 2),
+                })
                 print(f"[Core] Descarga cancelada: {title}")
                 if self.bridge and self.bridge._window:
                     self.bridge._window.evaluate_js(
@@ -1538,6 +1573,13 @@ class AurionDownloader:
                     )
                 self._force_remove_temp_dir(task_temp_dir)
             else:
+                record_download_event("failed", {
+                    "protocol": profile.protocol,
+                    "host": netloc,
+                    "host_class": profile.host_class,
+                    "duration_seconds": round(max(time.monotonic() - transfer_started_at, 0), 2),
+                    "error_type": type(e).__name__,
+                })
                 import traceback
                 print(f"[Core] Error descargando {title}:")
                 traceback.print_exc()
