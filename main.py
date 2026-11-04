@@ -86,6 +86,12 @@ def main():
 
     webview.start(on_loaded, (window, bridge), gui='edgechromium', debug=False, http_port=8085)
 
+    # Liberar el puerto local también cuando la ventana se cierra desde Windows.
+    try:
+        bridge.stop_internal_server()
+    except Exception:
+        pass
+
     # Limpieza final una vez que la ventana se ha destruido
     try:
         dl = getattr(bridge, 'downloader', None) or getattr(bridge, '_downloader', None)
