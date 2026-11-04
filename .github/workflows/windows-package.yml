@@ -1,0 +1,82 @@
+name: Windows package smoke test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout project and LFS assets
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: requirements.txt
+
+      - name: Install application dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install PyInstaller
+
+      - name: Remove previous build artefacts
+        shell: pwsh
+        run: |
+          Remove-Item -Recurse -Force build, dist, Output -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force Output | Out-Null
+
+      - name: Build Aurion with PyInstaller
+        shell: pwsh
+        run: |
+          pyinstaller --clean --noconfirm Aurion.spec
+          if ($LASTEXITCODE -ne 0) { throw "PyInstaller build failed" }
+
+      - name: Verify bundled runtime files
+        shell: pwsh
+        run: |
+          $required = @(
+            "dist/Aurion/Aurion.exe",
+            "dist/Aurion/_internal/bin/ffmpeg.exe",
+            "dist/Aurion/_internal/bin/aria2c.exe",
+            "dist/Aurion/_internal/extension/manifest.json",
+            "dist/Aurion/_internal/core/paths.py"
+          )
+          foreach ($file in $required) {
+            if (!(Test-Path $file)) { throw "Missing packaged file: $file" }
+          }
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: |
+          choco install innosetup --no-progress -y
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup installation failed" }
+
+      - name: Compile Windows installer
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (!(Test-Path $iscc)) {
+            $iscc = "${env:ProgramFiles}\Inno Setup 6\ISCC.exe"
+          }
+          if (!(Test-Path $iscc)) { throw "ISCC.exe not found" }
+          & $iscc /Qp installer.iss
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup compilation failed" }
+          if (!(Test-Path "Output/AurionSetup.exe")) { throw "Installer was not produced" }
+
+      - name: Upload installer artefact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Aurion-Windows-Installer
+          path: Output/AurionSetup.exe
+          if-no-files-found: error
