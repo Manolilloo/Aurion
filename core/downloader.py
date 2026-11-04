@@ -1011,6 +1011,7 @@ class AurionDownloader:
 
         parsed_url = urlparse(url)
         netloc = parsed_url.netloc.lower()
+        diagnostic_host = (parsed_url.hostname or "").lower()
         origin_domain = f"{parsed_url.scheme}://{parsed_url.netloc}"
 
         if "mp4upload" in netloc:
@@ -1244,7 +1245,7 @@ class AurionDownloader:
         transfer_started_at = time.monotonic()
         record_download_event("started", {
             "protocol": profile.protocol,
-            "host": netloc,
+            "host": diagnostic_host,
             "host_class": profile.host_class,
             "fragment_workers": threads_count if profile.protocol in {"hls", "dash"} else None,
             "aria2_connections": configured_aria_conns,
@@ -1507,7 +1508,7 @@ class AurionDownloader:
             if real_file_bytes < min_size_threshold:
                 record_download_event("failed", {
                     "protocol": profile.protocol,
-                    "host": netloc,
+                    "host": diagnostic_host,
                     "host_class": profile.host_class,
                     "error_type": "InvalidStreamSize",
                     "size_bytes": real_file_bytes,
@@ -1526,7 +1527,7 @@ class AurionDownloader:
 
             record_download_event("completed", {
                 "protocol": profile.protocol,
-                "host": netloc,
+                "host": diagnostic_host,
                 "host_class": profile.host_class,
                 "fragment_workers": threads_count if profile.protocol in {"hls", "dash"} else None,
                 "aria2_connections": configured_aria_conns,
@@ -1562,7 +1563,7 @@ class AurionDownloader:
             if "TASK_CANCELLED_BY_USER" in str(e):
                 record_download_event("cancelled", {
                     "protocol": profile.protocol,
-                    "host": netloc,
+                    "host": diagnostic_host,
                     "host_class": profile.host_class,
                     "duration_seconds": round(max(time.monotonic() - transfer_started_at, 0), 2),
                 })
@@ -1575,7 +1576,7 @@ class AurionDownloader:
             else:
                 record_download_event("failed", {
                     "protocol": profile.protocol,
-                    "host": netloc,
+                    "host": diagnostic_host,
                     "host_class": profile.host_class,
                     "duration_seconds": round(max(time.monotonic() - transfer_started_at, 0), 2),
                     "error_type": type(e).__name__,
