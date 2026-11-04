@@ -1,7 +1,6 @@
 """Safe helpers for handling auto-update archives."""
 
 import os
-import shutil
 import stat
 import zipfile
 
@@ -45,8 +44,22 @@ def safe_extract_zip(
                 raise UnsafeUpdateArchive("El archivo contiene una ruta no permitida")
 
             parts = [part for part in normalized.split("/") if part not in {"", "."}]
-            if not parts or (":" in parts[0]):
-                raise UnsafeUpdateArchive("El archivo contiene una ruta absoluta o de unidad")
+            if not parts:
+                raise UnsafeUpdateArchive("El archivo contiene una ruta vacía")
+
+            reserved_names = {"CON", "PRN", "AUX", "NUL"} | {
+                f"{prefix}{number}"
+                for prefix in ("COM", "LPT")
+                for number in range(1, 10)
+            }
+            for part in parts:
+                if (
+                    ":" in part
+                    or any(char in part for char in '<>:"|?*')
+                    or part.endswith((".", " "))
+                    or part.split(".", 1)[0].upper() in reserved_names
+                ):
+                    raise UnsafeUpdateArchive("El archivo contiene un nombre no válido en Windows")
 
             relative_path = os.path.join(*parts)
             target_path = os.path.realpath(os.path.join(destination_real, relative_path))
