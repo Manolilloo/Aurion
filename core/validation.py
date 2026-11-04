@@ -1,5 +1,6 @@
 """Input validation helpers shared by Aurion's bridge and downloader."""
 
+import ipaddress
 import re
 from urllib.parse import urlsplit
 
@@ -69,9 +70,17 @@ def is_http_url(value: str, max_length: int = 8192) -> bool:
         return False
     try:
         parsed = urlsplit(value)
+        hostname = (parsed.hostname or "").lower().rstrip(".")
+        if not hostname or hostname in {"localhost", "localhost.localdomain"} or hostname.endswith((".localhost", ".local")):
+            return False
+        try:
+            literal_ip = ipaddress.ip_address(hostname)
+            if not literal_ip.is_global:
+                return False
+        except ValueError:
+            pass
         return (
             parsed.scheme.lower() in {"http", "https"}
-            and bool(parsed.hostname)
             and parsed.username is None
             and parsed.password is None
             and (parsed.port is None or 1 <= parsed.port <= 65535)
