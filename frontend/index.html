@@ -251,29 +251,32 @@
             </div>
           </div>
 
-          <!-- CHIPS: HILOS Y PARALELAS -->
+          <!-- CHIPS: FRAGMENTOS Y DESCARGAS SIMULTÁNEAS -->
           <div id="block-threads-simul" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
             <div>
-              <label class="section-label">HILOS: <span id="val-threads"
-                  style="color: var(--color-accent-1);">32</span></label>
+              <label class="section-label">FRAGMENTOS: <span id="val-threads"
+                  style="color: var(--color-accent-1);">16</span></label>
               <div class="chip-group" data-cfg="threads">
                 <div class="chip-glider"></div>
-                <button class="chip-btn active" data-val="32">32 H</button>
-                <button class="chip-btn" data-val="16">16 H</button>
-                <button class="chip-btn" data-val="8">8 H</button>
+                <button class="chip-btn active" data-val="16">16 F</button>
+                <button class="chip-btn" data-val="8">8 F</button>
+                <button class="chip-btn" data-val="4">4 F</button>
               </div>
             </div>
             <div>
-              <label class="section-label">PARALELAS: <span id="val-simul"
-                  style="color: var(--color-accent-1);">20</span></label>
+              <label class="section-label">DESCARGAS SIMULTÁNEAS: <span id="val-simul"
+                  style="color: var(--color-accent-1);">8</span></label>
               <div class="chip-group" data-cfg="simul">
                 <div class="chip-glider"></div>
-                <button class="chip-btn active" data-val="20">20 S</button>
-                <button class="chip-btn" data-val="10">10 S</button>
-                <button class="chip-btn" data-val="5">5 S</button>
+                <button class="chip-btn active" data-val="8">8 D</button>
+                <button class="chip-btn" data-val="4">4 D</button>
+                <button class="chip-btn" data-val="1">1 D</button>
               </div>
             </div>
           </div>
+          <p style="margin: 8px 0 0; color: var(--text-secondary); font-size: 10px; line-height: 1.4;">
+            Aurion reparte automáticamente las conexiones entre las descargas activas (máximo 8).
+          </p>
 
           <!-- TELEMETRÍA DE DISCO -->
           <div class="telemetry-card" id="block-telemetry">
