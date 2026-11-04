@@ -96,7 +96,11 @@ def fragment_fallback_levels(current_workers):
 def is_retryable_segment_error(error_text):
     """Limit adaptive retries to transient network/fragment failures."""
     message = str(error_text or "").lower()
-    return any(marker in message for marker in _RETRYABLE_SEGMENT_MARKERS)
+    if re.search(r"\\b(?:401|403|404)\\b", message):
+        return False
+    return any(marker in message for marker in _RETRYABLE_SEGMENT_MARKERS if not marker.isdigit()) or bool(
+        re.search(r"\\b(?:429|500|502|503|504)\\b", message)
+    )
 
 def build_download_profile(
     url,
