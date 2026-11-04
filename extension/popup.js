@@ -1,3 +1,9 @@
+function escapePopupHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, char => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[char]));
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab || !tab.url) return;
@@ -58,8 +64,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         item.className = 'blocked-item';
         item.innerHTML = `
           <div style="display:flex; flex-direction:column; max-width: 190px; overflow:hidden;">
-            <span style="color:#fff; font-weight:800;">${m.source} (${m.resolution || 'Auto'})</span>
-            <span style="font-size:8px; color:#64748b; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${m.url}</span>
+            <span style="color:#fff; font-weight:800;">${escapePopupHtml(m.source)} (${escapePopupHtml(m.resolution || 'Auto')})</span>
+            <span style="font-size:8px; color:#64748b; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${escapePopupHtml(m.url)}</span>
           </div>
           <button style="color:var(--accent);" data-idx="${idx}">ENVIAR</button>
         `;
