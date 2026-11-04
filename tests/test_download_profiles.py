@@ -32,6 +32,14 @@ class DownloadProfileTests(unittest.TestCase):
         self.assertEqual(profile.protocol, "dash")
         self.assertFalse(profile.use_aria2)
 
+    def test_detected_manifest_url_overrides_stale_hint(self):
+        profile = build_download_profile(
+            "https://cdn.example/actual.m3u8?token=abc",
+            protocol_hint="dash",
+        )
+
+        self.assertEqual(profile.protocol, "hls")
+
     def test_invalid_protocol_hint_falls_back_to_url_detection(self):
         profile = build_download_profile(
             "https://cdn.example/video.m3u8?token=abc",
