@@ -1343,6 +1343,26 @@ class AurionDownloader:
                                     f"También falló con {fallback_workers}: {recovery_exc}"
                                 )
 
+                        if recovery_error is not None and url != raw_url:
+                            print(
+                                f"[Core Rescate {profile.protocol.upper()}] "
+                                "Probando la URL original del reproductor..."
+                            )
+                            original_opts = dict(ydl_opts)
+                            original_opts['concurrent_fragment_downloads'] = (
+                                fragment_fallback_levels(threads_count)[-1]
+                                if fragment_fallback_levels(threads_count)
+                                else threads_count
+                            )
+                            try:
+                                with yt_dlp.YoutubeDL(original_opts) as ydl_original:
+                                    info = ydl_original.extract_info(raw_url, download=True)
+                                recovery_error = None
+                            except Exception as original_exc:
+                                if "TASK_CANCELLED_BY_USER" in str(original_exc):
+                                    raise original_exc
+                                recovery_error = original_exc
+
                         if recovery_error is not None:
                             raise recovery_error
 
