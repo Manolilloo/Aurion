@@ -8,7 +8,7 @@ ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 FILES_TO_BUMP = [
     (os.path.join(ROOT_DIR, "core", "bridge.py"), r'(APP_VERSION\s*=\s*")[^"]+(")', r'\g<1>{ver}\g<2>'),
-    (os.path.join(ROOT_DIR, "main.py"), r"(myappid\s*=\s*'manolilloo\.aurion\.desktop\.)[^']+(')", r"\g<1>{ver}\g<2>"),
+    (os.path.join(ROOT_DIR, "config.json"), r'("app_version"\s*:\s*")[^"]+(")', r'\g<1>{ver}\g<2>'),
     (os.path.join(ROOT_DIR, "installer.iss"), r'(#define\s+MyAppVersion\s+")[^"]+(")', r'\g<1>{ver}\g<2>'),
     (os.path.join(ROOT_DIR, "frontend", "index.html"), r'(Aurion\s+v)\d+\.\d+\.\d+', r'\g<1>{ver}'),
     (os.path.join(ROOT_DIR, "frontend", "index.html"), r'(Versión\s+)\d+\.\d+\.\d+', r'\g<1>{ver}'),
@@ -48,6 +48,10 @@ if __name__ == "__main__":
         sys.exit(1)
 
     target_ver = sys.argv[1].lstrip("v").strip()
+    if not re.fullmatch(r"\d+\.\d+\.\d+", target_ver):
+        print("La versión debe seguir el formato semver X.Y.Z (por ejemplo, 1.2.1).")
+        sys.exit(2)
+
     update_version_everywhere(target_ver)
 
     if "--build" in sys.argv:
