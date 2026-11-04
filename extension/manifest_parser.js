@@ -77,9 +77,9 @@ function parseDashManifest(text) {
 }
 
 function parseMediaManifest(url, text) {
-  return /\.mpd(?:[?#]|$)/i.test(String(url || ""))
-    ? parseDashManifest(text)
-    : parseHlsManifest(text);
+  const isDashUrl = /\.mpd(?:[?#]|$)/i.test(String(url || ""));
+  const isDashXml = /<(?:[\w.-]+:)?MPD(?:\s|>)/i.test(String(text || ""));
+  return isDashUrl || isDashXml ? parseDashManifest(text) : parseHlsManifest(text);
 }
 
 if (typeof globalThis !== "undefined") {
