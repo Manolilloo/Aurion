@@ -1173,12 +1173,16 @@ class AurionDownloader:
             max_aria_conns = configured_aria_conns
 
             if profile.use_aria2 and profile.host_class == "mp4upload":
+                mp4upload_connections = max(1, min(8, max_aria_conns))
                 aria_args = [
                     '--console-log-level=warn',
                     '--summary-interval=1',
-                    '-s8', '-x8', '-j8', '-k1M',
+                    f'-s{mp4upload_connections}',
+                    f'-x{mp4upload_connections}',
+                    f'-j{mp4upload_connections}',
+                    '-k1M',
                     '--min-split-size=1M',
-                    '--max-connection-per-server=8',
+                    f'--max-connection-per-server={mp4upload_connections}',
                     '--file-allocation=none',
                     '--optimize-concurrent-downloads=true',
                     '--conditional-get=true',
@@ -1193,13 +1197,16 @@ class AurionDownloader:
                 ydl_opts['external_downloader_args'] = {'aria2c': aria_args}
 
             elif profile.use_aria2 and profile.host_class == "token-sensitive":
-                # 4 conexiones simultáneas con chunks de 2M: multiplica por 4 la velocidad en MixDrop/Streamtape sin que el servidor corte el token
+                token_connections = max(1, min(4, max_aria_conns))
                 aria_args = [
                     '--console-log-level=error',
                     '--summary-interval=0',
-                    '-s4', '-x4', '-j4', '-k2M',
+                    f'-s{token_connections}',
+                    f'-x{token_connections}',
+                    f'-j{token_connections}',
+                    '-k2M',
                     '--min-split-size=2M',
-                    '--max-connection-per-server=4',
+                    f'--max-connection-per-server={token_connections}',
                     '--file-allocation=none',
                     '--retry-wait=1',
                     '--max-tries=10',
@@ -1218,7 +1225,7 @@ class AurionDownloader:
                     '--summary-interval=0',
                     f'-s{max_aria_conns}',
                     f'-x{max_aria_conns}',
-                    '-j16', '-k1M',
+                    f'-j{max_aria_conns}', '-k1M',
                     '--file-allocation=none',
                     '--optimize-concurrent-downloads=true',
                     f'--max-connection-per-server={max_aria_conns}',
