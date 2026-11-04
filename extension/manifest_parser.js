@@ -30,6 +30,7 @@ function parseHlsManifest(text) {
   }
 
   return {
+    protocol: "hls",
     res: bestHeight > 0 ? `${bestHeight}p` : "Auto",
     bytes
   };
@@ -71,6 +72,7 @@ function parseDashManifest(text) {
     : 0;
 
   return {
+    protocol: "dash",
     res: bestHeight > 0 ? `${bestHeight}p` : "Auto",
     bytes
   };
