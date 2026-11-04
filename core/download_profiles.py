@@ -45,9 +45,12 @@ def _url_host(url):
         return ""
 
 
-def _detect_protocol(url, is_youtube=False):
+def _detect_protocol(url, is_youtube=False, protocol_hint=None):
     if is_youtube:
         return "youtube"
+
+    if protocol_hint in {"http", "hls", "dash"}:
+        return protocol_hint
 
     value = str(url or "").lower()
     if re.search(r"\.m3u8(?:[?#]|$)", value):
@@ -101,9 +104,10 @@ def build_download_profile(
     has_aria2=False,
     is_youtube=False,
     simultaneous_downloads=1,
+    protocol_hint=None,
 ):
     """Choose conservative, protocol-aware transfer settings without network probes."""
-    protocol = _detect_protocol(url, is_youtube=is_youtube)
+    protocol = _detect_protocol(url, is_youtube=is_youtube, protocol_hint=protocol_hint)
     host = _url_host(url)
     active_downloads = max(1, min(_safe_int(simultaneous_downloads, 1), 8))
     per_task_budget = max(4, 32 // active_downloads)
