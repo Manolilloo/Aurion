@@ -17,6 +17,7 @@ from urllib.parse import urlparse
 from concurrent.futures import ThreadPoolExecutor
 import yt_dlp
 from .validation import is_http_url, is_safe_task_id, sanitize_path_component
+from .secure_storage import read_protected_file
 
 
 def get_binary_path(binary_name):
@@ -1176,18 +1177,29 @@ class AurionDownloader:
                     raise Exception("No se pudo desencriptar o descargar el stream de MEGA")
             elif is_yt:
                 root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                appdata_cookie = os.path.join(os.environ.get('LOCALAPPDATA', os.path.expanduser('~')), 'Aurion', '.yt_session.dat')
+                appdata_cookie = os.path.join(
+                    os.environ.get('LOCALAPPDATA', os.path.expanduser('~')),
+                    'Aurion',
+                    '.yt_session.dpapi'
+                )
                 local_cookie = os.path.join(root_dir, 'cookies.txt')
 
                 active_cookie_file = None
-                # Crear copia temporal sin atributos ocultos para evitar PermissionError [Errno 13] al guardar cookies
+                # El archivo de sesión se mantiene cifrado en AppData. Solo se descifra
+                # a una copia temporal de esta tarea para que yt-dlp pueda leerlo.
                 if os.path.isfile(appdata_cookie) and os.path.getsize(appdata_cookie) > 100:
                     try:
-                        safe_tmp_cookie = os.path.join(task_temp_dir, 'yt_cookies.txt')
-                        shutil.copyfile(appdata_cookie, safe_tmp_cookie)
-                        active_cookie_file = safe_tmp_cookie
-                    except Exception:
-                        active_cookie_file = appdata_cookie
+                        cookie_bytes = read_protected_file(appdata_cookie)
+                        if (
+                            len(cookie_bytes) <= 512 * 1024
+                            and cookie_bytes.startswith(b"# Netscape HTTP Cookie File")
+                        ):
+                            safe_tmp_cookie = os.path.join(task_temp_dir, 'yt_cookies.txt')
+                            with open(safe_tmp_cookie, 'wb') as cookie_output:
+                                cookie_output.write(cookie_bytes)
+                            active_cookie_file = safe_tmp_cookie
+                    except Exception as cookie_error:
+                        print(f"[Core] No se pudo descifrar la sesión local de YouTube: {cookie_error}")
                 elif os.path.isfile(local_cookie) and os.path.getsize(local_cookie) > 100:
                     active_cookie_file = local_cookie
 
