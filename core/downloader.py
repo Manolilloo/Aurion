@@ -19,7 +19,11 @@ import yt_dlp
 from .validation import is_http_url, is_safe_task_id, sanitize_path_component
 from .secure_storage import read_protected_file
 from .paths import get_app_data_dir
-from .download_profiles import build_download_profile
+from .download_profiles import (
+    build_download_profile,
+    fragment_fallback_levels,
+    is_retryable_segment_error,
+)
 
 
 def get_binary_path(binary_name):
@@ -1310,8 +1314,40 @@ class AurionDownloader:
                     if "TASK_CANCELLED_BY_USER" in err_str:
                         raise dl_err
 
+                    # Recuperación HLS/DASH: reducir concurrencia solo ante fallos transitorios.
+                    if is_segmented_stream and is_retryable_segment_error(err_str):
+                        recovery_error = dl_err
+                        for fallback_workers in fragment_fallback_levels(threads_count):
+                            print(
+                                f"[Core Rescate {profile.protocol.upper()}] Reintentando con "
+                                f"{fallback_workers} fragmentos simultáneos..."
+                            )
+                            recovery_opts = dict(ydl_opts)
+                            recovery_opts['concurrent_fragment_downloads'] = fallback_workers
+                            recovery_opts['fragment_retries'] = 50
+                            try:
+                                with yt_dlp.YoutubeDL(recovery_opts) as ydl_recovery:
+                                    info = ydl_recovery.extract_info(url, download=True)
+                                recovery_error = None
+                                print(
+                                    f"[Core Rescate {profile.protocol.upper()}] Recuperada "
+                                    f"con {fallback_workers} fragmentos simultáneos."
+                                )
+                                break
+                            except Exception as recovery_exc:
+                                if "TASK_CANCELLED_BY_USER" in str(recovery_exc):
+                                    raise recovery_exc
+                                recovery_error = recovery_exc
+                                print(
+                                    f"[Core Rescate {profile.protocol.upper()}] "
+                                    f"También falló con {fallback_workers}: {recovery_exc}"
+                                )
+
+                        if recovery_error is not None:
+                            raise recovery_error
+
                     # Rescate 1: Si Aria2 fue rechazado por MixDrop/Streamtape, descargar con el motor nativo de yt-dlp sin Aria2
-                    if 'external_downloader' in ydl_opts:
+                    elif 'external_downloader' in ydl_opts:
                         print("[Core Rescate] Aria2 rechazado por el CDN, descargando con stream directo nativo...")
                         native_opts = dict(ydl_opts)
                         native_opts.pop('external_downloader', None)
