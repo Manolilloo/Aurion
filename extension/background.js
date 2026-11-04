@@ -100,7 +100,7 @@ async function inspectManifest(url, refererUrl = '') {
     // El timeout permanece activo durante toda la lectura y el cuerpo tiene un límite estricto.
     const text = await readBoundedResponseText(resp, 2 * 1024 * 1024);
 
-    return parseMediaManifest(finalUrl.pathname, text);
+    return parseMediaManifest(url, text);
   } catch (_) {
     return { res: 'Auto', bytes: 0 };
   } finally {
