@@ -1392,6 +1392,10 @@ class AurionBridge:
                     if len(subdirs) == 1 and not any(os.path.isfile(os.path.join(staging_dir, f)) for f in os.listdir(staging_dir)):
                         staging_dir = subdirs[0]
 
+                    expected_executable = os.path.join(staging_dir, "Aurion.exe")
+                    if not os.path.isfile(expected_executable):
+                        raise ValueError("El paquete de actualización no contiene Aurion.exe en su raíz.")
+
                 def ps_quote(value):
                     return "'" + str(value).replace("'", "''") + "'"
 
