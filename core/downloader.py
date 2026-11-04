@@ -19,6 +19,7 @@ import yt_dlp
 from .validation import is_http_url, is_safe_task_id, sanitize_path_component
 from .secure_storage import read_protected_file
 from .paths import get_app_data_dir
+from .download_profiles import build_download_profile
 
 
 def get_binary_path(binary_name):
@@ -894,19 +895,24 @@ class AurionDownloader:
             raw_threads = int(config.get("threads", 32))
         except (TypeError, ValueError):
             raw_threads = 32
-        is_m3u8 = '.m3u8' in url.lower()
-        threads_count = max(8, min(raw_threads, 64))
+
+        profile = build_download_profile(
+            url,
+            configured_threads=raw_threads,
+            configured_aria_connections=config.get("aria_connections", 16),
+            has_aria2=self.has_aria2,
+            is_youtube=is_yt,
+        )
+        is_m3u8 = profile.protocol == "hls"
+        is_segmented_stream = profile.protocol in {"hls", "dash"}
+        threads_count = profile.fragment_workers
 
         speed_limit_str = str(config.get("speed_limit", "0")).strip()
         rate_limit_bytes = parse_speed_limit_bytes(speed_limit_str)
         file_conflict_policy = str(config.get("file_conflict", "rename")).strip().lower()
         if file_conflict_policy not in {"rename", "skip", "overwrite"}:
             file_conflict_policy = "rename"
-        try:
-            configured_aria_conns = int(config.get("aria_connections", 16))
-        except (TypeError, ValueError):
-            configured_aria_conns = 16
-        configured_aria_conns = max(1, min(configured_aria_conns, 16))
+        configured_aria_conns = profile.aria_connections
 
         yt_target_height = None
         if is_yt and is_audio:
@@ -1019,7 +1025,12 @@ class AurionDownloader:
             referer = origin_domain + "/"
 
         print(f"\n[Core -> Tarea Iniciada] {title}")
-        print(f"      Formato: .{fmt_choice} | Hilos: {threads_count} | Host: {netloc}")
+        print(
+            f"      Perfil: {profile.protocol.upper()} | Host: {profile.host_class} | "
+            f"Fragmentos: {threads_count} | aria2: "
+            f"{'sí (' + str(configured_aria_conns) + ' conexiones)' if profile.use_aria2 else 'no'}"
+        )
+        print(f"      Motivo: {profile.reason} | Formato: .{fmt_choice} | Servidor: {netloc}")
 
         setattr(self, f"_p_{task_id}", 0)
         current_stream_type = {"val": "video" if not is_audio else "audio"}
@@ -1090,7 +1101,7 @@ class AurionDownloader:
                 'preferredcodec': 'mp3',
                 'preferredquality': '320',
             })
-        elif not is_yt and is_m3u8:
+        elif not is_yt and is_segmented_stream:
             postprocessors_list.append({
                 'key': 'FFmpegVideoRemuxer',
                 'preferedformat': fmt_choice
@@ -1107,7 +1118,7 @@ class AurionDownloader:
         ydl_opts = {
             'outtmpl': out_template,
             'format': format_selector,
-            'merge_output_format': 'mp4' if (is_yt and not is_audio) else (fmt_choice if (not is_yt and is_m3u8) else None),
+            'merge_output_format': 'mp4' if (is_yt and not is_audio) else (fmt_choice if (not is_yt and is_segmented_stream) else None),
             'progress_hooks': [progress_hook],
             'quiet': True,
             'no_warnings': True,
@@ -1149,14 +1160,12 @@ class AurionDownloader:
             ydl_opts['concurrent_fragment_downloads'] = threads_count
             ydl_opts['fragment_retries'] = 40
             ydl_opts['skip_unavailable_fragments'] = True
-            ydl_opts['http_chunk_size'] = 10485760
+            if not is_segmented_stream:
+                ydl_opts['http_chunk_size'] = 10485760
 
-            is_mp4upload = "mp4upload" in netloc
-            # Servidores con tokens sensibles a exceso de conexiones paralelas (MixDrop, Streamtape, YourUpload, Dood)
-            is_sensitive_mp4_host = any(h in netloc for h in ["streamtape", "tapecontent", "mixdrop", "mixdrp", "mxcontent", "yourupload", "vidcache", "dood", "d000d"])
-            max_aria_conns = max(1, min(16, configured_aria_conns, threads_count))
+            max_aria_conns = configured_aria_conns
 
-            if is_mp4upload and self.has_aria2:
+            if profile.use_aria2 and profile.host_class == "mp4upload":
                 aria_args = [
                     '--console-log-level=warn',
                     '--summary-interval=1',
@@ -1176,7 +1185,7 @@ class AurionDownloader:
                 ydl_opts['external_downloader'] = self.aria2_path
                 ydl_opts['external_downloader_args'] = {'aria2c': aria_args}
 
-            elif is_sensitive_mp4_host and self.has_aria2 and not is_m3u8:
+            elif profile.use_aria2 and profile.host_class == "token-sensitive":
                 # 4 conexiones simultáneas con chunks de 2M: multiplica por 4 la velocidad en MixDrop/Streamtape sin que el servidor corte el token
                 aria_args = [
                     '--console-log-level=error',
@@ -1196,7 +1205,7 @@ class AurionDownloader:
                 ydl_opts['external_downloader'] = self.aria2_path
                 ydl_opts['external_downloader_args'] = {'aria2c': aria_args}
 
-            elif self.has_aria2 and not is_m3u8:
+            elif profile.use_aria2:
                 aria_args = [
                     '--console-log-level=error',
                     '--summary-interval=0',
@@ -1352,7 +1361,7 @@ class AurionDownloader:
                         source_temp = self._trim_media_file_local(source_temp, clip_start, clip_end, task_id)
 
                 _, source_ext = os.path.splitext(source_temp)
-                if not is_m3u8 and not is_yt and source_ext:
+                if not is_segmented_stream and not is_yt and source_ext:
                     final_file_path = os.path.join(dest_folder, f"{clean_name_check}{source_ext}")
 
                 if os.path.exists(final_file_path):
