@@ -363,25 +363,40 @@ class AurionBridge:
         return default_config
 
     def save_config(self, new_data):
+        """Fusiona y guarda la configuración sin escrituras concurrentes ni JSON parcial."""
         if not isinstance(new_data, dict):
             return False
-        for k, v in new_data.items():
-            if k == "settings" and isinstance(v, dict):
-                if "settings" not in self.config or not isinstance(self.config["settings"], dict):
-                    self.config["settings"] = {}
-                self.config["settings"].update(v)
-            elif isinstance(v, dict) and k in self.config and isinstance(self.config[k], dict):
-                self.config[k].update(v)
-            else:
-                self.config[k] = v
-        self.config["app_version"] = APP_VERSION
-        try:
-            with open(CONFIG_FILE, "w", encoding="utf-8") as f:
-                json.dump(self.config, f, indent=2)
-            return True
-        except Exception as e:
-            print(f"[Core] Error guardando config.json: {e}")
-            return False
+
+        temp_path = CONFIG_FILE + ".tmp"
+        with self._config_lock:
+            for key, value in new_data.items():
+                if key == "settings" and isinstance(value, dict):
+                    if not isinstance(self.config.get("settings"), dict):
+                        self.config["settings"] = {}
+                    self.config["settings"].update(value)
+                elif isinstance(value, dict) and isinstance(self.config.get(key), dict):
+                    self.config[key].update(value)
+                else:
+                    self.config[key] = value
+
+            self.config["app_version"] = APP_VERSION
+            try:
+                os.makedirs(os.path.dirname(CONFIG_FILE), exist_ok=True)
+                with open(temp_path, "w", encoding="utf-8", newline="\n") as config_file:
+                    json.dump(self.config, config_file, indent=2, ensure_ascii=False)
+                    config_file.write("\n")
+                    config_file.flush()
+                    os.fsync(config_file.fileno())
+                os.replace(temp_path, CONFIG_FILE)
+                return True
+            except (OSError, TypeError, ValueError) as exc:
+                try:
+                    if os.path.exists(temp_path):
+                        os.remove(temp_path)
+                except OSError:
+                    pass
+                print(f"[Core] Error guardando config.json: {exc}")
+                return False
 
     def get_initial_state(self):
         self.config["app_version"] = APP_VERSION
@@ -393,8 +408,12 @@ class AurionBridge:
         return True
 
     def open_external_browser(self, url):
+        """Abre únicamente URLs HTTP(S) explícitas en el navegador externo."""
+        if not is_http_url(url):
+            return False
         import webbrowser
-        threading.Thread(target=lambda: webbrowser.open(url), daemon=True).start()
+        threading.Thread(target=lambda: webbrowser.open(url), name="Aurion-Open-Browser", daemon=True).start()
+        return True
 
     def select_folder(self, current_path=""):
         if not self._window:
@@ -438,8 +457,14 @@ class AurionBridge:
         total_freed = 0
         try:
             temp_dir = tempfile.gettempdir()
+            protected_temp_names = {
+                "aurion_update.zip",
+                "aurion_new_version",
+                "aurion_restart.ps1",
+                "aurion_restart.bat",
+            }
             for f in os.listdir(temp_dir):
-                if f.startswith("aurion_"):
+                if f.startswith("aurion_") and f.lower() not in protected_temp_names:
                     full_p = os.path.join(temp_dir, f)
                     try:
                         if os.path.isfile(full_p):
