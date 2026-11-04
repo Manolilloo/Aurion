@@ -1,5 +1,6 @@
 const tabMediaData = {};
 const processedTabUrls = {};
+const MAX_PROCESSED_URLS_PER_TAB = 500;
 
 const VIDEO_STREAM_REGEX = /\.(m3u8|mpd)(\?|$)|[\/=](playlist|master|manifest|chunklist|index-f\d+)[^\/]*\.(m3u8|txt|mpd|urlset)/i;
 const DIRECT_VIDEO_REGEX = /\.(mp4|webm|mkv)(\?|$)|\/get_video\?|\/dl\?.*mime=video|\/videoplayback\?/i;
@@ -148,8 +149,13 @@ async function registerDetectedStream(tabId, frameId, rawUrl, initiator = '', kn
   }
 
   if (!processedTabUrls[tabId]) processedTabUrls[tabId] = new Set();
-  if (processedTabUrls[tabId].has(effectiveUrl)) return;
-  processedTabUrls[tabId].add(effectiveUrl);
+  const seenUrls = processedTabUrls[tabId];
+  if (seenUrls.has(effectiveUrl)) return;
+  if (seenUrls.size >= MAX_PROCESSED_URLS_PER_TAB) {
+    const oldestUrl = seenUrls.values().next().value;
+    if (oldestUrl !== undefined) seenUrls.delete(oldestUrl);
+  }
+  seenUrls.add(effectiveUrl);
 
   let pageUrl = initiator || '';
   try {

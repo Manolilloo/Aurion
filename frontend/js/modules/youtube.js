@@ -584,6 +584,7 @@ window.initYoutubeModule = function () {
 
     if (!inputEl) return;
     const val = inputEl.value.trim();
+    const thisSessionId = ++ytSearchSessionId;
     if (clearEl) clearEl.style.display = val.length > 0 ? 'block' : 'none';
 
     if (val.length < 2) {
@@ -616,7 +617,6 @@ window.initYoutubeModule = function () {
     }
 
     currentYtSearchPage = 1;
-    const thisSessionId = ++ytSearchSessionId;
     const requestedType = currentYtSearchType;
 
     if (listEl) {
@@ -631,7 +631,11 @@ window.initYoutubeModule = function () {
     const pageSize = (requestedType === 'playlist') ? 4 : 12;
     const results = await window.pyCall('search_youtube', val, requestedType, 1, pageSize);
 
-    if (thisSessionId !== ytSearchSessionId || requestedType !== currentYtSearchType) return;
+    if (
+      thisSessionId !== ytSearchSessionId ||
+      requestedType !== currentYtSearchType ||
+      val !== inputEl.value.trim()
+    ) return;
 
     if (window.modeStates && window.modeStates.youtube) {
       window.modeStates.youtube.results = results || [];

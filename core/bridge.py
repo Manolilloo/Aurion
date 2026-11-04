@@ -942,7 +942,7 @@ class AurionBridge:
                         raw_entries = info_pl.get('entries', []) or []
                         targets = [('playlist', e) for e in raw_entries if e][:page_size]
                 else:
-                    search_limit = max(25, page * page_size + 10)
+                    search_limit = min(500, max(25, page * page_size + 10))
                     search_term = f"ytsearch{search_limit}:{query}"
                     try:
                         info_videos = ydl.extract_info(search_term, download=False) or {}
