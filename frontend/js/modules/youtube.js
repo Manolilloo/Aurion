@@ -2,6 +2,22 @@
 // AURION • MÓDULO YOUTUBE STUDIO SPATIAL (V2.1 - SINGLETON)
 // ========================================================
 
+// Los datos de yt-dlp proceden de terceros: se escapan antes de construir HTML.
+function escapeYtHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, char => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[char]));
+}
+
+function safeYtImageUrl(value) {
+  try {
+    const parsed = new URL(String(value || ''));
+    return parsed.protocol === 'https:' ? parsed.href : '';
+  } catch (_) {
+    return '';
+  }
+}
+
 window.initYoutubeModule = function () {
   // CERROJO CRÍTICO: Evita que app.js y youtube.js inicialicen los eventos 2 veces
   if (window.__ytModuleInitialized) return;
@@ -419,13 +435,13 @@ window.initYoutubeModule = function () {
         card.innerHTML = `
           <div class="yt-thumb-box">
             <span class="yt-playlist-badge">COLECCIÓN</span>
-            <img class="yt-thumb-img" src="${item.thumbnail}" alt="Thumbnail" loading="lazy">
-            <span class="yt-duration-badge">${item.item_count ? item.item_count + ' vídeos' : 'PLAYLIST'}</span>
+            <img class="yt-thumb-img" src="${escapeYtHtml(safeYtImageUrl(item.thumbnail))}" alt="Thumbnail" loading="lazy">
+            <span class="yt-duration-badge">${escapeYtHtml(item.item_count ? item.item_count + ' vídeos' : 'PLAYLIST')}</span>
           </div>
           <div class="yt-video-details">
-            <span class="yt-video-title" title="${item.title}">${item.title}</span>
+            <span class="yt-video-title" title="${escapeYtHtml(item.title)}">${escapeYtHtml(item.title)}</span>
             <div class="yt-video-channel">
-              <span class="yt-playlist-author-pill">📁 ${item.uploader}</span>
+              <span class="yt-playlist-author-pill">📁 ${escapeYtHtml(item.uploader)}</span>
               <span style="font-size: 10px; color: var(--color-accent-1); font-weight: 800;">Abrir colección ➔</span>
             </div>
           </div>
@@ -454,15 +470,15 @@ window.initYoutubeModule = function () {
 
       card.innerHTML = `
         <div class="yt-thumb-box">
-          <img class="yt-thumb-img" src="${video.thumbnail}" alt="Thumbnail" loading="lazy">
-          <span class="yt-duration-badge">${video.duration}</span>
+          <img class="yt-thumb-img" src="${escapeYtHtml(safeYtImageUrl(video.thumbnail))}" alt="Thumbnail" loading="lazy">
+          <span class="yt-duration-badge">${escapeYtHtml(video.duration)}</span>
         </div>
         <div class="yt-video-details">
-          <span class="yt-video-title" title="${video.title}">${video.title}</span>
+          <span class="yt-video-title" title="${escapeYtHtml(video.title)}">${escapeYtHtml(video.title)}</span>
           <div class="yt-video-channel">
-            <button class="yt-video-channel-btn" data-channel="${channelTarget}" title="Explorar canal completo">
+            <button class="yt-video-channel-btn" data-channel="${escapeYtHtml(channelTarget)}" title="Explorar canal completo">
               <span class="yt-channel-btn-icon">📺</span>
-              <span>${video.uploader}</span>
+              <span>${escapeYtHtml(video.uploader)}</span>
             </button>
           </div>
         </div>
@@ -1053,13 +1069,13 @@ window.initYoutubeModule = function () {
 
       card.innerHTML = `
         <div class="yt-grid-thumb-box">
-          <img class="yt-grid-thumb-img" src="${v.thumbnail}" alt="Thumbnail" loading="lazy">
-          <span class="yt-duration-badge">${v.duration}</span>
+          <img class="yt-grid-thumb-img" src="${escapeYtHtml(safeYtImageUrl(v.thumbnail))}" alt="Thumbnail" loading="lazy">
+          <span class="yt-duration-badge">${escapeYtHtml(v.duration)}</span>
           <div class="yt-grid-hover-overlay"><span>⚡ INSPECCIONAR</span></div>
         </div>
-        <span class="yt-grid-video-title" title="${v.title}">${v.title}</span>
+        <span class="yt-grid-video-title" title="${escapeYtHtml(v.title)}">${escapeYtHtml(v.title)}</span>
         <div class="yt-grid-video-meta">
-          <span>👁 ${v.views} vistas</span>
+          <span>👁 ${escapeYtHtml(v.views)} vistas</span>
           <span style="font-weight: 900;">Seleccionar ➔</span>
         </div>
       `;
@@ -1237,14 +1253,14 @@ window.initYoutubeModule = function () {
         </div>
         <span class="yt-row-index">${numStr}</span>
         <div class="yt-row-thumb-box">
-          <img class="yt-row-thumb-img" src="${v.thumbnail}" alt="Thumbnail" loading="lazy">
+          <img class="yt-row-thumb-img" src="${escapeYtHtml(safeYtImageUrl(v.thumbnail))}" alt="Thumbnail" loading="lazy">
         </div>
         <div class="yt-row-details">
-          <span class="yt-row-title" title="${v.title}">${v.title}</span>
+          <span class="yt-row-title" title="${escapeYtHtml(v.title)}">${escapeYtHtml(v.title)}</span>
           <div class="yt-row-meta">
-            <span>⏱ ${v.duration}</span>
+            <span>⏱ ${escapeYtHtml(v.duration)}</span>
             <span>•</span>
-            <span>👤 ${v.uploader}</span>
+            <span>👤 ${escapeYtHtml(v.uploader)}</span>
           </div>
         </div>
         <span class="yt-row-check-badge" style="background: ${isSelected ? 'rgba(255, 0, 85, 0.16)' : 'rgba(255, 255, 255, 0.04)'}; color: ${isSelected ? 'var(--color-accent-1)' : '#64748b'}; border: 1px solid ${isSelected ? 'var(--color-accent-1)' : 'transparent'};">
