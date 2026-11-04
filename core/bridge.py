@@ -1282,7 +1282,8 @@ class AurionBridge:
         def download_and_run():
             try:
                 temp_dir = tempfile.gettempdir()
-                bat_path = os.path.join(temp_dir, "aurion_restart.bat")
+                ps1_path = os.path.join(temp_dir, "aurion_restart.ps1")
+                zip_path = os.path.join(temp_dir, "aurion_update.zip")
 
                 app_exe_path = os.path.abspath(
                     sys.executable if getattr(sys, 'frozen', False)
@@ -1391,27 +1392,50 @@ class AurionBridge:
                     if len(subdirs) == 1 and not any(os.path.isfile(os.path.join(staging_dir, f)) for f in os.listdir(staging_dir)):
                         staging_dir = subdirs[0]
 
-                bat_content = f"""@echo off
-:WAIT_LOOP
-tasklist /fi "imagename eq Aurion.exe" 2>nul | find /i "Aurion.exe" >nul
-if not errorlevel 1 (
-    timeout /t 1 /nobreak >nul
-    goto WAIT_LOOP
-)
+                def ps_quote(value):
+                    return "'" + str(value).replace("'", "''") + "'"
 
-timeout /t 1 /nobreak >nul
-if exist "{staging_dir}" (
-    robocopy "{staging_dir}" "{install_dir}" /e /r:3 /w:1 /np /nfl /ndl >nul 2>&1
-)
+                script_lines = [
+                    "$ErrorActionPreference = 'Stop'",
+                    f"$stagingDir = {ps_quote(staging_dir)}",
+                    f"$installDir = {ps_quote(install_dir)}",
+                    f"$appExePath = {ps_quote(app_exe_path)}",
+                    f"$updateZip = {ps_quote(zip_path)}",
+                    "while (Get-Process -Name 'Aurion' -ErrorAction SilentlyContinue) {",
+                    "    Start-Sleep -Seconds 1",
+                    "}",
+                    "Start-Sleep -Seconds 1",
+                    "if (-not (Test-Path -LiteralPath $stagingDir)) { throw 'No existe la carpeta de actualización.' }",
+                    "& robocopy.exe $stagingDir $installDir /E /R:3 /W:1 /NP /NFL /NDL | Out-Null",
+                    "if ($LASTEXITCODE -ge 8) { throw ('Robocopy terminó con código ' + $LASTEXITCODE) }",
+                    "Start-Process -FilePath $appExePath",
+                    "Start-Sleep -Seconds 2",
+                    "Remove-Item -LiteralPath $stagingDir -Recurse -Force -ErrorAction SilentlyContinue",
+                    "Remove-Item -LiteralPath $updateZip -Force -ErrorAction SilentlyContinue",
+                    "Remove-Item -LiteralPath $PSCommandPath -Force -ErrorAction SilentlyContinue",
+                ]
+                powershell_content = "\n".join(script_lines) + "\n"
+                with open(ps1_path, "w", encoding="utf-8") as script_file:
+                    script_file.write(powershell_content)
 
-start "" "{app_exe_path}"
-(goto) 2>nul & del "%~f0"
-"""
-                with open(bat_path, "w", encoding="utf-8") as f:
-                    f.write(bat_content)
-
-                creation_flags = 0x08000000
-                subprocess.Popen(["cmd.exe", "/c", bat_path], creationflags=creation_flags)
+                creation_flags = 0x08000000 if sys.platform == "win32" else 0
+                subprocess.Popen(
+                    [
+                        "powershell.exe",
+                        "-NoLogo",
+                        "-NoProfile",
+                        "-NonInteractive",
+                        "-WindowStyle",
+                        "Hidden",
+                        "-ExecutionPolicy",
+                        "Bypass",
+                        "-File",
+                        ps1_path,
+                    ],
+                    creationflags=creation_flags,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
 
                 if self._window:
                     self._window.destroy()
