@@ -52,6 +52,16 @@ test("manifest parser selects DASH from its URL even with a query string", () =>
   assert.equal(result.bytes, 1000000);
 });
 
+test("DASH XML is detected even when the URL has no manifest extension", () => {
+  const result = parseMediaManifest(
+    "https://cdn.example/manifest?id=abc",
+    '<MPD mediaPresentationDuration="PT30S"><Representation bandwidth="2000000" height="720" /></MPD>'
+  );
+
+  assert.equal(result.res, "720p");
+  assert.equal(result.bytes, 7500000);
+});
+
 test("missing DASH duration does not invent a file size", () => {
   const result = parseDashManifest('<MPD><Representation bandwidth="4000000" height="1080" /></MPD>');
   assert.equal(result.res, "1080p");
