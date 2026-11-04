@@ -13,6 +13,53 @@ def is_trusted_extension_origin(origin: str) -> bool:
     return isinstance(origin, str) and bool(_EXTENSION_ORIGIN_RE.fullmatch(origin))
 
 
+_MEDIA_ORIGIN_HOSTS = {
+    "animeflv.net",
+    "animeonline.ninja",
+    "jkanime.net",
+    "tioanime.com",
+    "monoschinos2.com",
+    "pelisplushd.bz",
+    "icuevana3.video",
+    "dominioshdfull.com",
+    "streamtape.com",
+    "tapecontent.net",
+    "mixdrop.co",
+    "mixdrop.to",
+    "mixdrop.ag",
+    "mp4upload.com",
+    "voe.sx",
+    "uqload.com",
+    "yourupload.com",
+    "streamwish.com",
+    "filelions.to",
+    "vidhide.com",
+    "sprintcdn.com",
+    "doodstream.com",
+    "d000d.com",
+}
+
+
+def is_allowed_local_api_origin(origin: str) -> bool:
+    """Allow the extension and the media portals/hosts that its content script monitors."""
+    if is_trusted_extension_origin(origin):
+        return True
+    if not isinstance(origin, str) or len(origin) > 512:
+        return False
+    try:
+        parsed = urlsplit(origin)
+        if parsed.scheme.lower() not in {"http", "https"}:
+            return False
+        if not parsed.hostname or parsed.username is not None or parsed.password is not None:
+            return False
+        if parsed.path not in {"", "/"} or parsed.query or parsed.fragment:
+            return False
+        host = parsed.hostname.lower().rstrip(".")
+        return any(host == domain or host.endswith("." + domain) for domain in _MEDIA_ORIGIN_HOSTS)
+    except ValueError:
+        return False
+
+
 def is_http_url(value: str, max_length: int = 8192) -> bool:
     """Return True only for bounded absolute HTTP(S) URLs without credentials."""
     if not isinstance(value, str):
