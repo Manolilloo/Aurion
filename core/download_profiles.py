@@ -57,6 +57,36 @@ def _detect_protocol(url, is_youtube=False):
     return "http"
 
 
+
+_RETRYABLE_SEGMENT_MARKERS = (
+    "429",
+    "500",
+    "502",
+    "503",
+    "504",
+    "timed out",
+    "timeout",
+    "connection reset",
+    "connection aborted",
+    "remote end closed",
+    "incomplete read",
+    "unable to download a fragment",
+    "unable to download a segment",
+)
+
+
+def fragment_fallback_levels(current_workers):
+    """Return progressively smaller, unique fragment-worker counts."""
+    current = max(1, _safe_int(current_workers, 8))
+    candidates = (max(4, current // 2), 4)
+    return tuple(dict.fromkeys(value for value in candidates if 0 < value < current))
+
+
+def is_retryable_segment_error(error_text):
+    """Limit adaptive retries to transient network/fragment failures."""
+    message = str(error_text or "").lower()
+    return any(marker in message for marker in _RETRYABLE_SEGMENT_MARKERS)
+
 def build_download_profile(
     url,
     configured_threads=32,
