@@ -1144,7 +1144,7 @@ class AurionDownloader:
                 'Sec-Fetch-Site': 'cross-site'
             }
             ydl_opts['http_headers'] = custom_http_headers
-            ydl_opts['buffersize'] = 1024 * 1024 * 64
+            # Se conserva el buffer adaptativo de yt-dlp para evitar reservar 64 MiB por tarea.
             ydl_opts['concurrent_fragment_downloads'] = threads_count
             ydl_opts['fragment_retries'] = 40
             ydl_opts['skip_unavailable_fragments'] = True
