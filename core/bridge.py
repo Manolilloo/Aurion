@@ -1567,6 +1567,25 @@ class AurionBridge:
             print(f"[open_config_folder] Error: {e}")
             return False
 
+    def open_download_diagnostics(self):
+        """Abre el registro técnico local de descargas, sin incluir URLs ni cookies."""
+        try:
+            log_dir = os.path.join(get_app_data_dir(), "logs")
+            os.makedirs(log_dir, exist_ok=True)
+            log_path = os.path.join(log_dir, "download_diagnostics.jsonl")
+            if not os.path.exists(log_path):
+                with open(log_path, "a", encoding="utf-8"):
+                    pass
+
+            if hasattr(os, "startfile"):
+                os.startfile(log_path)
+            else:
+                subprocess.Popen(["xdg-open", log_path])
+            return True
+        except Exception as exc:
+            print(f"[open_download_diagnostics] Error: {exc}")
+            return False
+
     def open_extension_folder(self):
         try:
             if getattr(sys, 'frozen', False):
