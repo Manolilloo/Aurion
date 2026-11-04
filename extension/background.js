@@ -58,7 +58,7 @@ function resolveServerName(url) {
   return 'DIRECT MP4';
 }
 
-importScripts("response_limits.js");
+importScripts("manifest_parser.js", "response_limits.js");
 
 async function inspectManifest(url, refererUrl = '') {
   const controller = new AbortController();
@@ -100,38 +100,7 @@ async function inspectManifest(url, refererUrl = '') {
     // El timeout permanece activo durante toda la lectura y el cuerpo tiene un límite estricto.
     const text = await readBoundedResponseText(resp, 2 * 1024 * 1024);
 
-    let bestHeight = 0;
-    const resMatches = [...text.matchAll(/RESOLUTION=\\d+x(\\d+)/gi)];
-    for (const m of resMatches) {
-      const h = parseInt(m[1], 10);
-      if (h > bestHeight) bestHeight = h;
-    }
-
-    let bestBw = 0;
-    const bwMatches = [...text.matchAll(/BANDWIDTH=(\\d+)/gi)];
-    for (const b of bwMatches) {
-      const val = parseInt(b[1], 10);
-      if (val > bestBw) bestBw = val;
-    }
-
-    let totalSec = 0;
-    const durMatches = [...text.matchAll(/#EXTINF:([\\d\\.]+)/gi)];
-    durMatches.forEach(d => { totalSec += parseFloat(d[1]); });
-
-    let bytes = 0;
-    if (totalSec > 0 && bestBw > 0) {
-      bytes = Math.round((bestBw * totalSec) / 8);
-    } else if (bestBw > 0) {
-      bytes = Math.round((bestBw * 1440) / 8);
-    } else if (bestHeight > 0) {
-      const bitrates = { 1080: 2500000, 720: 1400000, 480: 750000, 360: 400000 };
-      bytes = Math.round(((bitrates[bestHeight] || 1600000) * 1440) / 8);
-    }
-
-    return {
-      res: bestHeight > 0 ? `${bestHeight}p` : 'Auto',
-      bytes
-    };
+    return parseMediaManifest(finalUrl.pathname, text);
   } catch (_) {
     return { res: 'Auto', bytes: 0 };
   } finally {
@@ -251,11 +220,12 @@ chrome.webRequest.onHeadersReceived.addListener(
     }
 
     const isHlsMime = contentType.includes('mpegurl') || contentType.includes('vnd.apple.mpegurl') || contentType.includes('x-mpegurl');
+    const isDashMime = contentType.includes('application/dash+xml') || contentType.includes('dash+xml');
     const isVideoMime = contentType.startsWith('video/mp4') || contentType.startsWith('video/webm') || contentType.startsWith('video/x-matroska');
     const isLargeBinaryVideo = (contentType === 'application/octet-stream' && contentLength > 10 * 1024 * 1024);
 
-    if (isHlsMime || (isVideoMime && contentLength > 1500 * 1024) || isLargeBinaryVideo) {
-      registerDetectedStream(tabId, frameId, url, initiator, contentLength, isHlsMime);
+    if (isHlsMime || isDashMime || (isVideoMime && contentLength > 1500 * 1024) || isLargeBinaryVideo) {
+      registerDetectedStream(tabId, frameId, url, initiator, contentLength, isHlsMime || isDashMime);
     }
   },
   { urls: ["<all_urls>"] },
