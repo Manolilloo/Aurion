@@ -502,11 +502,11 @@ class AurionBridge:
         content_length = response.headers.get("Content-Length") if getattr(response, "headers", None) else None
         if content_length:
             try:
-                if int(content_length) > max_bytes:
-                    raise ValueError("La respuesta supera el tamaño máximo permitido.")
-            except ValueError as exc:
-                if "supera" in str(exc):
-                    raise
+                declared_size = int(content_length)
+            except (TypeError, ValueError):
+                declared_size = 0
+            if declared_size > max_bytes:
+                raise ValueError("La respuesta supera el tamaño máximo permitido.")
         data = response.read(max_bytes + 1)
         if len(data) > max_bytes:
             raise ValueError("La respuesta supera el tamaño máximo permitido.")
@@ -1714,24 +1714,89 @@ class AurionBridge:
         return self.db.clear_all()
 
     def open_history_file(self, file_path, reveal_in_folder=False):
-        """Abre el vídeo en el reproductor predeterminado o lo resalta en su carpeta."""
-        if not file_path or not os.path.exists(file_path):
+        """Abre un archivo de historial existente o lo resalta en el Explorador."""
+        if not isinstance(file_path, str) or not file_path or len(file_path) > 32767:
+            return False
+        if not os.path.isfile(file_path):
             return False
         try:
-            norm_p = os.path.normpath(file_path)
+            norm_p = os.path.normpath(os.path.abspath(file_path))
             if reveal_in_folder:
-                subprocess.Popen(['explorer', f'/select,{norm_p}'])
+                subprocess.Popen(
+                    ["explorer.exe", f"/select,{norm_p}"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
             else:
                 os.startfile(norm_p)
             return True
-        except Exception as e:
-            print(f"[Bridge] Error abriendo archivo de historial: {e}")
+        except (OSError, subprocess.SubprocessError) as exc:
+            print(f"[Bridge] Error abriendo archivo de historial: {exc}")
             return False
     
     def save_yt_thumbnail(self, video_id, title, dest_dir=""):
-        """Descarga la miniatura del vídeo de YouTube en máxima resolución (MaxRes 4K/HD) y abre su carpeta."""
-        if not video_id:
+        """Descarga y guarda la miniatura de un ID de vídeo de YouTube validado."""
+        if not isinstance(video_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]{11}", video_id):
             return False
+        if not isinstance(dest_dir, str) or len(dest_dir) > 32767:
+            return False
+
+        target_dir = dest_dir.strip() or os.path.join(
+            os.path.expanduser("~"), "Pictures", "Aurion_Thumbnails"
+        )
+        clean_title = sanitize_path_component(title or video_id, video_id, 100)
+        out_path = os.path.abspath(
+            os.path.join(target_dir, f"{clean_title} [Portada 4K].jpg")
+        )
+        try:
+            os.makedirs(target_dir, exist_ok=True)
+            base_dir = os.path.abspath(target_dir)
+            if os.path.commonpath([base_dir, out_path]).lower() != base_dir.lower():
+                return False
+
+            ctx = ssl.create_default_context()
+            for resolution in ("maxresdefault.jpg", "sddefault.jpg", "hqdefault.jpg"):
+                url = f"https://i.ytimg.com/vi/{video_id}/{resolution}"
+                temp_path = out_path + ".tmp"
+                try:
+                    request = urllib.request.Request(
+                        url, headers={"User-Agent": "Mozilla/5.0"}
+                    )
+                    with urllib.request.urlopen(request, context=ctx, timeout=5) as response:
+                        final_url = urllib.parse.urlsplit(response.geturl())
+                        if (
+                            response.status != 200
+                            or final_url.scheme != "https"
+                            or final_url.hostname != "i.ytimg.com"
+                        ):
+                            continue
+                        data = self._read_limited_response(
+                            response, max_bytes=8 * 1024 * 1024
+                        )
+
+                    if not data:
+                        continue
+                    with Image.open(io.BytesIO(data)) as image:
+                        image.verify()
+
+                    with open(temp_path, "wb") as output:
+                        output.write(data)
+                        output.flush()
+                        os.fsync(output.fileno())
+                    os.replace(temp_path, out_path)
+                    os.startfile(base_dir)
+                    return True
+                except (OSError, ValueError, urllib.error.URLError):
+                    try:
+                        if os.path.exists(temp_path):
+                            os.remove(temp_path)
+                    except OSError:
+                        pass
+                    continue
+        except (OSError, ValueError) as exc:
+            print(f"[Bridge] Error guardando miniatura: {exc}")
+        return False
+
         target_dir = (dest_dir or "").strip() or os.path.join(os.path.expanduser("~"), "Pictures", "Aurion_Thumbnails")
         try:
             os.makedirs(target_dir, exist_ok=True)
