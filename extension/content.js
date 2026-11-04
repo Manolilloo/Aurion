@@ -467,23 +467,53 @@ if (window.top !== window) {
   });
 
   window.addEventListener('message', (event) => {
-    if (event.data?.aurionType === 'EMBED_IFRAME_DETECTED') {
-      const entry = {
-        url: event.data.url,
-        source: event.data.source || 'MEGA',
-        resolution: event.data.resolution || '1080p',
-        bytes: 240 * 1024 * 1024,
-        pageUrl: window.location.href,
-        timestamp: Date.now()
-      };
-      createOrUpdateHUD(entry, [entry, ...detectedStreams.filter(x => x.url !== entry.url)]);
-    } else if (event.data?.aurionType === 'NATIVE_RES_DETECTED') {
-      const metaTag = document.getElementById('aurion-pill-meta-tag');
-      const sizeTag = document.getElementById('aurion-pill-size-tag');
-      const newRes = event.data.resolution;
+    // Ignorar postMessage del propio sitio: solo aceptamos señales de iframes reales.
+    if (event.source === window || !/^https?:\/\//i.test(event.origin)) return;
 
-      if (newRes) {
-        if (metaTag) metaTag.innerText = newRes;
+    if (event.data?.aurionType === 'EMBED_IFRAME_DETECTED') {
+      try {
+        const frameOrigin = new URL(event.origin);
+        const streamUrl = new URL(String(event.data.url || ''));
+        const host = frameOrigin.hostname.toLowerCase();
+        const isMegaHost = host === 'mega.nz' || host.endsWith('.mega.nz')
+          || host === 'mega.co.nz' || host.endsWith('.mega.co.nz');
+
+        if (
+          !isMegaHost
+          || frameOrigin.protocol !== 'https:'
+          || streamUrl.protocol !== 'https:'
+          || streamUrl.origin !== frameOrigin.origin
+          || event.data.source !== 'MEGA'
+        ) return;
+
+        const resolution = /^\d{3,4}p$/.test(String(event.data.resolution || ''))
+          ? String(event.data.resolution)
+          : '1080p';
+        const entry = {
+          url: streamUrl.href,
+          source: 'MEGA',
+          resolution,
+          bytes: 240 * 1024 * 1024,
+          pageUrl: window.location.href,
+          timestamp: Date.now()
+        };
+        createOrUpdateHUD(entry, [entry, ...detectedStreams.filter(x => x.url !== entry.url)]);
+      } catch (_) {
+        return;
+      }
+    } else if (event.data?.aurionType === 'NATIVE_RES_DETECTED') {
+      try {
+        const frameUrl = new URL(String(event.data.frameUrl || ''));
+        const newRes = String(event.data.resolution || '');
+        if (
+          frameUrl.origin !== event.origin
+          || !/^\d{3,4}p$/.test(newRes)
+        ) return;
+
+        const metaTag = document.getElementById('aurion-pill-meta-tag');
+        const sizeTag = document.getElementById('aurion-pill-size-tag');
+
+        if (metaTag) metaTag.textContent = newRes;
         if (activeMedia) {
           activeMedia.resolution = newRes;
           if (!activeMedia.bytes || activeMedia.bytes === 0) {
@@ -491,14 +521,16 @@ if (window.top !== window) {
           }
         }
         if (sizeTag) {
-          const b = (activeMedia?.bytes && activeMedia.bytes > 0)
+          const bytes = (activeMedia?.bytes && activeMedia.bytes > 0)
             ? activeMedia.bytes
             : estimateBytesFromResolution(newRes);
-          if (b > 0) {
+          if (bytes > 0) {
             sizeTag.style.display = 'inline-block';
-            sizeTag.innerText = formatBytes(b);
+            sizeTag.textContent = formatBytes(bytes);
           }
         }
+      } catch (_) {
+        return;
       }
     }
   });
