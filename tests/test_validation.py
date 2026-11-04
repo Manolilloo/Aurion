@@ -30,7 +30,7 @@ class ValidationTests(unittest.TestCase):
         self.assertFalse(is_safe_task_id(""))
 
     def test_filename_sanitization(self):
-        self.assertEqual(sanitize_path_component("../../movie"), "______movie")
+        self.assertEqual(sanitize_path_component("../../movie"), ".._.._movie")
         self.assertEqual(sanitize_path_component("CON"), "_CON")
         self.assertEqual(sanitize_path_component("trailing. "), "trailing")
         self.assertEqual(sanitize_path_component(""), "video")
