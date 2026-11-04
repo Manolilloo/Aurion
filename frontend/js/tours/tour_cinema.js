@@ -48,7 +48,7 @@ window.cinemaTourSteps = [
   {
     id: 'threads_simul',
     title: 'Motor de Concurrencia',
-    desc: 'Ajusta los hilos de red para descargar películas a la máxima velocidad.',
+    desc: 'Ajusta los fragmentos de cada transmisión; Aurion reparte las conexiones según las descargas activas.'
     target: '#block-threads-simul',
     placement: 'left-center'
   },
