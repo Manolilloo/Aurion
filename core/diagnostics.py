@@ -69,5 +69,5 @@ def record_download_event(event, details=None, app_data_dir=None, max_bytes=1024
             with open(log_path, "a", encoding="utf-8", newline="\n") as log_file:
                 log_file.write(serialized)
         return True
-    except (OSError, TypeError, ValueError):
+    except Exception:
         return False
