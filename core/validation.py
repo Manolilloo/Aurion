@@ -56,6 +56,9 @@ def is_allowed_local_api_origin(origin: str) -> bool:
         if parsed.path not in {"", "/"} or parsed.query or parsed.fragment:
             return False
         host = parsed.hostname.lower().rstrip(".")
+        port = parsed.port
+        if port is not None and port != (443 if parsed.scheme.lower() == "https" else 80):
+            return False
         return any(host == domain or host.endswith("." + domain) for domain in _MEDIA_ORIGIN_HOSTS)
     except ValueError:
         return False
@@ -95,7 +98,12 @@ def is_trusted_update_url(value: str) -> bool:
         return False
     try:
         parsed = urlsplit(value.strip())
-        if parsed.scheme.lower() != "https" or parsed.username is not None or parsed.password is not None:
+        if (
+            parsed.scheme.lower() != "https"
+            or parsed.username is not None
+            or parsed.password is not None
+            or (parsed.port is not None and parsed.port != 443)
+        ):
             return False
         if parsed.hostname == "github.com":
             return parsed.path.startswith("/Manolilloo/Aurion/releases/download/")
@@ -119,6 +127,7 @@ def is_trusted_update_redirect_url(value: str) -> bool:
             parsed.scheme.lower() == "https"
             and parsed.username is None
             and parsed.password is None
+            and (parsed.port is None or parsed.port == 443)
             and (parsed.hostname or "").lower() in {
                 "github.com",
                 "api.github.com",
