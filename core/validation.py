@@ -109,6 +109,27 @@ def is_trusted_update_url(value: str) -> bool:
         return False
 
 
+def is_trusted_update_redirect_url(value: str) -> bool:
+    """Validate final HTTPS hosts used by GitHub release-asset redirects."""
+    if not isinstance(value, str) or len(value) > 4096:
+        return False
+    try:
+        parsed = urlsplit(value.strip())
+        return (
+            parsed.scheme.lower() == "https"
+            and parsed.username is None
+            and parsed.password is None
+            and (parsed.hostname or "").lower() in {
+                "github.com",
+                "api.github.com",
+                "release-assets.githubusercontent.com",
+                "objects.githubusercontent.com",
+            }
+        )
+    except ValueError:
+        return False
+
+
 def is_safe_task_id(value: str) -> bool:
     """Task IDs are used in temp paths and DOM/JavaScript identifiers."""
     return isinstance(value, str) and bool(_TASK_ID_RE.fullmatch(value))
