@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - work/maintenance-audit
+      - work/smart-download-engine
   pull_request:
     branches:
       - main
