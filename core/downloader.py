@@ -116,8 +116,7 @@ class AurionDownloader:
         self.active_task_ids = set()
         self.active_temp_dirs = set()
         self.lock = threading.Lock()
-        self.fragment_limiter = SharedFragmentLimiter(total_slots=32)
-        install_yt_dlp_fragment_limiter()
+        self._ensure_fragment_limiter()
 
         atexit.register(self._cleanup_on_exit)
 
@@ -131,6 +130,15 @@ class AurionDownloader:
         status_ffmpeg = f"DISPONIBLE ({self.ffmpeg_path})" if self.has_ffmpeg else "NO DETECTADO"
         print(f"[Core] Estado del sistema -> aria2c: {status_aria} | FFmpeg: {status_ffmpeg}")
         self._cleanup_orphaned_temp_dirs()
+
+    def _ensure_fragment_limiter(self):
+        """Create the shared coordinator lazily for normal and test-created instances."""
+        limiter = getattr(self, "fragment_limiter", None)
+        if limiter is None:
+            limiter = SharedFragmentLimiter(total_slots=32)
+            self.fragment_limiter = limiter
+            install_yt_dlp_fragment_limiter()
+        return limiter
 
     def _get_fallback_default_dir(self):
         return os.path.join(os.path.expanduser("~"), "Videos", "Aurion")
@@ -774,7 +782,7 @@ class AurionDownloader:
             configured_workers = max(1, min(configured_workers, 8))
             simul_workers = max(1, effective_parallel_downloads(configured_workers, len(tasks)))
             config["simul"] = simul_workers
-            self.fragment_limiter.begin_batch(simul_workers)
+            self._ensure_fragment_limiter().begin_batch(simul_workers)
 
             dest_folder = self.resolve_destination_folder(config)
             self._save_cover_image(config)
@@ -885,11 +893,12 @@ class AurionDownloader:
             if is_safe_task_id(raw_task_id)
             else f"invalid-{threading.get_ident()}"
         )
-        with self.fragment_limiter.register_task(task_id):
+        limiter = self._ensure_fragment_limiter()
+        with limiter.register_task(task_id):
             try:
                 return self._download_single_task_impl(task, dest_folder, config)
             finally:
-                self.fragment_limiter.clear_cancelled(task_id)
+                limiter.clear_cancelled(task_id)
 
     def _download_single_task_impl(self, task, dest_folder, config):
         if not isinstance(task, dict) or not isinstance(config, dict):
