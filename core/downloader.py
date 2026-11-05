@@ -230,7 +230,7 @@ class AurionDownloader:
         print(f"[Core] Cancelando tarea: {task_id}")
 
     def _extract_with_yt_dlp(self, options, url, task_id, use_fragment_limiter=False):
-        """Ejecuta yt-dlp y limita globalmente sus peticiones HLS/DASH simultáneas."""
+        """Ejecuta yt-dlp y conecta el coordinador a sus descargas fragmentadas."""
         with yt_dlp.YoutubeDL(options) as downloader:
             if use_fragment_limiter:
                 downloader._aurion_fragment_limiter = self.fragment_limiter
