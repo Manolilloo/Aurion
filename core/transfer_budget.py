@@ -102,10 +102,13 @@ class SharedFragmentLimiter:
                 if key not in self._active_tasks:
                     raise RuntimeError(f"La tarea {key} no está registrada en el coordinador.")
 
-                active_count = len(self._active_tasks)
-                # Round up so the global pool is not left partly idle when the
-                # number of active downloads does not divide the slot count.
-                task_limit = max(1, (self.total_slots + active_count - 1) // active_count)
+                active_keys = list(self._active_tasks)
+                active_count = len(active_keys)
+                base_share, remainder = divmod(self.total_slots, active_count)
+                task_rank = active_keys.index(key)
+                # Distribute the remainder to only the first ranked tasks.
+                # This keeps the sum of all task ceilings within the global cap.
+                task_limit = max(1, base_share + int(task_rank < remainder))
                 task_in_flight = self._active_tasks[key]
 
                 if self._in_flight < self.total_slots and task_in_flight < task_limit:
