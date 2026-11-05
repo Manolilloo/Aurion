@@ -231,14 +231,10 @@ class AurionDownloader:
 
     def _extract_with_yt_dlp(self, options, url, task_id, use_fragment_limiter=False):
         """Ejecuta yt-dlp y limita globalmente sus peticiones HLS/DASH simultáneas."""
-        if use_fragment_limiter:
-            with self.fragment_limiter.register_task(task_id):
-                with yt_dlp.YoutubeDL(options) as downloader:
-                    downloader._aurion_fragment_limiter = self.fragment_limiter
-                    downloader._aurion_task_id = str(task_id)
-                    return downloader.extract_info(url, download=True)
-
         with yt_dlp.YoutubeDL(options) as downloader:
+            if use_fragment_limiter:
+                downloader._aurion_fragment_limiter = self.fragment_limiter
+                downloader._aurion_task_id = str(task_id)
             return downloader.extract_info(url, download=True)
 
     def _skip_existing_output(self, task_id, file_path, conflict_policy):
@@ -778,6 +774,7 @@ class AurionDownloader:
             configured_workers = max(1, min(configured_workers, 8))
             simul_workers = max(1, effective_parallel_downloads(configured_workers, len(tasks)))
             config["simul"] = simul_workers
+            self.fragment_limiter.begin_batch(simul_workers)
 
             dest_folder = self.resolve_destination_folder(config)
             self._save_cover_image(config)
@@ -882,6 +879,16 @@ class AurionDownloader:
             print(f"[Core] Error descargando portada: {exc}")
 
     def _download_single_task(self, task, dest_folder, config):
+        raw_task_id = task.get("id") if isinstance(task, dict) else None
+        task_id = (
+            str(raw_task_id)
+            if is_safe_task_id(raw_task_id)
+            else f"invalid-{threading.get_ident()}"
+        )
+        with self.fragment_limiter.register_task(task_id):
+            return self._download_single_task_impl(task, dest_folder, config)
+
+    def _download_single_task_impl(self, task, dest_folder, config):
         if not isinstance(task, dict) or not isinstance(config, dict):
             return False
         task_id = task.get("id")
@@ -920,13 +927,14 @@ class AurionDownloader:
         except (TypeError, ValueError):
             raw_threads = 32
 
+        active_downloads = self.fragment_limiter.snapshot()["active_tasks"]
         profile = build_download_profile(
             url,
             configured_threads=raw_threads,
             configured_aria_connections=config.get("aria_connections", 16),
             has_aria2=self.has_aria2,
             is_youtube=is_yt,
-            simultaneous_downloads=config.get("simul", 1),
+            simultaneous_downloads=active_downloads,
             protocol_hint=task.get("protocol"),
         )
         is_segmented_stream = profile.protocol in {"hls", "dash"}
@@ -1058,6 +1066,13 @@ class AurionDownloader:
             f"{'sí (' + str(configured_aria_conns) + ' conexiones)' if profile.use_aria2 else 'no'}"
         )
         print(f"      Motivo: {profile.reason} | Formato: .{fmt_choice} | Servidor: {netloc}")
+        if profile.protocol in {"hls", "dash", "youtube"}:
+            budget_snapshot = self.fragment_limiter.snapshot()
+            print(
+                f"      Coordinador global: {budget_snapshot['active_tasks']} descargas, "
+                f"{budget_snapshot['active_fragments']}/{budget_snapshot['total_slots']} "
+                "peticiones de fragmento activas."
+            )
 
         setattr(self, f"_p_{task_id}", 0)
         current_stream_type = {"val": "video" if not is_audio else "audio"}
@@ -1268,7 +1283,7 @@ class AurionDownloader:
             "host_class": profile.host_class,
             "fragment_workers": threads_count if profile.protocol in {"hls", "dash"} else None,
             "aria2_connections": configured_aria_conns,
-            "simultaneous_downloads": config.get("simul", 1),
+            "simultaneous_downloads": active_downloads,
         })
         try:
             if self.bridge and self.bridge._window:
@@ -1555,7 +1570,7 @@ class AurionDownloader:
                 "host_class": profile.host_class,
                 "fragment_workers": threads_count if profile.protocol in {"hls", "dash"} else None,
                 "aria2_connections": configured_aria_conns,
-                "simultaneous_downloads": config.get("simul", 1),
+                    "simultaneous_downloads": active_downloads,
                 "size_bytes": real_file_bytes,
                 "duration_seconds": round(elapsed_seconds, 2),
                 "average_speed_mib_s": round(average_speed_mb, 2),
