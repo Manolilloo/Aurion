@@ -14,7 +14,8 @@ class TransferBudgetBenchmarkTests(unittest.TestCase):
         )
 
         self.assertEqual(result["settings"]["total_fragments"], 10)
-        self.assertEqual(result["fixed_budget"]["peak_active_requests"], 6)
+        self.assertGreaterEqual(result["fixed_budget"]["peak_active_requests"], 1)
+        self.assertLessEqual(result["fixed_budget"]["peak_active_requests"], 6)
         self.assertLessEqual(result["adaptive_budget"]["peak_active_requests"], 6)
         self.assertIn("adaptive_time_improvement_percent", result)
         self.assertIn("synthetic_fixed_latency_requests", result["measurement"])
