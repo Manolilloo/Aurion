@@ -71,12 +71,18 @@ class SharedFragmentLimiter:
                 raise RuntimeError(f"La tarea {key} ya está registrada en el coordinador.")
             self._active_tasks[key] = 0
             if not self._initial_wave_ready:
-                if len(self._active_tasks) >= self._initial_expected:
+                if len(self._active_tasks) >= self._initial_expected or key in self._cancelled_tasks:
                     self._initial_wave_ready = True
                     self._condition.notify_all()
-                elif not self._condition.wait_for(lambda: self._initial_wave_ready, timeout=5):
+                elif not self._condition.wait_for(
+                    lambda: self._initial_wave_ready or key in self._cancelled_tasks,
+                    timeout=5,
+                ):
                     # Never leave worker threads blocked forever if the executor
                     # cannot create the complete initial wave.
+                    self._initial_wave_ready = True
+                    self._condition.notify_all()
+                elif key in self._cancelled_tasks and not self._initial_wave_ready:
                     self._initial_wave_ready = True
                     self._condition.notify_all()
 
