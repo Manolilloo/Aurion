@@ -35,6 +35,7 @@ class SharedFragmentLimiter:
         with self._condition:
             if self._active_tasks:
                 raise RuntimeError("No se puede reiniciar el coordinador con tareas activas.")
+            self._peak_in_flight = 0
             self._initial_expected = max(0, min(expected, 8))
             self._initial_wave_ready = self._initial_expected <= 1
             self._condition.notify_all()
