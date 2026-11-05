@@ -1,3 +1,32 @@
+(function observeManifestResources() {
+  const seenManifestUrls = new Set();
+
+  function reportManifest(entry) {
+    try {
+      const resourceUrl = new URL(entry.name);
+      if (!/\.(?:mpd|m3u8)$/i.test(resourceUrl.pathname)) return;
+
+      const normalizedUrl = resourceUrl.href;
+      if (seenManifestUrls.has(normalizedUrl)) return;
+      seenManifestUrls.add(normalizedUrl);
+
+      const pending = chrome.runtime.sendMessage({
+        type: 'MANIFEST_RESOURCE_FOUND',
+        url: normalizedUrl
+      });
+      if (pending && typeof pending.catch === 'function') pending.catch(() => {});
+    } catch (_) {}
+  }
+
+  try {
+    performance.getEntriesByType('resource').forEach(reportManifest);
+    const observer = new PerformanceObserver((list) => {
+      list.getEntries().forEach(reportManifest);
+    });
+    observer.observe({ type: 'resource', buffered: true });
+  } catch (_) {}
+})();
+
 if (window.top !== window) {
   // EJECUCIÓN EN IFRAMES: Detectar resolución nativa y fuentes <video src="http..."> directas
   let lastReportedSrc = '';
@@ -425,25 +454,27 @@ if (window.top !== window) {
           };
 
           try {
-            const resp = await fetch('http://127.0.0.1:6800/api/enqueue', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(payload)
+            const result = await chrome.runtime.sendMessage({
+              type: 'AURION_ENQUEUE',
+              payload
             });
-            if (resp.ok) {
-              btn.innerHTML = '<span>¡CAPÍTULO EN COLA! ✔</span>';
-              btn.classList.add('aurion-success');
-              setTimeout(() => {
-                pill.classList.remove('aurion-visible');
-                btn.classList.remove('aurion-success');
-                btn.innerHTML = '<span>ENVIAR A AURION STUDIO</span><span style="font-size: 14px;">⚡</span>';
-              }, 1100);
+            if (!result?.ok) {
+              throw new Error(result?.error || 'Aurion no pudo aceptar la transmisión');
             }
-          } catch (_) {
-            btn.innerHTML = '<span>ABRE AURION DESKTOP PRIMERO</span>';
+
+            btn.innerHTML = '<span>¡CAPÍTULO EN COLA! ✔</span>';
+            btn.classList.add('aurion-success');
+            setTimeout(() => {
+              pill.classList.remove('aurion-visible');
+              btn.classList.remove('aurion-success');
+              btn.innerHTML = '<span>ENVIAR A AURION STUDIO</span><span style="font-size: 14px;">⚡</span>';
+            }, 1100);
+          } catch (error) {
+            console.error('[Aurion] Error enviando la transmisión:', error);
+            btn.innerHTML = '<span>ERROR AL ENVIAR A AURION</span>';
             setTimeout(() => {
               btn.innerHTML = '<span>ENVIAR A AURION STUDIO</span><span style="font-size: 14px;">⚡</span>';
-            }, 2000);
+            }, 2500);
           }
         });
       }

@@ -56,4 +56,4 @@ jobs:
           }
 
       - name: Run JavaScript unit tests
-        run: node --test tests/test_extension_response_limits.js tests/test_extension_manifest_parser.js
+        run: node --test tests/test_extension_response_limits.js tests/test_extension_manifest_parser.js tests/test_extension_stream_classifier.js

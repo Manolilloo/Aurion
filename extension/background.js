@@ -29,7 +29,7 @@ function extractResolutionFromUrl(url) {
   return null;
 }
 
-function resolveServerName(url) {
+function resolveServerName(url, protocol = 'http', contentType = '') {
   const u = url.toLowerCase();
   if (u.includes('streamwish') || u.includes('wishembed') || u.includes('wish')) return 'STREAMWISH';
   if (u.includes('filelions') || u.includes('lion')) return 'FILELIONS';
@@ -54,11 +54,13 @@ function resolveServerName(url) {
   if (u.includes('earnvids') || u.includes('sprintcdn') || u.includes('hglamioz')) return 'EARNVIDS';
   if (u.includes('playmate')) return 'PLAYMATE';
   if (u.includes('vixeo')) return 'VIXEO';
-  if (u.includes('.m3u8')) return 'HLS STREAM';
-  return 'DIRECT MP4';
+  const classification = classifyStreamUrl(url, contentType);
+  if (protocol === 'dash' || classification.protocol === 'dash') return 'DASH STREAM';
+  if (protocol === 'hls' || classification.protocol === 'hls') return 'HLS STREAM';
+  return classification.sourceLabel;
 }
 
-importScripts("manifest_parser.js", "response_limits.js");
+importScripts("manifest_parser.js", "response_limits.js", "stream_classifier.js");
 
 async function inspectManifest(url, refererUrl = '') {
   const controller = new AbortController();
@@ -108,7 +110,7 @@ async function inspectManifest(url, refererUrl = '') {
   }
 }
 
-async function registerDetectedStream(tabId, frameId, rawUrl, initiator = '', knownBytes = 0, isHlsHint = false) {
+async function registerDetectedStream(tabId, frameId, rawUrl, initiator = '', knownBytes = 0, isManifestHint = false, contentType = '') {
   if (tabId < 0 || shouldIgnoreUrl(rawUrl)) return;
 
   // Forzar master.m3u8 para desbloquear siempre la pista 1080p de máxima velocidad
@@ -116,6 +118,9 @@ async function registerDetectedStream(tabId, frameId, rawUrl, initiator = '', kn
   if (/index-f\d+-[^\.]+\.m3u8/i.test(effectiveUrl)) {
     effectiveUrl = effectiveUrl.replace(/index-f\d+-[^\.]+\.m3u8/i, 'master.m3u8');
   }
+
+  const classification = classifyStreamUrl(effectiveUrl, contentType);
+  if (classification.isAudioOnly) return;
 
   if (!processedTabUrls[tabId]) processedTabUrls[tabId] = new Set();
   const seenUrls = processedTabUrls[tabId];
@@ -132,11 +137,8 @@ async function registerDetectedStream(tabId, frameId, rawUrl, initiator = '', kn
     if (!pageUrl && currentTab && currentTab.url) pageUrl = currentTab.url;
   } catch (_) {}
 
-  const isManifest = isHlsHint || VIDEO_STREAM_REGEX.test(effectiveUrl) ||
-    effectiveUrl.toLowerCase().includes('.m3u8') || effectiveUrl.toLowerCase().includes('.mpd');
-  let streamProtocol = /\.mpd(?:[?#]|$)/i.test(effectiveUrl)
-    ? 'dash'
-    : (/\.m3u8(?:[?#]|$)/i.test(effectiveUrl) ? 'hls' : 'http');
+  const isManifest = isManifestHint || classification.isManifest || VIDEO_STREAM_REGEX.test(effectiveUrl);
+  let streamProtocol = classification.protocol;
   let probe = { res: 'Auto', bytes: knownBytes || 0 };
 
   if (isManifest) {
@@ -172,8 +174,9 @@ async function registerDetectedStream(tabId, frameId, rawUrl, initiator = '', kn
 
   const mediaEntry = {
     url: effectiveUrl,
-    source: resolveServerName(effectiveUrl),
+    source: resolveServerName(effectiveUrl, streamProtocol, contentType),
     protocol: streamProtocol,
+    kind: classification.kind,
     resolution: probe.res,
     bytes: probe.bytes,
     pageUrl: initiator || pageUrl,
@@ -181,11 +184,14 @@ async function registerDetectedStream(tabId, frameId, rawUrl, initiator = '', kn
     timestamp: Date.now()
   };
 
-  tabMediaData[tabId] = [mediaEntry, ...tabMediaData[tabId].filter(x => x.url !== effectiveUrl)].slice(0, 12);
+  const updatedStreams = [mediaEntry, ...tabMediaData[tabId].filter(x => x.url !== effectiveUrl)];
+  const priority = (entry) => entry.protocol === 'dash' ? 3 : (entry.protocol === 'hls' ? 2 : 1);
+  updatedStreams.sort((a, b) => priority(b) - priority(a) || b.timestamp - a.timestamp);
+  tabMediaData[tabId] = updatedStreams.slice(0, 12);
 
   chrome.tabs.sendMessage(tabId, {
     type: 'AURION_MEDIA_DETECTED',
-    media: mediaEntry,
+    media: tabMediaData[tabId][0] || mediaEntry,
     mediaList: tabMediaData[tabId],
     frameId: frameId
   }).catch(() => {});
@@ -197,12 +203,11 @@ chrome.webRequest.onBeforeRequest.addListener(
     const { url, tabId, frameId, initiator } = details;
     if (tabId < 0 || shouldIgnoreUrl(url)) return;
 
-    const u = url.toLowerCase();
-    const isHls = VIDEO_STREAM_REGEX.test(url) || u.includes('.m3u8');
-    const isDirect = DIRECT_VIDEO_REGEX.test(url);
-
-    if (isHls || isDirect) {
-      registerDetectedStream(tabId, frameId, url, initiator, 0, isHls);
+    const classification = classifyStreamUrl(url);
+    const isLegacyManifest = VIDEO_STREAM_REGEX.test(url);
+    const isManifest = classification.isManifest || isLegacyManifest;
+    if (isManifest || classification.isVideoCandidate) {
+      registerDetectedStream(tabId, frameId, url, initiator, 0, isManifest);
     }
   },
   { urls: ["<all_urls>"] }
@@ -227,13 +232,25 @@ chrome.webRequest.onHeadersReceived.addListener(
       }
     }
 
-    const isHlsMime = contentType.includes('mpegurl') || contentType.includes('vnd.apple.mpegurl') || contentType.includes('x-mpegurl');
-    const isDashMime = contentType.includes('application/dash+xml') || contentType.includes('dash+xml');
-    const isVideoMime = contentType.startsWith('video/mp4') || contentType.startsWith('video/webm') || contentType.startsWith('video/x-matroska');
+    const classification = classifyStreamUrl(url, contentType);
+    const isVideoMime = contentType.startsWith('video/');
     const isLargeBinaryVideo = (contentType === 'application/octet-stream' && contentLength > 10 * 1024 * 1024);
 
-    if (isHlsMime || isDashMime || (isVideoMime && contentLength > 1500 * 1024) || isLargeBinaryVideo) {
-      registerDetectedStream(tabId, frameId, url, initiator, contentLength, isHlsMime || isDashMime);
+    if (classification.isAudioOnly) return;
+    if (
+      classification.isManifest
+      || (classification.isVideoCandidate && isVideoMime && contentLength > 1500 * 1024)
+      || isLargeBinaryVideo
+    ) {
+      registerDetectedStream(
+        tabId,
+        frameId,
+        url,
+        initiator,
+        contentLength,
+        classification.isManifest,
+        contentType
+      );
     }
   },
   { urls: ["<all_urls>"] },
@@ -241,6 +258,44 @@ chrome.webRequest.onHeadersReceived.addListener(
 );
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg.type === 'MANIFEST_RESOURCE_FOUND' && sender.tab) {
+    try {
+      const parsed = new URL(String(msg.url || ''));
+      const classification = classifyStreamUrl(parsed.href);
+      if (
+        !['http:', 'https:'].includes(parsed.protocol)
+        || !classification.isManifest
+      ) return false;
+
+      registerDetectedStream(
+        sender.tab.id,
+        sender.frameId || 0,
+        parsed.href,
+        sender.url || sender.tab.url || '',
+        0,
+        true
+      );
+    } catch (_) {}
+    return false;
+  }
+
+  if (msg.type === 'AURION_ENQUEUE') {
+    const payload = msg.payload;
+    if (!sender.tab || !payload || typeof payload !== 'object' || Array.isArray(payload)) {
+      sendResponse({ ok: false, error: 'Datos de descarga no válidos' });
+      return false;
+    }
+
+    postToAurion('/api/enqueue', payload).then(
+      () => sendResponse({ ok: true }),
+      (error) => sendResponse({
+        ok: false,
+        error: error instanceof Error ? error.message : 'No se pudo enviar a Aurion'
+      })
+    );
+    return true;
+  }
+
   if (msg.type === 'GET_MEDIA_INFO') {
     sendResponse({ mediaList: tabMediaData[msg.tabId] || [] });
     return false;
