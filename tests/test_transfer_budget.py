@@ -188,6 +188,47 @@ class SharedFragmentLimiterTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "TASK_CANCELLED_BY_USER"):
                 FragmentFD._download_fragment(fake_downloader, {}, None)
 
+    def test_yt_dlp_fragment_hook_holds_a_slot_during_download(self):
+        from yt_dlp.downloader.fragment import FragmentFD
+
+        limiter = SharedFragmentLimiter(total_slots=1)
+        observations = {}
+        fake_downloader = object.__new__(FragmentFD)
+        fake_downloader.ydl = SimpleNamespace(
+            _aurion_fragment_limiter=limiter,
+            _aurion_task_id="hook-test",
+        )
+        fake_downloader.temp_name = lambda filename: filename
+        fake_downloader.filesize_or_none = lambda _filename: 0
+
+        def download_fragment(filename, info_dict):
+            observations["filename"] = filename
+            observations["active_fragments"] = limiter.snapshot()["active_fragments"]
+            return True, None
+
+        fragment_context = {
+            "tmpfilename": "sample.tmp",
+            "fragment_index": 3,
+            "dl": SimpleNamespace(
+                params={"continuedl": False},
+                download=download_fragment,
+            ),
+        }
+
+        with limiter.register_task("hook-test"):
+            self.assertTrue(
+                FragmentFD._download_fragment(
+                    fake_downloader,
+                    fragment_context,
+                    "https://cdn.example/segment.ts",
+                    {},
+                )
+            )
+            self.assertEqual(observations["active_fragments"], 1)
+            self.assertEqual(observations["filename"], "sample.tmp-Frag3")
+
+        self.assertEqual(limiter.snapshot()["active_fragments"], 0)
+
     def test_empty_task_id_is_rejected(self):
         limiter = SharedFragmentLimiter()
         with self.assertRaises(ValueError):
