@@ -136,7 +136,7 @@ La extensión también lee metadatos de manifiestos HLS y DASH para estimar reso
 Desde la raíz del repositorio se puede comparar el reparto fijo con el dinámico:
 
 ```bash
-python benchmarks/benchmark_transfer_budget.py
+python -m benchmarks.benchmark_transfer_budget
 ```
 
 El benchmark usa peticiones simuladas con latencia fija y tamaños de lote distintos. Sirve para comparar el planificador y comprobar el límite global, pero no mide la velocidad de internet, de un CDN ni de descargas reales.
