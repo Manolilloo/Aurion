@@ -1293,9 +1293,10 @@ class AurionDownloader:
             "protocol": profile.protocol,
             "host": diagnostic_host,
             "host_class": profile.host_class,
-            "fragment_workers": threads_count if profile.protocol in {"hls", "dash"} else None,
+            "fragment_workers": threads_count if profile.protocol in {"hls", "dash", "youtube"} else None,
             "aria2_connections": configured_aria_conns,
             "simultaneous_downloads": active_downloads,
+            "peak_active_fragments": self.fragment_limiter.snapshot()["peak_active_fragments"],
         })
         try:
             if self.bridge and self.bridge._window:
@@ -1563,6 +1564,7 @@ class AurionDownloader:
                     "host_class": profile.host_class,
                     "error_type": "InvalidStreamSize",
                     "size_bytes": real_file_bytes,
+                    "peak_active_fragments": self.fragment_limiter.snapshot()["peak_active_fragments"],
                 })
                 print(f"[Core] ADVERTENCIA: Archivo demasiado pequeño ({real_file_bytes} bytes).")
                 try:
@@ -1580,9 +1582,10 @@ class AurionDownloader:
                 "protocol": profile.protocol,
                 "host": diagnostic_host,
                 "host_class": profile.host_class,
-                "fragment_workers": threads_count if profile.protocol in {"hls", "dash"} else None,
+                "fragment_workers": threads_count if profile.protocol in {"hls", "dash", "youtube"} else None,
                 "aria2_connections": configured_aria_conns,
-                    "simultaneous_downloads": active_downloads,
+                "simultaneous_downloads": active_downloads,
+                "peak_active_fragments": self.fragment_limiter.snapshot()["peak_active_fragments"],
                 "size_bytes": real_file_bytes,
                 "duration_seconds": round(elapsed_seconds, 2),
                 "average_speed_mib_s": round(average_speed_mb, 2),
@@ -1618,6 +1621,7 @@ class AurionDownloader:
                     "host": diagnostic_host,
                     "host_class": profile.host_class,
                     "duration_seconds": round(max(time.monotonic() - transfer_started_at, 0), 2),
+                    "peak_active_fragments": self.fragment_limiter.snapshot()["peak_active_fragments"],
                 })
                 print(f"[Core] Descarga cancelada: {title}")
                 if self.bridge and self.bridge._window:
@@ -1632,6 +1636,7 @@ class AurionDownloader:
                     "host_class": profile.host_class,
                     "duration_seconds": round(max(time.monotonic() - transfer_started_at, 0), 2),
                     "error_type": type(e).__name__,
+                    "peak_active_fragments": self.fragment_limiter.snapshot()["peak_active_fragments"],
                 })
                 import traceback
                 print(f"[Core] Error descargando {title}:")
