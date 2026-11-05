@@ -87,9 +87,23 @@ class HttpApiTests(unittest.TestCase):
         self.assertEqual(status, 415)
 
     def test_oversized_request_is_rejected_before_parsing(self):
-        body = b"x" * (AurionHTTPHandler.MAX_BODY_BYTES + 1)
-        status, _ = self.request("POST", "/api/enqueue", body)
+        connection = HTTPConnection(self.host, self.port, timeout=3)
+        connection.putrequest("POST", "/api/enqueue")
+        connection.putheader("Origin", EXTENSION_ORIGIN)
+        connection.putheader("Content-Type", "application/json")
+        connection.putheader(
+            "Content-Length",
+            str(AurionHTTPHandler.MAX_BODY_BYTES + 1),
+        )
+        connection.endheaders()
+
+        response = connection.getresponse()
+        status = response.status
+        response.read()
+        connection.close()
+
         self.assertEqual(status, 413)
+        self.assertEqual(self.server.bridge_instance.received, [])
 
     def test_unknown_endpoint_is_rejected(self):
         status, _ = self.request("POST", "/api/anything", {"x": 1})
