@@ -124,14 +124,14 @@ def build_download_profile(
             fragment_workers=8,
             use_aria2=False,
             aria_connections=0,
-            reason="YouTube conserva su perfil de yt-dlp.",
+            reason="YouTube usa hasta 8 fragmentos por tarea, coordinados por el límite global compartido.",
         )
 
     if protocol in {"hls", "dash"}:
         requested_workers = max(4, _safe_int(configured_threads, 16))
-        # Share a 32-worker budget across active downloads so a large batch
-        # cannot make every stream open dozens of fragment requests at once.
-        fragment_workers = min(requested_workers, 16, per_task_budget)
+        # This is the per-task ceiling. SharedFragmentLimiter en downloader.py
+        # enforces the real global cap and reallocates slots as tasks finish.
+        fragment_workers = min(requested_workers, 16)
         return DownloadProfile(
             protocol=protocol,
             host_class="segmented",
@@ -139,8 +139,9 @@ def build_download_profile(
             use_aria2=False,
             aria_connections=0,
             reason=(
-                f"Fragmentos con yt-dlp; presupuesto de {per_task_budget} por "
-                f"descarga ({active_downloads} simultáneas)."
+                f"Fragmentos con yt-dlp (máximo {fragment_workers} por tarea); "
+                "el coordinador comparte 32 peticiones activas y redistribuye "
+                "los huecos cuando terminan otras descargas."
             ),
         )
 
