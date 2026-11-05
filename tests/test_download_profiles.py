@@ -113,7 +113,7 @@ class DownloadProfileTests(unittest.TestCase):
         self.assertFalse(profile.use_aria2)
         self.assertEqual(profile.fragment_workers, 8)
 
-    def test_fragment_workers_share_budget_across_simultaneous_downloads(self):
+    def test_fragment_workers_keep_per_task_ceiling_for_global_sharing(self):
         single = build_download_profile(
             "https://cdn.example/master.m3u8",
             configured_threads=64,
@@ -125,8 +125,10 @@ class DownloadProfileTests(unittest.TestCase):
             simultaneous_downloads=8,
         )
 
+        # Each task keeps its ceiling; the shared limiter enforces the
+        # aggregate request cap and reallocates slots while downloads run.
         self.assertEqual(single.fragment_workers, 16)
-        self.assertEqual(batch.fragment_workers, 4)
+        self.assertEqual(batch.fragment_workers, 16)
 
     def test_aria2_connections_scale_with_batch_size(self):
         profile = build_download_profile(
