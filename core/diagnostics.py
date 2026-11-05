@@ -16,6 +16,7 @@ _ALLOWED_FIELDS = {
     "fragment_workers",
     "aria2_connections",
     "simultaneous_downloads",
+    "peak_active_fragments",
     "size_bytes",
     "duration_seconds",
     "average_speed_mib_s",
