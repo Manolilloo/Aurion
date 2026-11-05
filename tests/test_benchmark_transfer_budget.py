@@ -9,7 +9,7 @@ class TransferBudgetBenchmarkTests(unittest.TestCase):
             [2, 3, 5],
             total_slots=6,
             per_task_ceiling=4,
-            latency_seconds=0.0001,
+            latency_seconds=0.01,
             repeats=1,
         )
 
