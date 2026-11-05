@@ -35,20 +35,22 @@ def _run_fixed(fragment_counts, total_slots, per_task_ceiling, latency_seconds):
     current_requests = 0
     peak_requests = 0
     lock = threading.Lock()
+    global_slots = threading.BoundedSemaphore(total_slots)
 
     def run_task(fragment_count):
         nonlocal current_requests, peak_requests
 
         def fetch_fragment(_fragment_index):
             nonlocal current_requests, peak_requests
-            with lock:
-                current_requests += 1
-                peak_requests = max(peak_requests, current_requests)
-            try:
-                time.sleep(latency_seconds)
-            finally:
+            with global_slots:
                 with lock:
-                    current_requests -= 1
+                    current_requests += 1
+                    peak_requests = max(peak_requests, current_requests)
+                try:
+                    time.sleep(latency_seconds)
+                finally:
+                    with lock:
+                        current_requests -= 1
 
         with ThreadPoolExecutor(max_workers=fixed_workers) as pool:
             list(pool.map(fetch_fragment, range(fragment_count)))
@@ -113,8 +115,8 @@ def _summarize(samples, fragment_total):
 def run_benchmark(fragment_counts, total_slots=32, per_task_ceiling=16, latency_seconds=0.05, repeats=3):
     if not 1 <= total_slots <= 128:
         raise ValueError("El límite global debe estar entre 1 y 128.")
-    if not 1 <= per_task_ceiling <= 32:
-        raise ValueError("El máximo por tarea debe estar entre 1 y 32.")
+    if not 1 <= per_task_ceiling <= 16:
+        raise ValueError("El máximo por tarea debe estar entre 1 y 16.")
     if not 0.0001 <= latency_seconds <= 5:
         raise ValueError("La latencia simulada debe estar entre 0,0001 y 5 segundos.")
     if not 1 <= repeats <= 20:
