@@ -886,7 +886,10 @@ class AurionDownloader:
             else f"invalid-{threading.get_ident()}"
         )
         with self.fragment_limiter.register_task(task_id):
-            return self._download_single_task_impl(task, dest_folder, config)
+            try:
+                return self._download_single_task_impl(task, dest_folder, config)
+            finally:
+                self.fragment_limiter.clear_cancelled(task_id)
 
     def _download_single_task_impl(self, task, dest_folder, config):
         if not isinstance(task, dict) or not isinstance(config, dict):
