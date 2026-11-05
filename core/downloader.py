@@ -26,6 +26,7 @@ from .download_profiles import (
     is_retryable_segment_error,
 )
 from .diagnostics import record_download_event
+from .transfer_budget import SharedFragmentLimiter, install_yt_dlp_fragment_limiter
 
 
 def get_binary_path(binary_name):
@@ -115,6 +116,8 @@ class AurionDownloader:
         self.active_task_ids = set()
         self.active_temp_dirs = set()
         self.lock = threading.Lock()
+        self.fragment_limiter = SharedFragmentLimiter(total_slots=32)
+        install_yt_dlp_fragment_limiter()
 
         atexit.register(self._cleanup_on_exit)
 
@@ -222,7 +225,21 @@ class AurionDownloader:
     def cancel_task(self, task_id):
         with self.lock:
             self.cancelled_tasks.add(task_id)
+        if hasattr(self, "fragment_limiter"):
+            self.fragment_limiter.cancel_task(task_id)
         print(f"[Core] Cancelando tarea: {task_id}")
+
+    def _extract_with_yt_dlp(self, options, url, task_id, use_fragment_limiter=False):
+        """Ejecuta yt-dlp y limita globalmente sus peticiones HLS/DASH simultáneas."""
+        if use_fragment_limiter:
+            with self.fragment_limiter.register_task(task_id):
+                with yt_dlp.YoutubeDL(options) as downloader:
+                    downloader._aurion_fragment_limiter = self.fragment_limiter
+                    downloader._aurion_task_id = str(task_id)
+                    return downloader.extract_info(url, download=True)
+
+        with yt_dlp.YoutubeDL(options) as downloader:
+            return downloader.extract_info(url, download=True)
 
     def _skip_existing_output(self, task_id, file_path, conflict_policy):
         """Preserva cualquier archivo existente cuando la política es omitir."""
@@ -1152,7 +1169,7 @@ class AurionDownloader:
             ydl_opts.pop('hls_use_mpegts', None)
             ydl_opts.pop('http_chunk_size', None)
             ydl_opts.update({
-                'concurrent_fragment_downloads': 8,
+                'concurrent_fragment_downloads': threads_count,
                 'merge_output_format': 'mp4' if not is_audio else None,
             })
         else:
@@ -1314,8 +1331,9 @@ class AurionDownloader:
                         if strat.get('use_cookies') and active_cookie_file:
                             try_opts['cookiefile'] = active_cookie_file
 
-                        with yt_dlp.YoutubeDL(try_opts) as ydl_yt:
-                            info = ydl_yt.extract_info(url, download=True)
+                        info = self._extract_with_yt_dlp(
+                            try_opts, url, task_id, use_fragment_limiter=True
+                        )
                         last_err = None
                         break
                     except Exception as err_yt:
@@ -1329,8 +1347,9 @@ class AurionDownloader:
                     raise last_err
             else:
                 try:
-                    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                        info = ydl.extract_info(url, download=True)
+                    info = self._extract_with_yt_dlp(
+                        ydl_opts, url, task_id, use_fragment_limiter=is_segmented_stream
+                    )
                 except Exception as dl_err:
                     err_str = str(dl_err)
                     if "TASK_CANCELLED_BY_USER" in err_str:
@@ -1348,8 +1367,9 @@ class AurionDownloader:
                             recovery_opts['concurrent_fragment_downloads'] = fallback_workers
                             recovery_opts['fragment_retries'] = 50
                             try:
-                                with yt_dlp.YoutubeDL(recovery_opts) as ydl_recovery:
-                                    info = ydl_recovery.extract_info(url, download=True)
+                                info = self._extract_with_yt_dlp(
+                                    recovery_opts, url, task_id, use_fragment_limiter=True
+                                )
                                 recovery_error = None
                                 recovered_transfer = True
                                 print(
@@ -1378,8 +1398,9 @@ class AurionDownloader:
                                 else threads_count
                             )
                             try:
-                                with yt_dlp.YoutubeDL(original_opts) as ydl_original:
-                                    info = ydl_original.extract_info(raw_url, download=True)
+                                info = self._extract_with_yt_dlp(
+                                    original_opts, raw_url, task_id, use_fragment_limiter=True
+                                )
                                 recovery_error = None
                                 recovered_transfer = True
                             except Exception as original_exc:
@@ -1397,18 +1418,17 @@ class AurionDownloader:
                         native_opts.pop('external_downloader', None)
                         native_opts.pop('external_downloader_args', None)
                         try:
-                            with yt_dlp.YoutubeDL(native_opts) as ydl_nat:
-                                info = ydl_nat.extract_info(url, download=True)
+                            info = self._extract_with_yt_dlp(native_opts, url, task_id)
                         except Exception:
                             if page_ref and page_ref != url:
                                 refreshed_url = self._resolve_embed_to_direct_stream(page_ref, page_ref)
                                 if refreshed_url and refreshed_url != url:
-                                    with yt_dlp.YoutubeDL(native_opts) as ydl_ref:
-                                        info = ydl_ref.extract_info(refreshed_url, download=True)
+                                    info = self._extract_with_yt_dlp(native_opts, refreshed_url, task_id)
                     elif url != raw_url:
                         print("[Core Rescate] Master rechazado, descargando stream original a 32 hilos...")
-                        with yt_dlp.YoutubeDL(ydl_opts) as ydl_orig:
-                            info = ydl_orig.extract_info(raw_url, download=True)
+                        info = self._extract_with_yt_dlp(
+                            ydl_opts, raw_url, task_id, use_fragment_limiter=is_segmented_stream
+                        )
                     elif any(k in err_str for k in ["Conversion failed", "Postprocessing", "FFmpegPostProcessorError"]):
                         existing = [
                             f for f in os.listdir(task_temp_dir)
@@ -1601,6 +1621,7 @@ class AurionDownloader:
             with self.lock:
                 self.cancelled_tasks.discard(task_id)
                 getattr(self, "active_task_ids", set()).discard(task_id)
+            self.fragment_limiter.clear_cancelled(task_id)
             progress_attr = f"_p_{task_id}"
             if hasattr(self, progress_attr):
                 try:
