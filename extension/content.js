@@ -1,10 +1,17 @@
 (function observeManifestResources() {
   const seenManifestUrls = new Set();
+  const MAIN_WORLD_SOURCE = 'aurion-main-world';
+  const MAIN_WORLD_MESSAGE = 'AURION_MANIFEST_RESOURCE';
 
-  function reportManifest(entry) {
+  function reportManifest(rawUrl, contentType = '') {
     try {
-      const resourceUrl = new URL(entry.name);
-      if (!/\.(?:mpd|m3u8)$/i.test(resourceUrl.pathname)) return;
+      const resourceUrl = new URL(String(rawUrl || ''), window.location.href);
+      if (!['http:', 'https:'].includes(resourceUrl.protocol)) return;
+
+      const mime = String(contentType || '').split(';', 1)[0].trim().toLowerCase();
+      const isManifestUrl = /\.(?:mpd|m3u8)$/i.test(resourceUrl.pathname);
+      const isManifestMime = mime.includes('dash+xml') || mime.includes('mpegurl');
+      if (!isManifestUrl && !isManifestMime) return;
 
       const normalizedUrl = resourceUrl.href;
       if (seenManifestUrls.has(normalizedUrl)) return;
@@ -12,16 +19,27 @@
 
       const pending = chrome.runtime.sendMessage({
         type: 'MANIFEST_RESOURCE_FOUND',
-        url: normalizedUrl
+        url: normalizedUrl,
+        contentType: mime
       });
       if (pending && typeof pending.catch === 'function') pending.catch(() => {});
     } catch (_) {}
   }
 
+  window.addEventListener('message', (event) => {
+    if (
+      event.source !== window
+      || event.data?.source !== MAIN_WORLD_SOURCE
+      || event.data?.type !== MAIN_WORLD_MESSAGE
+    ) return;
+
+    reportManifest(event.data.url, event.data.contentType);
+  });
+
   try {
-    performance.getEntriesByType('resource').forEach(reportManifest);
+    performance.getEntriesByType('resource').forEach((entry) => reportManifest(entry.name));
     const observer = new PerformanceObserver((list) => {
-      list.getEntries().forEach(reportManifest);
+      list.getEntries().forEach((entry) => reportManifest(entry.name));
     });
     observer.observe({ type: 'resource', buffered: true });
   } catch (_) {}

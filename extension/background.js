@@ -261,7 +261,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === 'MANIFEST_RESOURCE_FOUND' && sender.tab) {
     try {
       const parsed = new URL(String(msg.url || ''));
-      const classification = classifyStreamUrl(parsed.href);
+      const contentType = typeof msg.contentType === 'string'
+        ? msg.contentType.slice(0, 256)
+        : '';
+      const classification = classifyStreamUrl(parsed.href, contentType);
       if (
         !['http:', 'https:'].includes(parsed.protocol)
         || !classification.isManifest
@@ -273,7 +276,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         parsed.href,
         sender.url || sender.tab.url || '',
         0,
-        true
+        true,
+        contentType
       );
     } catch (_) {}
     return false;
