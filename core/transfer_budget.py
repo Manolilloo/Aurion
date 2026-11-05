@@ -22,6 +22,22 @@ class SharedFragmentLimiter:
         self._cancelled_tasks = set()
         self._in_flight = 0
         self._peak_in_flight = 0
+        self._initial_expected = 0
+        self._initial_wave_ready = True
+
+    def begin_batch(self, expected_initial_tasks):
+        """Synchronize the first worker wave before any task starts transferring."""
+        try:
+            expected = int(expected_initial_tasks)
+        except (TypeError, ValueError, OverflowError):
+            expected = 1
+
+        with self._condition:
+            if self._active_tasks:
+                raise RuntimeError("No se puede reiniciar el coordinador con tareas activas.")
+            self._initial_expected = max(0, min(expected, 8))
+            self._initial_wave_ready = self._initial_expected <= 1
+            self._condition.notify_all()
 
     @staticmethod
     def _key(task_id):
@@ -48,13 +64,21 @@ class SharedFragmentLimiter:
 
     @contextmanager
     def register_task(self, task_id):
-        """Register one active segmented transfer for its full yt-dlp run."""
+        """Register one active download and coordinate the first worker wave."""
         key = self._key(task_id)
         with self._condition:
             if key in self._active_tasks:
                 raise RuntimeError(f"La tarea {key} ya está registrada en el coordinador.")
             self._active_tasks[key] = 0
-            self._condition.notify_all()
+            if not self._initial_wave_ready:
+                if len(self._active_tasks) >= self._initial_expected:
+                    self._initial_wave_ready = True
+                    self._condition.notify_all()
+                elif not self._condition.wait_for(lambda: self._initial_wave_ready, timeout=5):
+                    # Never leave worker threads blocked forever if the executor
+                    # cannot create the complete initial wave.
+                    self._initial_wave_ready = True
+                    self._condition.notify_all()
 
         try:
             yield self.snapshot()
