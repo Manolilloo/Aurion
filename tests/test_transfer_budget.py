@@ -81,12 +81,13 @@ class SharedFragmentLimiterTests(unittest.TestCase):
         limiter.begin_batch(expected_initial_tasks=3)
         observed_counts = []
         lock = threading.Lock()
+        observation_barrier = threading.Barrier(3)
 
         def register(task_number):
             with limiter.register_task(f"initial-{task_number}"):
                 with lock:
                     observed_counts.append(limiter.snapshot()["active_tasks"])
-                time.sleep(0.01)
+                observation_barrier.wait(timeout=5)
 
         with ThreadPoolExecutor(max_workers=3) as pool:
             list(pool.map(register, range(3)))
