@@ -3,7 +3,7 @@ import time
 import unittest
 from concurrent.futures import ThreadPoolExecutor
 
-from core.transfer_budget import SharedFragmentLimiter
+from core.transfer_budget import SharedFragmentLimiter, install_yt_dlp_fragment_limiter
 
 
 class SharedFragmentLimiterTests(unittest.TestCase):
@@ -116,6 +116,13 @@ class SharedFragmentLimiterTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "ya está registrada"):
                 with limiter.register_task("same-task"):
                     pass
+
+    def test_yt_dlp_fragment_hook_installs_once(self):
+        from yt_dlp.downloader.fragment import FragmentFD
+
+        install_yt_dlp_fragment_limiter()
+        self.assertTrue(getattr(FragmentFD, "_aurion_shared_limiter_installed", False))
+        self.assertFalse(install_yt_dlp_fragment_limiter())
 
     def test_empty_task_id_is_rejected(self):
         limiter = SharedFragmentLimiter()
