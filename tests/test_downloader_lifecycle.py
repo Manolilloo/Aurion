@@ -21,6 +21,7 @@ class DownloaderLifecycleTests(unittest.TestCase):
 
         self.assertFalse(downloader.is_downloading)
         self.assertEqual(downloader.cancelled_tasks, set())
+        self.assertEqual(downloader.fragment_limiter.snapshot()["active_tasks"], 0)
 
     def test_cleanup_defers_temp_deletion_and_cancels_active_tasks(self):
         import os
