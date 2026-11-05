@@ -122,10 +122,12 @@ python main.py
 
 El motor elige el método según el tipo de transmisión:
 
-- HLS (`.m3u8`) y DASH (`.mpd`) usan la descarga por fragmentos de yt-dlp.
+- HLS (`.m3u8`), DASH (`.mpd`) y YouTube usan los descargadores nativos de yt-dlp.
 - Los archivos HTTP directos pueden usar aria2 para dividir la descarga en conexiones.
-- Las conexiones y los fragmentos se reparten según el número real de tareas del lote, con un máximo de 8 descargas simultáneas.
-- Si HLS o DASH falla por errores temporales de red o fragmentos, Aurion reintenta con menos tareas simultáneas antes de abandonar.
+- Un coordinador global limita a 32 las peticiones de fragmentos activas entre todas las descargas. El reparto es dinámico: cuando una tarea empieza o termina, las demás pueden ganar o liberar capacidad sin reiniciar la transferencia.
+- La primera tanda de tareas se sincroniza para que una descarga no acapare el presupuesto antes de que arranquen las demás.
+- aria2 calcula sus conexiones según las tareas activas y mantiene los límites específicos de MP4Upload y servidores sensibles a conexiones.
+- Si HLS o DASH falla por errores temporales de red o fragmentos, Aurion reintenta con menos fragmentos simultáneos antes de abandonar.
 
 La extensión también lee metadatos de manifiestos HLS y DASH para estimar resolución y tamaño cuando el servidor facilita esa información.
 
