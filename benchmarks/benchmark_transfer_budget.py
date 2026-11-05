@@ -3,7 +3,7 @@
 This measures scheduler behaviour with fixed-latency requests. It does not measure
 internet, CDN, provider, disk, or real-video performance.
 Run from the repository root:
-    python benchmarks/benchmark_transfer_budget.py
+    python -m benchmarks.benchmark_transfer_budget
 """
 import argparse
 from concurrent.futures import ThreadPoolExecutor
