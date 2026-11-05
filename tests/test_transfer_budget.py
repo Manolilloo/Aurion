@@ -109,6 +109,33 @@ class SharedFragmentLimiterTests(unittest.TestCase):
 
         self.assertEqual(limiter.snapshot()["active_tasks"], 0)
 
+    def test_cancellation_wakes_a_worker_waiting_for_global_capacity(self):
+        limiter = SharedFragmentLimiter(total_slots=1)
+        first_slot = None
+        waiting = threading.Event()
+
+        with limiter.register_task("first"), limiter.register_task("second"):
+            first_slot = limiter.fragment_slot("first")
+            first_slot.__enter__()
+
+            def wait_for_capacity():
+                waiting.set()
+                with limiter.fragment_slot("second"):
+                    return "unexpected"
+
+            with ThreadPoolExecutor(max_workers=1) as pool:
+                future = pool.submit(wait_for_capacity)
+                self.assertTrue(waiting.wait(timeout=2))
+                time.sleep(0.02)
+                limiter.cancel_task("second")
+                with self.assertRaisesRegex(RuntimeError, "TASK_CANCELLED_BY_USER"):
+                    future.result(timeout=2)
+
+            first_slot.__exit__(None, None, None)
+            limiter.clear_cancelled("second")
+
+        self.assertEqual(limiter.snapshot()["active_fragments"], 0)
+
     def test_duplicate_task_registration_is_rejected(self):
         limiter = SharedFragmentLimiter()
 
