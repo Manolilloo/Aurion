@@ -131,6 +131,16 @@ El motor elige el método según el tipo de transmisión:
 
 La extensión también lee metadatos de manifiestos HLS y DASH para estimar resolución y tamaño cuando el servidor facilita esa información.
 
+### Benchmark del coordinador
+
+Desde la raíz del repositorio se puede comparar el reparto fijo con el dinámico:
+
+```bash
+python benchmarks/benchmark_transfer_budget.py
+```
+
+El benchmark usa peticiones simuladas con latencia fija y tamaños de lote distintos. Sirve para comparar el planificador y comprobar el límite global, pero no mide la velocidad de internet, de un CDN ni de descargas reales.
+
 ### Diagnóstico de descargas
 
 En Ajustes, pulsa **Diagnóstico de descargas → Abrir registro**. Aurion guarda eventos de inicio, finalización, cancelación y error en:
