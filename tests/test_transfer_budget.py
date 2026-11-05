@@ -76,6 +76,24 @@ class SharedFragmentLimiterTests(unittest.TestCase):
                 slot.__exit__(None, None, None)
             registrations[0].__exit__(None, None, None)
 
+    def test_initial_worker_wave_registers_before_any_task_starts(self):
+        limiter = SharedFragmentLimiter()
+        limiter.begin_batch(expected_initial_tasks=3)
+        observed_counts = []
+        lock = threading.Lock()
+
+        def register(task_number):
+            with limiter.register_task(f"initial-{task_number}"):
+                with lock:
+                    observed_counts.append(limiter.snapshot()["active_tasks"])
+                time.sleep(0.01)
+
+        with ThreadPoolExecutor(max_workers=3) as pool:
+            list(pool.map(register, range(3)))
+
+        self.assertEqual(observed_counts, [3, 3, 3])
+        self.assertEqual(limiter.snapshot()["active_tasks"], 0)
+
     def test_cancelled_task_does_not_remain_blocked_waiting_for_a_slot(self):
         limiter = SharedFragmentLimiter(total_slots=1)
 
