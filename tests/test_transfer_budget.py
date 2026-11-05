@@ -96,6 +96,26 @@ class SharedFragmentLimiterTests(unittest.TestCase):
         self.assertEqual(observed_counts, [3, 3, 3])
         self.assertEqual(limiter.snapshot()["active_tasks"], 0)
 
+    def test_cancelling_a_task_releases_the_initial_startup_barrier(self):
+        limiter = SharedFragmentLimiter()
+        limiter.begin_batch(expected_initial_tasks=2)
+        attempting_registration = threading.Event()
+
+        def register_cancelled_task():
+            attempting_registration.set()
+            with limiter.register_task("cancelled-before-start"):
+                return "released"
+
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(register_cancelled_task)
+            self.assertTrue(attempting_registration.wait(timeout=2))
+            time.sleep(0.02)
+            limiter.cancel_task("cancelled-before-start")
+            self.assertEqual(future.result(timeout=2), "released")
+
+        with limiter.register_task("remaining-task"):
+            self.assertEqual(limiter.snapshot()["active_tasks"], 1)
+
     def test_cancelled_task_does_not_remain_blocked_waiting_for_a_slot(self):
         limiter = SharedFragmentLimiter(total_slots=1)
 
