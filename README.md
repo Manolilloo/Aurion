@@ -139,7 +139,7 @@ En Ajustes, pulsa **Diagnóstico de descargas → Abrir registro**. Aurion guard
 %LOCALAPPDATA%\\Aurion\\logs\\download_diagnostics.jsonl
 ```
 
-El registro incluye protocolo, host, perfil elegido, conexiones, tamaño, duración y velocidad media efectiva. No almacena URLs completas, parámetros de sesión, cookies ni rutas de archivos. El archivo rota al superar aproximadamente 1 MB y conserva una copia anterior.
+El registro incluye protocolo, host, perfil elegido, conexiones, pico real de peticiones de fragmentos activas en el lote, tamaño, duración y velocidad media efectiva. No almacena URLs completas, parámetros de sesión, cookies ni rutas de archivos. El archivo rota al superar aproximadamente 1 MB y conserva una copia anterior.
 
 ## Datos de usuario y mantenimiento
 
