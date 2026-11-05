@@ -77,6 +77,16 @@ class SharedFragmentLimiterTests(unittest.TestCase):
                 slot.__exit__(None, None, None)
             registrations[0].__exit__(None, None, None)
 
+    def test_peak_fragment_usage_resets_for_each_batch(self):
+        limiter = SharedFragmentLimiter(total_slots=4)
+
+        with limiter.register_task("first-batch"):
+            with limiter.fragment_slot("first-batch"):
+                self.assertEqual(limiter.snapshot()["peak_active_fragments"], 1)
+
+        limiter.begin_batch(expected_initial_tasks=1)
+        self.assertEqual(limiter.snapshot()["peak_active_fragments"], 0)
+
     def test_initial_worker_wave_registers_before_any_task_starts(self):
         limiter = SharedFragmentLimiter()
         limiter.begin_batch(expected_initial_tasks=3)
