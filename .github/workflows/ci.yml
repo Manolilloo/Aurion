@@ -33,10 +33,10 @@ jobs:
       - name: Run static Python checks
         run: |
           python -m pip install ruff
-          ruff check --select F --output-format concise core main.py release.py tests
+          ruff check --select F --output-format concise core main.py release.py tests benchmarks
 
       - name: Compile Python sources
-        run: python -m compileall -q core main.py
+        run: python -m compileall -q core main.py benchmarks
 
       - name: Run unit tests
         run: python -m unittest discover -s tests -v
