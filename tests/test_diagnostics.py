@@ -18,6 +18,7 @@ class DownloadDiagnosticsTests(unittest.TestCase):
                     "host": "cdn.example",
                     "size_bytes": 1048576,
                     "average_speed_mib_s": 4.5,
+                    "peak_active_fragments": 12,
                     "url": "https://cdn.example/video.m3u8?token=secret",
                     "file_path": r"C:\\Users\\User\\Videos\\private.mkv",
                 },
@@ -30,6 +31,7 @@ class DownloadDiagnosticsTests(unittest.TestCase):
 
             self.assertEqual(entry["protocol"], "hls")
             self.assertEqual(entry["host"], "cdn.example")
+            self.assertEqual(entry["peak_active_fragments"], 12)
             self.assertNotIn("url", entry)
             self.assertNotIn("file_path", entry)
             with open(log_path, "r", encoding="utf-8") as log_file:
