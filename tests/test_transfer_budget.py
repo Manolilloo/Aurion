@@ -1,6 +1,7 @@
 import threading
 import time
 import unittest
+from types import SimpleNamespace
 from concurrent.futures import ThreadPoolExecutor
 
 from core.transfer_budget import SharedFragmentLimiter, install_yt_dlp_fragment_limiter
@@ -151,6 +152,21 @@ class SharedFragmentLimiterTests(unittest.TestCase):
         install_yt_dlp_fragment_limiter()
         self.assertTrue(getattr(FragmentFD, "_aurion_shared_limiter_installed", False))
         self.assertFalse(install_yt_dlp_fragment_limiter())
+
+    def test_yt_dlp_fragment_hook_uses_the_shared_limiter(self):
+        from yt_dlp.downloader.fragment import FragmentFD
+
+        limiter = SharedFragmentLimiter(total_slots=1)
+        fake_downloader = object.__new__(FragmentFD)
+        fake_downloader.ydl = SimpleNamespace(
+            _aurion_fragment_limiter=limiter,
+            _aurion_task_id="hook-test",
+        )
+
+        with limiter.register_task("hook-test"):
+            limiter.cancel_task("hook-test")
+            with self.assertRaisesRegex(RuntimeError, "TASK_CANCELLED_BY_USER"):
+                FragmentFD._download_fragment(fake_downloader, {}, None)
 
     def test_empty_task_id_is_rejected(self):
         limiter = SharedFragmentLimiter()
