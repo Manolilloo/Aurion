@@ -5,6 +5,7 @@ on:
     branches:
       - work/maintenance-audit
       - work/smart-download-engine
+      - work/visual-refresh
   pull_request:
     branches:
       - main

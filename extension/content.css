@@ -190,3 +190,112 @@
   background: linear-gradient(135deg, #ffd60a 0%, #ff9f1c 100%) !important;
   box-shadow: 0 8px 22px rgba(255, 214, 10, 0.45) !important;
 }
+
+/* AURION VISUAL REFINEMENT — HUD DE LA EXTENSIÓN */
+#aurion-floating-pill {
+  width: 328px !important;
+  padding: 15px !important;
+  gap: 10px !important;
+  color: #edf2f8 !important;
+  background: linear-gradient(155deg, rgba(19, 28, 40, 0.97), rgba(8, 13, 21, 0.985)) !important;
+  border: 1px solid rgba(226, 232, 240, 0.14) !important;
+  border-radius: 18px !important;
+  box-shadow: 0 20px 52px rgba(0, 0, 0, 0.56), 0 0 0 1px rgba(255, 255, 255, 0.025) inset !important;
+  backdrop-filter: blur(22px) saturate(125%) !important;
+  -webkit-backdrop-filter: blur(22px) saturate(125%) !important;
+  font-family: "Inter", "Segoe UI", sans-serif !important;
+}
+
+.aurion-pill-dot {
+  background: #8bc9ba !important;
+  box-shadow: 0 0 9px rgba(139, 201, 186, 0.46) !important;
+}
+
+.aurion-pill-badge {
+  color: #a7d8cd !important;
+  font-size: 9px !important;
+  letter-spacing: 1.2px !important;
+}
+
+.aurion-pill-count-chip {
+  color: #c7d2df !important;
+  background: rgba(255, 255, 255, 0.055) !important;
+  border-color: rgba(226, 232, 240, 0.1) !important;
+}
+
+.aurion-pill-btn-icon {
+  border-radius: 7px !important;
+  background: rgba(255, 255, 255, 0.045) !important;
+  border-color: rgba(226, 232, 240, 0.11) !important;
+  color: #98a6b7 !important;
+}
+
+.aurion-pill-btn-icon:hover {
+  background: rgba(226, 75, 86, 0.16) !important;
+  color: #ff9ba2 !important;
+  border-color: rgba(226, 75, 86, 0.3) !important;
+}
+
+.aurion-pill-title {
+  color: #f3f6fa !important;
+  font-size: 13px !important;
+  font-weight: 750 !important;
+}
+
+.aurion-stream-selector {
+  background: rgba(5, 10, 17, 0.84) !important;
+  border-color: rgba(139, 201, 186, 0.28) !important;
+  border-radius: 10px !important;
+  padding: 8px 10px !important;
+  color: #e8eef5 !important;
+}
+
+.aurion-pill-preview-box {
+  background: rgba(4, 8, 14, 0.58) !important;
+  border: 1px solid rgba(226, 232, 240, 0.085) !important;
+  border-radius: 12px !important;
+  padding: 10px !important;
+  gap: 7px !important;
+}
+
+.aurion-pill-server-tag {
+  background: rgba(139, 201, 186, 0.1) !important;
+  color: #a7d8cd !important;
+  border-color: rgba(139, 201, 186, 0.2) !important;
+  border-radius: 6px !important;
+}
+
+.aurion-pill-url-preview {
+  color: #7f8da0 !important;
+  font-size: 9px !important;
+}
+
+.aurion-pill-btn-send {
+  height: 39px !important;
+  border-radius: 11px !important;
+  border: 1px solid rgba(199, 238, 226, 0.24) !important;
+  background: linear-gradient(115deg, #a9d9cb, #78bdae) !important;
+  color: #0c1a1b !important;
+  box-shadow: 0 7px 16px rgba(104, 178, 160, 0.2) !important;
+  font-size: 10.5px !important;
+  letter-spacing: 0.8px !important;
+}
+
+.aurion-pill-btn-send:hover {
+  transform: translateY(-1px) !important;
+  filter: brightness(1.04) !important;
+  box-shadow: 0 9px 20px rgba(104, 178, 160, 0.26) !important;
+}
+
+.aurion-pill-btn-send.aurion-success {
+  background: linear-gradient(115deg, #d9c18b, #b99c65) !important;
+  color: #20190c !important;
+  box-shadow: 0 7px 16px rgba(185, 156, 101, 0.2) !important;
+}
+
+@media (max-width: 380px) {
+  #aurion-floating-pill {
+    width: min(328px, calc(100vw - 20px)) !important;
+    right: 10px !important;
+  }
+}

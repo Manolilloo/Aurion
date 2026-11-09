@@ -273,3 +273,134 @@ body {
   transform: translateY(1px) scale(0.98);
   box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5);
 }
+
+/* AURION VISUAL REFINEMENT — POPUP */
+:root {
+  --bg-core: #080d14;
+  --accent: #9acfc2;
+  --accent-glow: rgba(125, 190, 174, 0.22);
+  --accent-soft: rgba(125, 190, 174, 0.085);
+  --border-subtle: rgba(226, 232, 240, 0.085);
+  --border-bright: rgba(226, 232, 240, 0.15);
+}
+
+body {
+  color: #edf2f8 !important;
+  background: #080d14 !important;
+}
+
+.popup-container {
+  padding: 15px !important;
+  gap: 11px !important;
+  background:
+    radial-gradient(110% 85% at 100% 0%, rgba(76, 115, 117, 0.14), transparent 62%),
+    linear-gradient(155deg, #111a25, #080d14 78%) !important;
+}
+
+.header {
+  padding-bottom: 10px !important;
+  border-bottom-color: var(--border-subtle) !important;
+}
+
+.brand-title {
+  font-size: 12px !important;
+  letter-spacing: 1.5px !important;
+}
+
+.brand-tag {
+  color: #78889b !important;
+}
+
+.status-orb {
+  background: var(--accent) !important;
+  box-shadow: 0 0 8px var(--accent-glow) !important;
+}
+
+.status-pill {
+  padding: 4px 8px !important;
+  color: #a9d9cc !important;
+  background: var(--accent-soft) !important;
+  border: 1px solid rgba(154, 207, 194, 0.2) !important;
+  box-shadow: none !important;
+}
+
+.hud-box {
+  padding: 11px 12px !important;
+  gap: 7px !important;
+  background: rgba(255, 255, 255, 0.035) !important;
+  border: 1px solid var(--border-subtle) !important;
+  border-radius: 12px !important;
+  box-shadow: none !important;
+}
+
+.hud-label {
+  color: #93a1b2 !important;
+  letter-spacing: 0.9px !important;
+}
+
+.hud-mini-chip {
+  color: #a9d9cc !important;
+  background: var(--accent-soft) !important;
+  border-color: rgba(154, 207, 194, 0.18) !important;
+  border-radius: 6px !important;
+}
+
+.hud-domain {
+  color: #edf2f8 !important;
+  font-size: 11px !important;
+  font-weight: 750 !important;
+}
+
+.hud-btn-action {
+  border-radius: 8px !important;
+  background: rgba(255, 255, 255, 0.045) !important;
+  border-color: var(--border-subtle) !important;
+  color: #c3cedb !important;
+  box-shadow: none !important;
+}
+
+.hud-btn-action:hover {
+  background: rgba(255, 255, 255, 0.085) !important;
+  border-color: var(--border-bright) !important;
+}
+
+.blocked-item {
+  background: rgba(4, 8, 14, 0.5) !important;
+  border-color: var(--border-subtle) !important;
+  border-radius: 7px !important;
+}
+
+.btn-god-popup {
+  height: 39px !important;
+  margin-top: 1px !important;
+  border-radius: 10px !important;
+  background: linear-gradient(115deg, #a9d9cb, #78bdae) !important;
+  color: #0c1a1b !important;
+  border: 1px solid rgba(199, 238, 226, 0.24) !important;
+  box-shadow: 0 7px 16px var(--accent-glow) !important;
+  font-size: 10px !important;
+  letter-spacing: 0.9px !important;
+}
+
+.btn-god-popup::before {
+  display: none !important;
+}
+
+.btn-god-popup:hover {
+  transform: translateY(-1px) !important;
+  filter: brightness(1.04) !important;
+  box-shadow: 0 9px 20px var(--accent-glow) !important;
+}
+
+.btn-god-popup:active {
+  transform: translateY(0) scale(0.99) !important;
+}
+
+#cookie-sync-toggle {
+  accent-color: #9acfc2 !important;
+}
+
+*:focus-visible {
+  outline: 2px solid #9acfc2 !important;
+  outline-offset: 2px !important;
+}
