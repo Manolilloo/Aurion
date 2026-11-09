@@ -299,3 +299,83 @@
     right: 10px !important;
   }
 }
+
+
+/* SIGNATURE LIQUID GLASS — IN-PAGE DETECTION HUD */
+#aurion-floating-pill {
+  position: fixed;
+  background:
+    radial-gradient(ellipse at 100% 0%, rgba(136, 218, 198, .18), transparent 52%),
+    linear-gradient(145deg, rgba(255,255,255,.15), rgba(255,255,255,.025) 34%, transparent 70%),
+    linear-gradient(155deg, rgba(23,38,51,.96), rgba(6,13,22,.985)) !important;
+  border: 1px solid rgba(235,255,249,.26) !important;
+  border-radius: 20px !important;
+  box-shadow:
+    0 28px 64px rgba(0,0,0,.56),
+    0 0 0 1px rgba(255,255,255,.035),
+    0 0 28px rgba(117,203,180,.12),
+    inset 0 1px 0 rgba(255,255,255,.32),
+    inset 0 -1px 0 rgba(0,0,0,.28) !important;
+  backdrop-filter: blur(30px) saturate(190%) !important;
+  -webkit-backdrop-filter: blur(30px) saturate(190%) !important;
+}
+
+.aurion-pill-dot {
+  background: #a8e4d2 !important;
+  box-shadow: 0 0 12px rgba(168,228,210,.8), 0 0 24px rgba(117,203,180,.35) !important;
+}
+
+.aurion-pill-badge {
+  color: #b8f0df !important;
+  text-shadow: 0 0 12px rgba(117,203,180,.28) !important;
+}
+
+.aurion-pill-count-chip,
+.aurion-pill-btn-icon,
+.aurion-stream-selector {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,.035)),
+    rgba(7,15,23,.48) !important;
+  border: 1px solid rgba(255,255,255,.19) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.18), 0 5px 12px rgba(0,0,0,.16) !important;
+  backdrop-filter: blur(15px) saturate(175%) !important;
+}
+
+.aurion-pill-preview-box {
+  background:
+    linear-gradient(145deg, rgba(255,255,255,.095), rgba(255,255,255,.012)),
+    rgba(4,10,16,.48) !important;
+  border: 1px solid rgba(255,255,255,.16) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.15), 0 7px 15px rgba(0,0,0,.18) !important;
+  backdrop-filter: blur(18px) saturate(160%) !important;
+}
+
+.aurion-pill-server-tag {
+  background: linear-gradient(180deg, rgba(255,255,255,.18), rgba(255,255,255,.04)), rgba(117,203,180,.13) !important;
+  border-color: rgba(168,228,210,.3) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.2) !important;
+}
+
+.aurion-pill-btn-send {
+  position: relative !important;
+  overflow: hidden !important;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.52), rgba(255,255,255,.14) 30%, transparent 70%),
+    linear-gradient(120deg, #b9f0df, #75cbb4) !important;
+  border: 1px solid rgba(235,255,248,.58) !important;
+  color: #092019 !important;
+  box-shadow:
+    inset 0 1.5px 0 rgba(255,255,255,.78),
+    inset 0 -2px 0 rgba(0,0,0,.15),
+    0 11px 24px rgba(70,180,145,.28) !important;
+  text-shadow: 0 1px rgba(255,255,255,.22) !important;
+}
+
+.aurion-pill-btn-send.aurion-success {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.52), rgba(255,255,255,.12) 30%, transparent 70%),
+    linear-gradient(120deg, #f0dda8, #c9a96b) !important;
+  color: #251b08 !important;
+  border-color: rgba(255,245,216,.55) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.75), 0 10px 22px rgba(201,169,107,.28) !important;
+}

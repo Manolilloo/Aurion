@@ -1243,3 +1243,554 @@ input#yt-search-input.yt-input {
     transition-duration: 0.01ms !important;
   }
 }
+
+
+/* =========================================================
+   AURION SIGNATURE — PREMIUM LIQUID GLASS
+   Segunda capa: cristal profundo, reflejos y controles esmaltados.
+   ========================================================= */
+
+:root {
+  --aurion-glass-strong: rgba(22, 31, 44, 0.68);
+  --aurion-glass-soft: rgba(255, 255, 255, 0.055);
+  --aurion-glass-edge: rgba(255, 255, 255, 0.22);
+  --aurion-glass-highlight: rgba(255, 255, 255, 0.34);
+  --aurion-glass-shadow: 0 24px 70px rgba(0, 0, 0, 0.42);
+  --aurion-glass-blur: 30px;
+  --aurion-specular: linear-gradient(135deg, rgba(255,255,255,.42), rgba(255,255,255,.06) 34%, transparent 62%);
+}
+
+body {
+  background-image:
+    radial-gradient(ellipse at 8% 12%, var(--color-glow-subtle) 0%, transparent 34%),
+    radial-gradient(ellipse at 92% 86%, rgba(81, 119, 160, 0.13) 0%, transparent 37%),
+    radial-gradient(ellipse at 50% -12%, rgba(255,255,255,.075) 0%, transparent 36%),
+    linear-gradient(145deg, #0b111b 0%, #080d15 48%, #0a101a 100%) !important;
+}
+
+.ambient-layer {
+  opacity: 0.2 !important;
+  filter: blur(76px) saturate(170%) brightness(.92) !important;
+  mix-blend-mode: screen;
+}
+
+.ambient-secondary {
+  opacity: 0.105 !important;
+  filter: blur(105px) saturate(155%) !important;
+}
+
+.top-nav {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.075), rgba(255,255,255,.018) 55%, rgba(7,12,20,.6)),
+    rgba(10, 16, 25, .62) !important;
+  border-bottom: 1px solid rgba(255,255,255,.105) !important;
+  box-shadow: 0 8px 30px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.13) !important;
+  backdrop-filter: blur(28px) saturate(185%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(185%) !important;
+}
+
+.sites-trigger,
+.hotkey-pill,
+.liquid-help-btn,
+.liquid-update-badge-btn,
+.win-btn,
+.window-controls-box {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.17), rgba(255,255,255,.035)) padding-box,
+    linear-gradient(135deg, rgba(255,255,255,.34), rgba(255,255,255,.06) 58%, var(--color-glow-subtle)) border-box !important;
+  border: 1px solid transparent !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.23),
+    inset 0 -1px 0 rgba(0,0,0,.18),
+    0 6px 18px rgba(0,0,0,.2) !important;
+  backdrop-filter: blur(18px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(180%) !important;
+}
+
+.sites-trigger {
+  color: #f5f8fc !important;
+  text-shadow: 0 1px 8px rgba(0,0,0,.28);
+}
+
+.sites-dock:hover .sites-trigger,
+.liquid-help-btn:hover,
+.liquid-update-badge-btn:hover,
+.win-btn:hover {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.24), rgba(255,255,255,.075)) padding-box,
+    linear-gradient(135deg, rgba(255,255,255,.48), var(--color-glow)) border-box !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.34),
+    0 8px 24px rgba(0,0,0,.25),
+    0 0 18px var(--color-glow-subtle) !important;
+}
+
+.matrix-switch {
+  background:
+    linear-gradient(180deg, rgba(4,8,15,.74), rgba(18,27,39,.56)) padding-box,
+    linear-gradient(135deg, rgba(255,255,255,.24), rgba(255,255,255,.045)) border-box !important;
+  border: 1px solid transparent !important;
+  box-shadow:
+    inset 0 2px 5px rgba(0,0,0,.55),
+    inset 0 1px 0 rgba(255,255,255,.08),
+    0 10px 25px rgba(0,0,0,.24) !important;
+  backdrop-filter: blur(24px) saturate(190%) !important;
+}
+
+.matrix-switch .matrix-thumb {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.42), rgba(255,255,255,.08) 32%, transparent 68%),
+    linear-gradient(125deg, var(--color-accent-1), var(--color-accent-2)) !important;
+  border: 1px solid rgba(255,255,255,.38) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.55),
+    inset 0 -2px 3px rgba(0,0,0,.18),
+    0 4px 14px var(--color-glow),
+    0 1px 3px rgba(0,0,0,.35) !important;
+}
+
+.matrix-opt.active {
+  text-shadow: 0 1px 0 rgba(255,255,255,.16);
+}
+
+/* Tarjetas principales: capas translúcidas con borde refractado. */
+.glass-box {
+  position: relative !important;
+  isolation: isolate;
+  background:
+    linear-gradient(145deg, rgba(255,255,255,.115), rgba(255,255,255,.028) 24%, rgba(8,14,23,.25) 68%),
+    linear-gradient(155deg, rgba(25, 37, 53, .77), rgba(10, 16, 26, .78)) padding-box,
+    linear-gradient(135deg, rgba(255,255,255,.38), rgba(255,255,255,.075) 38%, var(--color-glow-subtle) 72%, rgba(255,255,255,.12)) border-box !important;
+  border: 1px solid transparent !important;
+  box-shadow:
+    0 26px 70px rgba(0,0,0,.44),
+    0 8px 20px rgba(0,0,0,.2),
+    inset 0 1px 0 rgba(255,255,255,.25),
+    inset 0 -1px 0 rgba(0,0,0,.28),
+    inset 1px 0 0 rgba(255,255,255,.055) !important;
+  backdrop-filter: blur(var(--aurion-glass-blur)) saturate(185%) !important;
+  -webkit-backdrop-filter: blur(var(--aurion-glass-blur)) saturate(185%) !important;
+}
+
+.glass-box::before {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background:
+    linear-gradient(145deg, rgba(255,255,255,.16), transparent 26%),
+    radial-gradient(ellipse at 100% 0%, var(--color-glow-subtle), transparent 45%);
+  opacity: .72;
+}
+
+.glass-box::after {
+  content: "";
+  position: absolute;
+  top: -65%;
+  left: -32%;
+  width: 65%;
+  height: 110%;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(255,255,255,.075), transparent 68%);
+  filter: blur(22px);
+}
+
+.glass-inner {
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+.glass-box:hover {
+  border-color: transparent !important;
+  box-shadow:
+    0 30px 78px rgba(0,0,0,.47),
+    0 0 0 1px rgba(255,255,255,.075),
+    0 0 28px var(--color-glow-subtle),
+    inset 0 1px 0 rgba(255,255,255,.3),
+    inset 0 -1px 0 rgba(0,0,0,.3) !important;
+}
+
+.glass-box .box-header {
+  color: #f3f7fc !important;
+  -webkit-text-fill-color: #f3f7fc !important;
+  text-shadow: 0 1px 14px rgba(255,255,255,.08);
+}
+
+/* Barra del centro y portada */
+.search-container .search-input,
+input#yt-search-input.yt-input {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.105), rgba(255,255,255,.018) 42%),
+    rgba(10,17,27,.62) !important;
+  border: 1px solid rgba(255,255,255,.24) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.22),
+    inset 0 -1px 0 rgba(0,0,0,.25),
+    0 12px 30px rgba(0,0,0,.28),
+    0 0 24px var(--color-glow-subtle) !important;
+  backdrop-filter: blur(26px) saturate(185%) !important;
+  -webkit-backdrop-filter: blur(26px) saturate(185%) !important;
+}
+
+.search-container .search-input:focus,
+input#yt-search-input.yt-input:focus {
+  border-color: var(--color-accent-1) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.28),
+    0 0 0 1px var(--color-glow),
+    0 0 32px var(--color-glow-subtle),
+    0 14px 34px rgba(0,0,0,.3) !important;
+}
+
+#main-poster {
+  border: 1px solid rgba(255,255,255,.32) !important;
+  box-shadow:
+    0 28px 64px rgba(0,0,0,.48),
+    0 0 34px var(--color-glow-subtle),
+    inset 0 1px 0 rgba(255,255,255,.28) !important;
+}
+
+#main-poster::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background:
+    linear-gradient(145deg, rgba(255,255,255,.24), transparent 18%, transparent 72%, rgba(0,0,0,.18)),
+    linear-gradient(180deg, transparent 55%, rgba(2,5,10,.46));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.32), inset 0 0 0 1px rgba(255,255,255,.08);
+}
+
+.poster-info {
+  z-index: 2 !important;
+}
+
+/* Controles de configuración: cristal satinado. */
+.search-input,
+.stepper-box,
+.toggle-card,
+.telemetry-card,
+.chip-group {
+  backdrop-filter: blur(20px) saturate(175%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(175%) !important;
+}
+
+.toggle-card {
+  background:
+    linear-gradient(135deg, rgba(255,255,255,.105), rgba(255,255,255,.018) 55%),
+    rgba(13,20,30,.55) !important;
+  border: 1px solid rgba(255,255,255,.14) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.14),
+    inset 0 -1px 0 rgba(0,0,0,.18),
+    0 5px 14px rgba(0,0,0,.16) !important;
+}
+
+.toggle-card:hover {
+  border-color: rgba(255,255,255,.28) !important;
+  background:
+    linear-gradient(135deg, rgba(255,255,255,.15), rgba(255,255,255,.035)),
+    rgba(18,27,40,.68) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.2), 0 8px 20px rgba(0,0,0,.22) !important;
+}
+
+.chip-group {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.012)),
+    rgba(4,9,16,.66) !important;
+  border: 1px solid rgba(255,255,255,.16) !important;
+  box-shadow:
+    inset 0 2px 5px rgba(0,0,0,.48),
+    inset 0 1px 0 rgba(255,255,255,.1),
+    0 5px 14px rgba(0,0,0,.16) !important;
+}
+
+.chip-glider {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.42), rgba(255,255,255,.09) 35%, transparent 78%),
+    linear-gradient(125deg, var(--color-accent-1), var(--color-accent-2)) !important;
+  border: 1px solid rgba(255,255,255,.42) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.55),
+    inset 0 -2px 2px rgba(0,0,0,.14),
+    0 3px 12px var(--color-glow),
+    0 1px 3px rgba(0,0,0,.32) !important;
+}
+
+.stepper-box {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.1), rgba(255,255,255,.015)),
+    rgba(5,11,18,.65) !important;
+  border: 1px solid rgba(255,255,255,.18) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 8px 18px rgba(0,0,0,.18) !important;
+}
+
+.telemetry-card {
+  background:
+    linear-gradient(145deg, rgba(255,255,255,.09), rgba(255,255,255,.015)),
+    rgba(6,12,20,.62) !important;
+  border: 1px solid rgba(255,255,255,.16) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 7px 18px rgba(0,0,0,.18) !important;
+}
+
+/* Botones: vidrio esmerilado para secundarios y esmalte líquido para acciones. */
+.btn-neu,
+.btn-channel-back,
+.btn-channel-load-more,
+.settings-action-btn,
+.hist-action-btn,
+.yt-panel-toggle-btn,
+.step-btn,
+.settings-close-x,
+.btn-split-cancel {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.21), rgba(255,255,255,.055) 48%, rgba(255,255,255,.025)) padding-box,
+    linear-gradient(135deg, rgba(255,255,255,.42), rgba(255,255,255,.075) 54%, var(--color-glow-subtle)) border-box !important;
+  border: 1px solid transparent !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.32),
+    inset 0 -1px 0 rgba(0,0,0,.2),
+    0 7px 16px rgba(0,0,0,.2) !important;
+  color: #f0f5fb !important;
+  backdrop-filter: blur(18px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(180%) !important;
+  transition:
+    transform .2s var(--aurion-motion),
+    box-shadow .2s ease,
+    background .2s ease,
+    filter .2s ease !important;
+}
+
+.btn-neu:hover,
+.btn-channel-back:hover,
+.btn-channel-load-more:hover,
+.settings-action-btn:hover,
+.hist-action-btn:hover,
+.yt-panel-toggle-btn:hover,
+.step-btn:hover,
+.settings-close-x:hover {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.29), rgba(255,255,255,.085)) padding-box,
+    linear-gradient(135deg, rgba(255,255,255,.58), var(--color-glow)) border-box !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.4),
+    0 9px 22px rgba(0,0,0,.26),
+    0 0 18px var(--color-glow-subtle) !important;
+  color: #fff !important;
+  transform: translateY(-1px);
+}
+
+.btn-neu:active,
+.btn-channel-back:active,
+.btn-channel-load-more:active,
+.settings-action-btn:active,
+.hist-action-btn:active,
+.step-btn:active {
+  transform: translateY(1px) scale(.985) !important;
+  box-shadow: inset 0 2px 5px rgba(0,0,0,.3) !important;
+}
+
+.btn-god,
+.btn-god-popup {
+  position: relative !important;
+  isolation: isolate;
+  overflow: hidden !important;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.48) 0%, rgba(255,255,255,.12) 24%, transparent 53%),
+    linear-gradient(115deg, var(--color-accent-1), var(--color-accent-2)) !important;
+  border: 1px solid rgba(255,255,255,.48) !important;
+  color: var(--color-btn-text, #071018) !important;
+  text-shadow: 0 1px 0 rgba(255,255,255,.18);
+  box-shadow:
+    inset 0 1.5px 0 rgba(255,255,255,.68),
+    inset 0 -2px 0 rgba(0,0,0,.2),
+    inset 0 0 0 1px rgba(255,255,255,.12),
+    0 12px 28px var(--color-glow-subtle),
+    0 4px 10px rgba(0,0,0,.24) !important;
+}
+
+.btn-god::before {
+  display: block !important;
+  content: "" !important;
+  position: absolute !important;
+  inset: 1px 1px auto !important;
+  height: 48% !important;
+  border-radius: 13px 13px 42% 42% / 13px 13px 45% 45% !important;
+  background: linear-gradient(180deg, rgba(255,255,255,.48), rgba(255,255,255,.12) 55%, transparent) !important;
+  opacity: .76 !important;
+  pointer-events: none !important;
+  z-index: 0 !important;
+}
+
+.btn-god::after {
+  content: "" !important;
+  position: absolute !important;
+  top: -70% !important;
+  left: -45% !important;
+  width: 42% !important;
+  height: 240% !important;
+  transform: rotate(22deg) translateX(-180%) !important;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.32), transparent) !important;
+  transition: transform .7s var(--aurion-motion) !important;
+  pointer-events: none !important;
+  z-index: 1 !important;
+}
+
+.btn-god:hover::after {
+  transform: rotate(22deg) translateX(520%) !important;
+}
+
+.btn-god-txt {
+  position: relative !important;
+  z-index: 2 !important;
+  color: var(--color-btn-text, #071018) !important;
+  text-shadow: 0 1px 0 rgba(255,255,255,.22);
+}
+
+.btn-god:hover:not(.loading) {
+  filter: brightness(1.075) saturate(1.08) !important;
+  transform: translateY(-2px) scale(1.008) !important;
+  box-shadow:
+    inset 0 1.5px 0 rgba(255,255,255,.78),
+    inset 0 -2px 0 rgba(0,0,0,.16),
+    0 16px 34px var(--color-glow),
+    0 6px 14px rgba(0,0,0,.24) !important;
+}
+
+.btn-god:active:not(.loading) {
+  transform: translateY(1px) scale(.985) !important;
+  filter: brightness(.98) !important;
+}
+
+.btn-god.is-empty {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.14), transparent 70%),
+    linear-gradient(120deg, rgba(130,49,64,.85), rgba(65,25,36,.95)) !important;
+  border-color: rgba(255,130,144,.42) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.24), 0 9px 22px rgba(226,75,86,.19) !important;
+}
+
+.btn-god.is-empty .btn-god-txt {
+  color: #ffd6da !important;
+}
+
+/* Resultados YouTube: vidrio satinado con selección viva. */
+.yt-video-card,
+.yt-channel-hero-card,
+.yt-playlist-header-card,
+.yt-preview-media,
+.yt-clip-trimmer-box,
+.yt-download-progress-box {
+  background:
+    linear-gradient(145deg, rgba(255,255,255,.105), rgba(255,255,255,.018) 48%),
+    rgba(14,22,34,.68) !important;
+  border: 1px solid rgba(255,255,255,.16) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.17),
+    0 12px 28px rgba(0,0,0,.22) !important;
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+}
+
+.yt-video-card:hover {
+  border-color: rgba(255,255,255,.34) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.24), 0 16px 34px rgba(0,0,0,.3), 0 0 20px var(--color-glow-subtle) !important;
+}
+
+.yt-video-card.selected,
+.yt-video-card.kb-focused {
+  background:
+    linear-gradient(145deg, rgba(255,255,255,.14), rgba(255,255,255,.025)),
+    linear-gradient(120deg, var(--color-glow-subtle), rgba(13,20,31,.76)) !important;
+  border-color: var(--color-accent-1) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.3),
+    0 0 0 1px var(--color-glow),
+    0 14px 34px rgba(0,0,0,.32),
+    0 0 26px var(--color-glow-subtle) !important;
+}
+
+.yt-preview-media {
+  overflow: hidden !important;
+  border-radius: 17px !important;
+}
+
+/* Ajustes e historial, mismo cristal que la ventana principal. */
+.settings-modal-card,
+.history-modal-card,
+.modal-glass-card,
+.ext-modal-card,
+.update-modal-card {
+  background:
+    linear-gradient(145deg, rgba(255,255,255,.12), rgba(255,255,255,.025) 28%, transparent 65%),
+    linear-gradient(155deg, rgba(23,34,49,.9), rgba(8,14,23,.94)) padding-box,
+    linear-gradient(135deg, rgba(255,255,255,.38), rgba(255,255,255,.08) 54%, var(--color-glow-subtle)) border-box !important;
+  border: 1px solid transparent !important;
+  box-shadow:
+    0 32px 90px rgba(0,0,0,.64),
+    inset 0 1px 0 rgba(255,255,255,.24),
+    inset 0 -1px 0 rgba(0,0,0,.25) !important;
+  backdrop-filter: blur(34px) saturate(175%) !important;
+  -webkit-backdrop-filter: blur(34px) saturate(175%) !important;
+}
+
+.settings-sidebar {
+  background: linear-gradient(180deg, rgba(255,255,255,.075), rgba(255,255,255,.018)), rgba(4,9,16,.54) !important;
+  box-shadow: inset -1px 0 0 rgba(255,255,255,.06) !important;
+}
+
+.settings-tab-btn.active {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.45), rgba(255,255,255,.12) 30%, transparent 80%),
+    linear-gradient(120deg, var(--color-accent-1), var(--color-accent-2)) !important;
+  border: 1px solid rgba(255,255,255,.42) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.65),
+    0 7px 19px var(--color-glow-subtle) !important;
+}
+
+.settings-row,
+.history-stat-box,
+.history-item-row {
+  background:
+    linear-gradient(145deg, rgba(255,255,255,.09), rgba(255,255,255,.015)),
+    rgba(10,17,26,.5) !important;
+  border: 1px solid rgba(255,255,255,.13) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 6px 16px rgba(0,0,0,.14) !important;
+  backdrop-filter: blur(18px) saturate(165%) !important;
+}
+
+.settings-row:hover,
+.history-item-row:hover {
+  border-color: rgba(255,255,255,.26) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.2), 0 9px 20px rgba(0,0,0,.2) !important;
+}
+
+/* Respeta el modo de ahorro y los usuarios que prefieren menos movimiento. */
+body.perf-mode-active .glass-box,
+body.perf-mode-active .btn-neu,
+body.perf-mode-active .btn-god,
+body.perf-mode-active .chip-group,
+body.perf-mode-active .toggle-card,
+body.perf-mode-active .telemetry-card {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .glass-box,
+  .settings-modal-card,
+  .history-modal-card,
+  .btn-neu,
+  .btn-god,
+  .chip-group,
+  .toggle-card {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+}

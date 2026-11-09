@@ -404,3 +404,104 @@ body {
   outline: 2px solid #9acfc2 !important;
   outline-offset: 2px !important;
 }
+
+
+/* SIGNATURE LIQUID GLASS — EXTENSION POPUP */
+:root {
+  --accent: #a8e4d2;
+  --accent-glow: rgba(115, 219, 187, .3);
+  --accent-soft: rgba(115, 219, 187, .13);
+}
+
+.popup-container {
+  background:
+    radial-gradient(ellipse at 100% 0%, rgba(120, 186, 205, .18), transparent 52%),
+    radial-gradient(ellipse at 0% 100%, rgba(115, 219, 187, .11), transparent 46%),
+    linear-gradient(145deg, rgba(28, 43, 58, .98), rgba(7, 13, 22, .99)) !important;
+}
+
+.header {
+  border-bottom-color: rgba(255,255,255,.13) !important;
+}
+
+.hud-box {
+  position: relative;
+  background:
+    linear-gradient(145deg, rgba(255,255,255,.15), rgba(255,255,255,.035) 45%, transparent),
+    rgba(15, 27, 40, .72) !important;
+  border: 1px solid rgba(255,255,255,.2) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.23),
+    inset 0 -1px 0 rgba(0,0,0,.18),
+    0 10px 24px rgba(0,0,0,.24) !important;
+  backdrop-filter: blur(22px) saturate(185%) !important;
+  -webkit-backdrop-filter: blur(22px) saturate(185%) !important;
+}
+
+.status-pill,
+.hud-mini-chip {
+  background: linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,.04)), var(--accent-soft) !important;
+  border-color: rgba(168,228,210,.28) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.16), 0 0 14px rgba(115,219,187,.1) !important;
+}
+
+.hud-btn-action {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.19), rgba(255,255,255,.045)) padding-box,
+    linear-gradient(135deg, rgba(255,255,255,.32), rgba(255,255,255,.06)) border-box !important;
+  border: 1px solid transparent !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.24), 0 5px 12px rgba(0,0,0,.18) !important;
+  backdrop-filter: blur(14px) !important;
+}
+
+.hud-btn-action:hover {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.28), rgba(255,255,255,.08)) padding-box,
+    linear-gradient(135deg, rgba(255,255,255,.5), var(--accent-glow)) border-box !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.34), 0 8px 18px rgba(0,0,0,.24) !important;
+}
+
+.btn-god-popup {
+  position: relative !important;
+  isolation: isolate;
+  overflow: hidden !important;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.48), rgba(255,255,255,.13) 28%, transparent 68%),
+    linear-gradient(120deg, #b9f0df, #75cbb4) !important;
+  border: 1px solid rgba(235,255,248,.58) !important;
+  color: #092019 !important;
+  box-shadow:
+    inset 0 1.5px 0 rgba(255,255,255,.75),
+    inset 0 -2px 0 rgba(0,0,0,.16),
+    0 11px 25px rgba(70,180,145,.28),
+    0 4px 10px rgba(0,0,0,.2) !important;
+}
+
+.btn-god-popup::before {
+  display: block !important;
+  inset: 1px !important;
+  height: 45% !important;
+  background: linear-gradient(180deg, rgba(255,255,255,.55), transparent) !important;
+  border-radius: 9px 9px 45% 45% / 9px 9px 40% 40% !important;
+  z-index: 0 !important;
+}
+
+.btn-god-popup span {
+  position: relative;
+  z-index: 1;
+  text-shadow: 0 1px rgba(255,255,255,.24);
+}
+
+.btn-god-popup:hover {
+  filter: brightness(1.07) saturate(1.05) !important;
+  box-shadow: inset 0 1.5px 0 rgba(255,255,255,.8), 0 15px 30px rgba(70,180,145,.36) !important;
+}
+
+#cookie-sync-toggle {
+  accent-color: #a8e4d2 !important;
+}
+
+*:focus-visible {
+  outline: 2px solid #b9f0df !important;
+  outline-offset: 2px !important;
+}
